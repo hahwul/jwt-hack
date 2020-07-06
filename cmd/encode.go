@@ -19,7 +19,7 @@ var encodeCmd = &cobra.Command{
 			if err := json.Unmarshal(mapInterface, &raw); err != nil {
 				// err
 			}
-			fmt.Println(jwtInterface.JWTencode(mapInterface, "asdf"))
+			fmt.Println(jwtInterface.JWTencode(raw, "asdf"))
 
 		} else {
 
