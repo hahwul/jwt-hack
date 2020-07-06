@@ -15,7 +15,7 @@ var payloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("payload called")
 		var token *jwt.Token
-		token = jwtInterface.JWTDecode(args[0])
+		token = jwtInterface.JWTdecode(args[0])
 		jwtInterface.generateAllPayloads(token)
 	},
 }
