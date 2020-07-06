@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/hahwul/jwt-hack/jwt"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +14,7 @@ var decodeCmd = &cobra.Command{
 	Short: "Decode JWT to JSON",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {
-			var token *jwt.Toke
+			var token *jwt.Token
 			fmt.Println(args[0])
 			token = JWTdecode(args[0])
 			fmt.Println(token)
