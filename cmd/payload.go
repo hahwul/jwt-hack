@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	jwtPayload "github.com/hahwul/jwt-hack/pkg/jwt"
-	jwtInterface "github.com/hahwul/jwt-hack/pkg/payload"
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
+	jwtPayload "github.com/hahwul/jwt-hack/pkg/payload"
 	"github.com/spf13/cobra"
 )
 
