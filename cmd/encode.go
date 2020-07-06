@@ -32,6 +32,6 @@ var encodeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(encodeCmd)
 	encodeCmd.PersistentFlags().StringVar(&secret, "secret", "", "secret key for JWT signature")
-	encodeCmd.PersistentFlags().StringVar(&algo, "algorithm", "HS256", "Algorithm of JWT\ne.g) HS/RS/ECDA - 256,348,512")
+	encodeCmd.PersistentFlags().StringVar(&algo, "algorithm", "HS256", "Algorithm of JWT\ne.g) HS/RS/ECDA - 256,384,512")
 
 }

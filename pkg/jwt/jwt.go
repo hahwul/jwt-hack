@@ -16,7 +16,10 @@ func JWTencode(claims map[string]interface{}, secret, alg string) string {
 	token := jwt.NewWithClaims(algorithm, jwtClaims)
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString(key)
-	_ = err
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
 	return tokenString
 }
 
