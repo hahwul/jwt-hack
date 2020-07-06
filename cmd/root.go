@@ -13,7 +13,7 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "jwt-hack",
-	Short: "Hack the JWT(JSON Web Token)",
+	Short: "Hack the JWT(JSON Web Token) | by @hahwul | " + printing.VERSION,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
