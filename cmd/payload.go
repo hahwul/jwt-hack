@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/dgrijalva/jwt-go"
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +14,9 @@ var payloadCmd = &cobra.Command{
 	Short: "Generate JWT Attack payloads",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("payload called")
+		var token *jwt.Token
+		token = jwtInterface.JWTDecode(args[0])
+		jwtInterface.generateAllPayloads(token)
 	},
 }
 
