@@ -16,7 +16,7 @@ var payloadCmd = &cobra.Command{
 		fmt.Println("payload called")
 		var token *jwt.Token
 		token = jwtInterface.JWTdecode(args[0])
-		jwtInterface.generateAllPayloads(token)
+		jwtInterface.GenerateAllPayloads(token)
 	},
 }
 

@@ -8,11 +8,13 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-func generateAllPayloads(token *jwt.Token) {
+// GenerateAllPayloads is printing all payloads
+func GenerateAllPayloads(token *jwt.Token) {
 	generateNonePayloads(token.Raw)
 }
 
-func generateNonePayloads(token string) {
+// GenerateNonePayloads is printing none payloads
+func GenerateNonePayloads(token string) {
 	tokens := strings.Split(token, ".")
 	claims := tokens[1]
 	var pattern = []string{
