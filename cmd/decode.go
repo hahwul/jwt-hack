@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/spf13/cobra"
 )
 
@@ -11,7 +12,14 @@ var decodeCmd = &cobra.Command{
 	Use:   "decode",
 	Short: "Decode JWT to JSON",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("decode called")
+		if len(args) >= 1 {
+			var token *jwt.Toke
+			fmt.Println(args[0])
+			token = JWTdecode(args[0])
+			fmt.Println(token)
+		} else {
+
+		}
 	},
 }
 
