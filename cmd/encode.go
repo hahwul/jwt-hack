@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var secret string
+var secret, algo string
 
 // encodeCmd represents the encode command
 var encodeCmd = &cobra.Command{
@@ -32,5 +32,6 @@ var encodeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(encodeCmd)
 	encodeCmd.PersistentFlags().StringVar(&secret, "secret", "", "secret key for JWT signature")
+	encodeCmd.PersistentFlags().StringVar(&algo, "algorithm", "hs256", "Algorithm of JWT")
 
 }
