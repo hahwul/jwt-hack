@@ -21,7 +21,7 @@ var encodeCmd = &cobra.Command{
 			if err := json.Unmarshal(mapInterface, &raw); err != nil {
 				// err
 			}
-			fmt.Println(jwtInterface.JWTencode(raw, secret))
+			fmt.Println(jwtInterface.JWTencode(raw, secret, algo))
 
 		} else {
 
@@ -32,6 +32,6 @@ var encodeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(encodeCmd)
 	encodeCmd.PersistentFlags().StringVar(&secret, "secret", "", "secret key for JWT signature")
-	encodeCmd.PersistentFlags().StringVar(&algo, "algorithm", "hs256", "Algorithm of JWT")
+	encodeCmd.PersistentFlags().StringVar(&algo, "algorithm", "HS256", "Algorithm of JWT\ne.g) HS/RS/ECDA - 256,348,512")
 
 }

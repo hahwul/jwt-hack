@@ -7,10 +7,13 @@ import (
 )
 
 // JWTencode is JWT interface for encode
-func JWTencode(claims map[string]interface{}, secret string) string {
+func JWTencode(claims map[string]interface{}, secret, alg string) string {
 	var key = []byte(secret)
 	var jwtClaims = jwt.MapClaims(claims)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtClaims)
+
+	algorithm := jwt.GetSigningMethod(alg)
+
+	token := jwt.NewWithClaims(algorithm, jwtClaims)
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString(key)
 	_ = err
