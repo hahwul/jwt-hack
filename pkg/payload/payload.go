@@ -10,7 +10,7 @@ import (
 
 // GenerateAllPayloads is printing all payloads
 func GenerateAllPayloads(token *jwt.Token) {
-	generateNonePayloads(token.Raw)
+	GenerateNonePayloads(token.Raw)
 }
 
 // GenerateNonePayloads is printing none payloads
