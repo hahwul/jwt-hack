@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/hahwul/jwt-hack/jwt"
+	"github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
 )
 
