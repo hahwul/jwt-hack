@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/hahwul/jwt-hack/pkg/jwt"
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ var decodeCmd = &cobra.Command{
 		if len(args) >= 1 {
 			var token *jwt.Token
 			fmt.Println(args[0])
-			token = JWTdecode(args[0])
+			token = jwtInterface.JWTdecode(args[0])
 			fmt.Println(token)
 		} else {
 
