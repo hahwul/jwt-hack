@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
 )
 
@@ -11,7 +13,17 @@ var encodeCmd = &cobra.Command{
 	Use:   "encode",
 	Short: "Encode json to JWT",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("encode called")
+		if len(args) >= 1 {
+			mapInterface := []byte(args[0])
+			var raw map[string]interface{}
+			if err := json.Unmarshal(in, &raw); err != nil {
+				// err
+			}
+			fmt.Println(jwtInterface.JWTEncode(mapInterface, "asdf"))
+
+		} else {
+
+		}
 	},
 }
 
