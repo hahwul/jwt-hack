@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
+	jwtPayload "github.com/hahwul/jwt-hack/pkg/jwt"
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/payload"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +17,7 @@ var payloadCmd = &cobra.Command{
 		fmt.Println("payload called")
 		var token *jwt.Token
 		token = jwtInterface.JWTdecode(args[0])
-		jwtInterface.GenerateAllPayloads(token)
+		jwtPayload.GenerateAllPayloads(token)
 	},
 }
 
