@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var wordlist, chars string
+var wordlist, chars, mode string
 var lmin, lmax, conc int
 
 // crackCmd represents the crack command
