@@ -15,9 +15,11 @@ var decodeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {
 			var token *jwt.Token
-			fmt.Println(args[0])
 			token = jwtInterface.JWTdecode(args[0])
-			fmt.Println(token)
+			fmt.Println(token.Raw)
+			fmt.Println(token.Method)
+			fmt.Println(token.Header)
+			fmt.Println(token.Claims)
 		} else {
 
 		}
