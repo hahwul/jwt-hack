@@ -11,7 +11,7 @@ var lmin, lmax, conc int
 
 // crackCmd represents the crack command
 var crackCmd = &cobra.Command{
-	Use:   "crack",
+	Use:   "crack [JWT Token]",
 	Short: "Cracking JWT Token",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("crack called")

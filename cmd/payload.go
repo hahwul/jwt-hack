@@ -11,7 +11,7 @@ import (
 
 // payloadCmd represents the payload command
 var payloadCmd = &cobra.Command{
-	Use:   "payload",
+	Use:   "payload [JWT Token]",
 	Short: "Generate JWT Attack payloads",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("payload called")

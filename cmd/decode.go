@@ -10,7 +10,7 @@ import (
 
 // decodeCmd represents the decode command
 var decodeCmd = &cobra.Command{
-	Use:   "decode",
+	Use:   "decode [JWT Token]",
 	Short: "Decode JWT to JSON",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {

@@ -12,7 +12,7 @@ var secret, algo string
 
 // encodeCmd represents the encode command
 var encodeCmd = &cobra.Command{
-	Use:   "encode",
+	Use:   "encode [JSON]",
 	Short: "Encode json to JWT",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {
