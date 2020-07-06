@@ -16,10 +16,10 @@ var encodeCmd = &cobra.Command{
 		if len(args) >= 1 {
 			mapInterface := []byte(args[0])
 			var raw map[string]interface{}
-			if err := json.Unmarshal(in, &raw); err != nil {
+			if err := json.Unmarshal(mapInterface, &raw); err != nil {
 				// err
 			}
-			fmt.Println(jwtInterface.JWTEncode(mapInterface, "asdf"))
+			fmt.Println(jwtInterface.JWTencode(mapInterface, "asdf"))
 
 		} else {
 
