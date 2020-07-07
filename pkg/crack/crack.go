@@ -3,6 +3,8 @@ package crack
 import (
 	"fmt"
 	"sync"
+
+	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 )
 
 func Crack(mode, token, data string, concurrency, max int, power bool) {
@@ -19,21 +21,21 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 
 		// Remove Deplicated value
 		words = unique(words)
-		RunTestingJWT(words, concurrency)
+		RunTestingJWT(token, words, concurrency)
 	}
 }
 
-func RunTestingJWT(lists []string, concurrency int) {
+func RunTestingJWT(token string, lists []string, concurrency int) {
 	wordlists := make(chan string)
 
 	// Add go routine job
-	concurrency = 10
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			for word := range wordlists {
 				fmt.Println(word)
+				fmt.Println(jwtInterface.JWTdecodeWithVerify(token, word))
 			}
 			wg.Done()
 		}()
