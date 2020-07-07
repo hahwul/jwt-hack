@@ -1,20 +1,16 @@
 package crack
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	. "github.com/logrusorgru/aurora"
-	log "github.com/sirupsen/logrus"
 )
 
 func Crack(mode, token, data string, concurrency, max int, power bool) {
-	crackLogger := log.WithFields(log.Fields{
-		"common": "this is a common field",
-		"other":  "I also should be logged always",
-	})
-	crackLogger.Info("Start " + mode + " cracking mode")
+	fmt.Println("[*] Start " + mode + " cracking mode")
 	if mode == "brute" {
 		bf := GenerateBruteforcePayloads(data)
 		RunTestingJWT(token, bf, concurrency)
@@ -28,7 +24,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 
 		// Remove Deplicated value
 		words = unique(words)
-		crackLogger.Info("Loaded " + strconv.Itoa(len(words)) + "words (remove duplicated)")
+		fmt.Println("[*] Loaded " + strconv.Itoa(len(words)) + "words (remove duplicated)")
 		RunTestingJWT(token, words, concurrency)
 	}
 }
@@ -45,7 +41,10 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
 				_ = token
 				if result {
-					crackLogger.Info("Found! This JWT Token signature secret is " + Green(word))
+					fmt.Println(Green("[+] Signature Verified"))
+					fmt.Println(Green("[+] Found! This JWT Token signature secret is ") + Cyan(word))
+				} else {
+					fmt.Println("[-] Signature Invaild / " + word)
 				}
 			}
 			wg.Done()
