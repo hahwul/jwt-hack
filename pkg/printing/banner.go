@@ -3,6 +3,8 @@ package printing
 import (
 	"fmt"
 	"os"
+
+	. "github.com/logrusorgru/aurora"
 )
 
 // Banner is banner ascii image
@@ -17,5 +19,5 @@ func Banner() {
 
 // out is none stdout printing
 func out(text string) {
-	fmt.Fprintln(os.Stderr, text)
+	fmt.Fprintln(os.Stderr, Cyan(text))
 }
