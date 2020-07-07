@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func Crack(mode, data string, concurrency, power bool) {
+func Crack(mode, data string, concurrency int, power bool) {
 	if mode == "brute" {
 		bf := GenerateBruteforcePayloads(data)
 		RunTestingJWT(bf, concurrency)
