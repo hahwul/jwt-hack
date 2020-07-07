@@ -6,7 +6,7 @@ import (
 )
 
 var wordlist, chars, mode string
-var lmin, lmax, conc int
+var max, conc int
 var power bool
 
 // crackCmd represents the crack command
@@ -15,7 +15,7 @@ var crackCmd = &cobra.Command{
 	Short: "Cracking JWT Token",
 	Run: func(cmd *cobra.Command, args []string) {
 		if mode == dict {
-			crack.Crack(mode, wordlist, conc, power)
+			crack.Crack(mode, wordlist, conc, max, power)
 		} else {
 
 		}
@@ -29,7 +29,8 @@ func init() {
 	crackCmd.PersistentFlags().StringVarP(&wordlist, "wordlist", "w", "", "wordlist file / only dictionary attack")
 	crackCmd.PersistentFlags().StringVar(&chars, "chars", "abcdefghijklmnopqrstuvwxyz0123456789", "char list / only bruteforce")
 	crackCmd.PersistentFlags().IntVarP(&conc, "concurrency", "c", 100, "number of concurrency")
-	crackCmd.PersistentFlags.BoolVar(&power, "power", false, "Used all CPU your computer")
+	crackCmd.PersistentFlags().IntVar(&max, "max", 6, "max length / only bruteforce")
+	crackCmd.PersistentFlags().BoolVar(&power, "power", false, "Used all CPU your computer")
 
 	// crackCmd.PersistentFlags().StringVar(&foo,"foo", "", "A help for foo")
 }
