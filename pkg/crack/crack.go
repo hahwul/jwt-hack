@@ -42,7 +42,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 				_ = token
 				if result {
 					fmt.Println(Green("[+] Signature Verified"))
-					fmt.Println(Green("[+] Found! This JWT Token signature secret is ") + Cyan(word))
+					fmt.Println(Sprintf(Green("[+] Found! This JWT Token signature secret is %s"), Cyan(word)))
 				} else {
 					fmt.Println("[-] Signature Invaild / " + word)
 				}
