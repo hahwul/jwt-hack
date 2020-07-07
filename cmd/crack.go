@@ -29,7 +29,7 @@ func init() {
 	crackCmd.PersistentFlags().StringVarP(&wordlist, "wordlist", "w", "", "wordlist file / only dictionary attack")
 	crackCmd.PersistentFlags().StringVar(&chars, "chars", "abcdefghijklmnopqrstuvwxyz0123456789", "char list / only bruteforce")
 	crackCmd.PersistentFlags().IntVarP(&conc, "concurrency", "c", 100, "number of concurrency")
-	crackCmd.Flags().BoolVal(&power, "power", false, "Used all CPU your computer")
+	crackCmd.PersistentFlags.BoolVar(&power, "power", false, "Used all CPU your computer")
 
 	// crackCmd.PersistentFlags().StringVar(&foo,"foo", "", "A help for foo")
 }
