@@ -10,7 +10,7 @@ import (
 func Crack(mode, token, data string, concurrency, max int, power bool) {
 	if mode == "brute" {
 		bf := GenerateBruteforcePayloads(data)
-		RunTestingJWT(bf, concurrency)
+		RunTestingJWT(token, bf, concurrency)
 	} else { // if dict
 		var words []string
 		ff, err := readLinesOrLiteral(data)
