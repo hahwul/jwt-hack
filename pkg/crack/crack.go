@@ -24,7 +24,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 
 		// Remove Deplicated value
 		words = unique(words)
-		fmt.Println("[*] Loaded " + strconv.Itoa(len(words)) + "words (remove duplicated)")
+		fmt.Println("[*] Loaded " + strconv.Itoa(len(words)) + " words (remove duplicated)")
 		RunTestingJWT(token, words, concurrency)
 	}
 }
@@ -41,7 +41,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
 				_ = token
 				if result {
-					fmt.Println(Sprintf(Green("[+] SIgnature Verified / Found! This JWT Token signature secret is %s"), Cyan(word)))
+					fmt.Println(Sprintf(Green("[+] Signature Verified / Found! This JWT Token signature secret is %s"), Cyan(word)))
 				} else {
 					fmt.Println("[-] Signature Invaild / " + word)
 				}
