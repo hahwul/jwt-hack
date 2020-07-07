@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func Crack(mode, data string, concurrency, lmax int, power bool) {
+func Crack(mode, data string, concurrency, power bool) {
 	if mode == "brute" {
 		bf := GenerateBruteforcePayloads(data)
 		RunTestingJWT(bf, concurrency)
@@ -19,6 +19,7 @@ func Crack(mode, data string, concurrency, lmax int, power bool) {
 
 		// Remove Deplicated value
 		words = unique(words)
+		RunTestingJWT(words, concurrency)
 	}
 }
 
