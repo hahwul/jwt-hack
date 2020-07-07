@@ -31,31 +31,29 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 
 func RunTestingJWT(token string, lists []string, concurrency int) {
 	wordlists := make(chan string)
-	found := false
-	var mutex = &sync.Mutex{}
+	found := make(chan bool)
 	// Add go routine job
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
-		JobLoop:
 			for word := range wordlists {
-				if found {
-					break JobLoop
-				}
-				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
-				_ = token
-				if result {
-					fmt.Println(Sprintf(Green("[+] Signature Verified / Found! This JWT Token signature secret is %s"), Cyan(word)))
-					found = true
+				select {
+				case <-found:
+					return
+				default:
+					result, token := jwtInterface.JWTdecodeWithVerify(token, word)
+					_ = token
+					if result {
+						fmt.Println(Sprintf(Green("[+] Signature Verified / Found! This JWT Token signature secret is %s"), Cyan(word)))
+						found <- true
 
-				} else {
-					fmt.Println("[-] Signature Invaild / " + word)
+					} else {
+						fmt.Println("[-] Signature Invaild / " + word)
+					}
 				}
 			}
-			mutex.Lock()
 			wg.Done()
-			mutex.Unlock()
 		}()
 	}
 
