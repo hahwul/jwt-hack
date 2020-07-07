@@ -14,10 +14,10 @@ var crackCmd = &cobra.Command{
 	Use:   "crack [JWT Token]",
 	Short: "Cracking JWT Token",
 	Run: func(cmd *cobra.Command, args []string) {
-		if mode == dict {
+		if mode == "dict" {
 			crack.Crack(mode, wordlist, conc, max, power)
-		} else {
-
+		} else if mode == "brute" {
+			crack.Crack(mode, chars, conc, max, power)
 		}
 	},
 }
