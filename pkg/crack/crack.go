@@ -37,9 +37,10 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
+		JobLoop:
 			for word := range wordlists {
 				if found {
-					break
+					break JobLoop
 				}
 				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
 				_ = token
@@ -63,4 +64,5 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 
 	close(wordlists)
 	wg.Wait()
+	fmt.Println("[+] Finish crack mode")
 }
