@@ -40,6 +40,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 			for word := range wordlists {
 				select {
 				case <-found:
+					wg.Done()
 					return
 				default:
 					result, token := jwtInterface.JWTdecodeWithVerify(token, word)
