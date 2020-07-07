@@ -52,6 +52,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 					fmt.Println("[-] Signature Invaild / " + word)
 				}
 			}
+			fmt.Println("wg.Done")
 			wg.Done()
 		}()
 	}
