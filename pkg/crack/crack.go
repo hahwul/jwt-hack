@@ -39,7 +39,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 		go func() {
 			for word := range wordlists {
 				if found {
-					continue Jobclear
+					break
 				}
 				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
 				_ = token
@@ -51,7 +51,6 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 					fmt.Println("[-] Signature Invaild / " + word)
 				}
 			}
-		Jobclear:
 			wg.Done()
 		}()
 	}
