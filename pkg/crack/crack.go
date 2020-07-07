@@ -34,8 +34,11 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 		wg.Add(1)
 		go func() {
 			for word := range wordlists {
-				fmt.Println(word)
-				fmt.Println(jwtInterface.JWTdecodeWithVerify(token, word))
+				result, token := jwtInterface.JWTdecodeWithVerify(token, word)
+				_ = token
+				if result {
+					fmt.Println("Found!! + " + word)
+				}
 			}
 			wg.Done()
 		}()
