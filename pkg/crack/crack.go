@@ -32,6 +32,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 func RunTestingJWT(token string, lists []string, concurrency int) {
 	wordlists := make(chan string)
 	found := make(chan bool)
+	found <- false
 	// Add go routine job
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
