@@ -17,7 +17,7 @@
    88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
 88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
 -------------------------
-Hack the JWT(JSON Web Token) | by @hahwul | v0.0.1
+Hack the JWT(JSON Web Token) | by @hahwul | v1.0.0
 
 Usage:
   jwt-hack [command]
@@ -28,6 +28,7 @@ Available Commands:
   encode      Encode json to JWT
   help        Help about any command
   payload     Generate JWT Attack payloads
+  version     Show version
 
 Flags:
   -h, --help   help for jwt-hack

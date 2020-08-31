@@ -59,7 +59,7 @@ brews:
       email: hahwul@gmail.com
     folder: Formula
     homepage: "https://www.hahwul.com"
-    description: "jwt-hack is JWT hacking, security testing utility"
+    description: "Hack the JWT(JSON Web Token) / jwt-hack is JWT hacking, security testing utility"
     test: |
       system "#{bin}/jwt-hack version"
     install: |
@@ -69,7 +69,7 @@ snapcrafts:
     name: jwt-hack
     # Remember you need to `snapcraft login` first.
     publish: true
-    summary: jwt-hack is JWT hacking, security testing utility
+    summary: Hack the JWT(JSON Web Token)
     description: jwt-hack is JWT hacking, security testing utility / support encode, decode, generate attack payloads and cracking mode(dict / bruteforce)
     grade: stable
     confinement: strict
