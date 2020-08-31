@@ -14,7 +14,6 @@ var payloadCmd = &cobra.Command{
 	Use:   "payload [JWT Token]",
 	Short: "Generate JWT Attack payloads",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("payload called")
 		var token *jwt.Token
 		token = jwtInterface.JWTdecode(args[0])
 		jwtPayload.GenerateAllPayloads(token)
