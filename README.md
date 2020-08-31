@@ -2,7 +2,7 @@
   <br>
   <a href=""><img src="https://user-images.githubusercontent.com/13212227/91675684-26561500-eb78-11ea-9f59-d904d743afae.png" alt="" width="260px;"></a>
   <br>
-  JWT-HACK
+  Hack the JWT(JSON Web Token)
   <br>
   <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat-square"> 
   <a href="https://snapcraft.io/jwt-hack"><img alt="jwt-hack" src="https://snapcraft.io/jwt-hack/badge.svg" /></a>
