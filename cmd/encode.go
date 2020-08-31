@@ -6,6 +6,7 @@ import (
 
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
+	log "github.com/sirupsen/logrus"
 )
 
 var secret, algo string
@@ -20,11 +21,15 @@ var encodeCmd = &cobra.Command{
 			var raw map[string]interface{}
 			if err := json.Unmarshal(mapInterface, &raw); err != nil {
 				// err
+				log.Error("JSON Unmarshal Error")
+				panic(0)
 			}
+			log.WithFields(log.Fields{
+				"algorithm": algo,
+			}).Info("Encoded result")
 			fmt.Println(jwtInterface.JWTencode(raw, secret, algo))
-
 		} else {
-
+			log.Error("Arguments Error")
 		}
 	},
 }
