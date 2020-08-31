@@ -2,6 +2,8 @@
   <br>
   <a href=""><img src="https://user-images.githubusercontent.com/13212227/91675684-26561500-eb78-11ea-9f59-d904d743afae.png" alt="" width="260px;"></a>
   <br>
+  JWT-HACK
+  <br>
   <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat-square"> 
   <a href="https://snapcraft.io/jwt-hack"><img alt="jwt-hack" src="https://snapcraft.io/jwt-hack/badge.svg" /></a>
   <img src="https://img.shields.io/github/languages/top/hahwul/jwt-hack?style=flat-square"> <img src="https://api.codacy.com/project/badge/Grade/17cac7b8d1e849a688577f2bbdd6ecd0"> <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a> <img src="https://img.shields.io/github/issues-closed/hahwul/jwt-hack?style=flat-square"> 
