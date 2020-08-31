@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/dgrijalva/jwt-go"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	jwtPayload "github.com/hahwul/jwt-hack/pkg/payload"
