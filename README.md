@@ -6,7 +6,7 @@
   <br>
   <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat-square"> 
   <a href="https://snapcraft.io/jwt-hack"><img alt="jwt-hack" src="https://snapcraft.io/jwt-hack/badge.svg" /></a>
-  <img src="https://img.shields.io/github/languages/top/hahwul/jwt-hack?style=flat-square"> <img src="https://api.codacy.com/project/badge/Grade/17cac7b8d1e849a688577f2bbdd6ecd0"> <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a> <img src="https://img.shields.io/github/issues-closed/hahwul/jwt-hack?style=flat-square"> 
+  <img src="https://img.shields.io/github/languages/top/hahwul/jwt-hack?style=flat-square"> <img src="https://app.codacy.com/project/badge/Grade/77bdf42ef06a430a9bfb46f15eb86626"> <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a> <img src="https://img.shields.io/github/issues-closed/hahwul/jwt-hack?style=flat-square"> 
 <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat-square"></a>
 </h1>
 
