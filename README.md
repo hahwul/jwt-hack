@@ -10,6 +10,23 @@
 <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat-square"></a>
 </h1>
 
+## Installation
+### go-get(dev version)
+```
+$ go get -u github.com/hahwul/jwt-hack
+```
+
+### homebrew
+```
+$ brew tap hahwul/jwt-hack
+$ brew install jwt-hack
+```
+
+### snapcraft
+```
+$ sudo snap install jwt-hack
+```
+
 ## Usage
 ```
    d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
