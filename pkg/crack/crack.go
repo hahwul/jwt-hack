@@ -7,6 +7,7 @@ import (
 
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/sirupsen/logrus"
+	color "github.com/logrusorgru/aurora"
 )
 
 var log = logrus.New()
@@ -37,6 +38,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 func RunTestingJWT(token string, lists []string, concurrency int) {
 	wordlists := make(chan string)
 	found := false
+	secret := ""
 	// Add go routine job
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
@@ -51,9 +53,9 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 						log.WithFields(logrus.Fields{
 							"Signature":   "Verified",
 							"Word":   word,
-						}).Info("Found! This JWT Token signature secret is.. ")
-						fmt.Println(word)
+						}).Info("Found! Token signature secret is "+word)
 						found = true
+						secret = word
 
 					} else {
 						log.WithFields(logrus.Fields{
@@ -73,5 +75,8 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 
 	close(wordlists)
 	wg.Wait()
+	if found {
+		fmt.Println("[+] Found! JWT signature secret:",color.BrightYellow(secret))
+	}
 	fmt.Println("[+] Finish crack mode")
 }
