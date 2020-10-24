@@ -36,7 +36,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool) {
 
 func RunTestingJWT(token string, lists []string, concurrency int) {
 	wordlists := make(chan string)
-	found := make(chan bool)
+	found := false
 	// Add go routine job
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
@@ -44,10 +44,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 		go func() {
 			defer wg.Done()
 			for word := range wordlists {
-				select {
-				case <-found:
-					break
-				default:
+				if !found {
 					result, token := jwtInterface.JWTdecodeWithVerify(token, word)
 					_ = token
 					if result {
@@ -56,7 +53,7 @@ func RunTestingJWT(token string, lists []string, concurrency int) {
 							"Word":   word,
 						}).Info("Found! This JWT Token signature secret is.. ")
 						fmt.Println(word)
-						found <- true
+						found = true
 
 					} else {
 						log.WithFields(logrus.Fields{
