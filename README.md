@@ -110,16 +110,18 @@ INFO[0000] Invalid signature                             word=1234
 INFO[0000] Invalid signature                             word=efq
 INFO[0000] Invalid signature                             word=asdf
 INFO[0000] Invalid signature                             word=2q
-INFO[0000] Found! This JWT Token signature secret is..   Signature=Verified Word=test
-test
+INFO[0000] Found! Token signature secret is test         Signature=Verified Word=test
 INFO[0000] Invalid signature                             word=dfas
 INFO[0000] Invalid signature                             word=ga
 INFO[0000] Invalid signature                             word=f
 INFO[0000] Invalid signature                             word=ds
 INFO[0000] Invalid signature                             word=sad
 INFO[0000] Invalid signature                             word=qsf
-INFO[0000] Invalid signature                             word=df
-INFO[0000] Invalid signature                             word=zx
+...
+INFO[0000] Invalid signature                             word=password
+INFO[0000] Invalid signature                             word=error
+INFO[0000] Invalid signature                             word=calendar
+[+] Found! JWT signature secret: test
 [+] Finish crack mode
 ```
 
