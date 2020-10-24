@@ -7,5 +7,5 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/sirupsen/logrus v1.7.0
-	github.com/spf13/cobra v1.1.0
+	github.com/spf13/cobra v1.1.1
 )
