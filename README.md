@@ -51,7 +51,7 @@ Flags:
   -h, --help   help for jwt-hack
 ```
 
-![1414](https://user-images.githubusercontent.com/13212227/91735126-cd719580-ebe6-11ea-83fc-9fa49ece37ea.png)
+![1414](https://user-images.githubusercontent.com/13212227/97078000-8a023900-1623-11eb-844f-ee92399be392.png)
 
 ## Encode mode(JSON to JWT)
 ```
