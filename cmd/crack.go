@@ -3,6 +3,7 @@ package cmd
 import (
 	crack "github.com/hahwul/jwt-hack/pkg/crack"
 	"github.com/spf13/cobra"
+	log "github.com/sirupsen/logrus"
 )
 
 var wordlist, chars, mode string
@@ -14,10 +15,15 @@ var crackCmd = &cobra.Command{
 	Use:   "crack [JWT Token]",
 	Short: "Cracking JWT Token",
 	Run: func(cmd *cobra.Command, args []string) {
-		if mode == "dict" {
-			crack.Crack(mode, args[0], wordlist, conc, max, power)
-		} else if mode == "brute" {
-			crack.Crack(mode, args[0], chars, conc, max, power)
+		if len(args) >= 1 {
+			if mode == "dict" {
+				crack.Crack(mode, args[0], wordlist, conc, max, power)
+			} else if mode == "brute" {
+				crack.Crack(mode, args[0], chars, conc, max, power)
+			}
+		} else {
+			log.Error("Arguments Error")	
+			log.Error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}")	
 		}
 	},
 }

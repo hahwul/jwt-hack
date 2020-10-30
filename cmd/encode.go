@@ -30,6 +30,7 @@ var encodeCmd = &cobra.Command{
 			fmt.Println(jwtInterface.JWTencode(raw, secret, algo))
 		} else {
 			log.Error("Arguments Error")
+			log.Error("e.g jwt-hack encode {JWT_CODE} --secret={YOUR_SECRET}")	
 		}
 	},
 }

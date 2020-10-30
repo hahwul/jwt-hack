@@ -62,6 +62,7 @@ var decodeCmd = &cobra.Command{
 			var log = logrus.New()
 			log.Out = os.Stdout
 			log.Error("Arguments Error")
+			log.Error("e.g jwt-hack decode {JWT_CODE}")	
 		}
 	},
 }
