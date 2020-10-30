@@ -74,3 +74,6 @@ snapcrafts:
     grade: stable
     confinement: strict
     license: MIT
+    apps:
+      jwt-hack:
+        plugs: ["home"]
