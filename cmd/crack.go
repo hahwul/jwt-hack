@@ -8,7 +8,7 @@ import (
 
 var wordlist, chars, mode string
 var max, conc int
-var power bool
+var power, verbose bool
 
 // crackCmd represents the crack command
 var crackCmd = &cobra.Command{
@@ -17,9 +17,9 @@ var crackCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) >= 1 {
 			if mode == "dict" {
-				crack.Crack(mode, args[0], wordlist, conc, max, power)
+				crack.Crack(mode, args[0], wordlist, conc, max, power, verbose)
 			} else if mode == "brute" {
-				crack.Crack(mode, args[0], chars, conc, max, power)
+				crack.Crack(mode, args[0], chars, conc, max, power, verbose)
 			}
 		} else {
 			log.Error("Arguments Error")	
@@ -37,6 +37,7 @@ func init() {
 	crackCmd.PersistentFlags().IntVarP(&conc, "concurrency", "c", 100, "number of concurrency")
 	crackCmd.PersistentFlags().IntVar(&max, "max", 6, "max length / only bruteforce")
 	crackCmd.PersistentFlags().BoolVar(&power, "power", false, "Used all CPU your computer")
+	crackCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Show testing log")
 
 	// crackCmd.PersistentFlags().StringVar(&foo,"foo", "", "A help for foo")
 }
