@@ -48,7 +48,7 @@ func RunTestingJWT(token string, lists []string, concurrency int, verbose bool) 
 	s := spinner.New(spinner.CharSets[4], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
 	if !verbose {
 		percent := float64(nowLine / lenWordlist)
-		str := fmt.Sprintf("Cracking.. [%d / %d][%f]",nowLine,lenWordlist,percent)
+		str := fmt.Sprintf(" Cracking.. [%d / %d][%f]",nowLine,lenWordlist,percent)
 		s.Suffix = str
 		s.Start()
 	}
@@ -59,7 +59,7 @@ func RunTestingJWT(token string, lists []string, concurrency int, verbose bool) 
 			for word := range wordlists {
 				nowLine = nowLine + 1
 				percent := (float64(nowLine) / float64(lenWordlist) * 100)
-				str := fmt.Sprintf("Cracking.. [%d/%d][%0.2f%%]",nowLine,lenWordlist,percent)
+				str := fmt.Sprintf(" Cracking.. [%d/%d][%0.2f%%]",nowLine,lenWordlist,percent)
 				s.Suffix = str
 				if !found {
 					result, token := jwtInterface.JWTdecodeWithVerify(token, word)
