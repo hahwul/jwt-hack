@@ -1,3 +1,3 @@
 package printing
 
-const VERSION = "v1.0.4"
+const VERSION = "v1.0.5"
