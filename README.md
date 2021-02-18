@@ -4,10 +4,16 @@
   <br>
   Hack the JWT(JSON Web Token)
   <br>
-  <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat-square"> 
+  <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat"> 
   <a href="https://snapcraft.io/jwt-hack"><img alt="jwt-hack" src="https://snapcraft.io/jwt-hack/badge.svg" /></a>
-  <img src="https://img.shields.io/github/languages/top/hahwul/jwt-hack?style=flat-square"> <img src="https://app.codacy.com/project/badge/Grade/77bdf42ef06a430a9bfb46f15eb86626"> <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a> <img src="https://img.shields.io/github/issues-closed/hahwul/jwt-hack?style=flat-square"> 
-<a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat-square"></a>
+  <img src="https://img.shields.io/github/languages/top/hahwul/jwt-hack?style=flat"> 
+  <img src="https://app.codacy.com/project/badge/Grade/77bdf42ef06a430a9bfb46f15eb86626"> 
+  <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a>
+  <img src="https://github.com/hahwul/jwt-hack/workflows/Docker%20CI/badge.svg">
+  <img src="https://github.com/hahwul/jwt-hack/workflows/CodeQL/badge.svg">
+  <img src="https://github.com/hahwul/jwt-hack/workflows/Go/badge.svg">
+  <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat&logo=twitter"></a>
+  <a href="https://github.com/hahwul"><img src="https://img.shields.io/github/stars/hahwul?style=flat&logo=github"></a></a>
 </h1>
 
 ## Installation
