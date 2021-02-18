@@ -66,7 +66,7 @@ Flags:
 
 e.g
 ```
-$ jwt-hack encode '{"test":"1234"}' --secret=asdf
+▶ jwt-hack encode '{"test":"1234"}' --secret=asdf
    d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
    88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
    88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
