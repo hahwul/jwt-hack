@@ -19,18 +19,18 @@
 ## Installation
 ### go-get(dev version)
 ```
-$ go get -u github.com/hahwul/jwt-hack
+▶ go get -u github.com/hahwul/jwt-hack
 ```
 
 ### homebrew
 ```
-$ brew tap hahwul/jwt-hack
-$ brew install jwt-hack
+▶ brew tap hahwul/jwt-hack
+▶ brew install jwt-hack
 ```
 
 ### snapcraft
 ```
-$ sudo snap install jwt-hack
+▶ sudo snap install jwt-hack
 ```
 
 ## Usage
@@ -61,7 +61,7 @@ Flags:
 
 ## Encode mode(JSON to JWT)
 ```
-$ jwt-hack encode '{"json":"format"}' --secret={YOUR_SECRET}
+▶ jwt-hack encode '{"json":"format"}' --secret={YOUR_SECRET}
 ```
 
 e.g
@@ -78,12 +78,12 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZXN0IjoiMTIzNCJ9.JOL1SYkRZYUz9GVny-DgoD
 
 ## Decode mode(JWT to JSON)
 ```
-$ jwt-hack decode {JWT_CODE}
+▶ jwt-hack decode {JWT_CODE}
 ```
 
 e.g 
 ```
-$ jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+▶ jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 
    d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
    88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
@@ -96,12 +96,12 @@ INFO[0000] Decoded data(claims)                          header="{\"alg\":\"HS25
 
 ## Crack mode(Dictionary attack / BruteForce)
 ```
-$ jwt-hack crack -w {WORDLIST} {JWT_CODE}
+▶ jwt-hack crack -w {WORDLIST} {JWT_CODE}
 ```
 
 e.g
 ```
-$ jwt-hack crack eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA -w samples/wordlist.txt
+▶ jwt-hack crack eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA -w samples/wordlist.txt
 
    d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
    88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
@@ -133,12 +133,12 @@ INFO[0000] Invalid signature                             word=calendar
 
 ## Payload mode(Alg none attack, etc..)
 ```
-$ jwt-hack payload {JWT_CODE}
+▶ jwt-hack payload {JWT_CODE}
 ```
 
 e.g
 ```
-$ jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+▶ jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
    d8p 8d8   d88 888888888          888  888 ,8b.     doooooo 888  ,dP
    88p 888,o.d88    '88d     ______ 88888888 88'8o    d88     888o8P'
    88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
