@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"encoding/json"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 
 	//. "github.com/logrusorgru/aurora"
