@@ -6,7 +6,6 @@
   <br>
   <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat"> 
   <img src="https://github.com/hahwul/jwt-hack/actions/workflows/go.yml/badge.svg">
-  <img src="https://github.com/hahwul/jwt-hack/actions/workflows/docker-image.yml/badge.svg">
   <img src="https://github.com/hahwul/jwt-hack/actions/workflows/codeql-analysis.yml/badge.svg">
   <a href="https://codecov.io/gh/hahwul/jwt-hack"><img src="https://codecov.io/gh/hahwul/jwt-hack/branch/main/graph/badge.svg"/></a>
   <img src="https://app.codacy.com/project/badge/Grade/77bdf42ef06a430a9bfb46f15eb86626"> 
