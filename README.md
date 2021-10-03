@@ -14,20 +14,26 @@
 </h1>
 
 ## Installation
-### go-get(dev version)
+### from the source
+**go1.17**
 ```
-▶ go get -u github.com/hahwul/jwt-hack
+go install github.com/hahwul/jwt-hack@latest
+```
+
+**go1.16**
+```
+GO111MODULE=on go get -u github.com/hahwul/jwt-hack
 ```
 
 ### homebrew
 ```
-▶ brew tap hahwul/jwt-hack
-▶ brew install jwt-hack
+brew tap hahwul/jwt-hack
+brew install jwt-hack
 ```
 
 ### snapcraft
 ```
-▶ sudo snap install jwt-hack
+sudo snap install jwt-hack
 ```
 
 ## Usage
