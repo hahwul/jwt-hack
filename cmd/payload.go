@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"github.com/golang-jwt/jwt"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	jwtPayload "github.com/hahwul/jwt-hack/pkg/payload"
@@ -18,6 +19,10 @@ var payloadCmd = &cobra.Command{
 		if len(args) >= 1 {
 			var token *jwt.Token
 			token = jwtInterface.JWTdecode(args[0])
+			if token == nil {
+				log.Error("JWT Decode Error")
+				os.Exit(1)
+			}
 			jwtPayload.GenerateAllPayloads(token, turl, aurl, protocol)
 		} else {
 			log.Error("Arguments Error")

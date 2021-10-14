@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	"github.com/spf13/cobra"
@@ -22,7 +23,7 @@ var encodeCmd = &cobra.Command{
 			if err := json.Unmarshal(mapInterface, &raw); err != nil {
 				// err
 				log.Error("JSON Unmarshal Error")
-				panic(0)
+				os.Exit(0)
 			}
 			log.WithFields(log.Fields{
 				"algorithm": algo,

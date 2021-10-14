@@ -27,7 +27,15 @@ var decodeCmd = &cobra.Command{
 
 			log.Out = os.Stdout
 			token = jwtInterface.JWTdecode(args[0])
-			header,_ := json.Marshal(token.Header)
+			if token == nil {
+				log.Error("JWT Decode Error")
+				os.Exit(1)
+			}
+			header, err := json.Marshal(token.Header)
+			if err != nil {
+				log.Error("JSON Marshal Error")
+				os.Exit(1)
+			}
 			log.WithFields(logrus.Fields{
 				"method": token.Method,
 				"header": string(header),
