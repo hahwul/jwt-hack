@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/sirupsen/logrus"
 )
 

@@ -4,13 +4,13 @@ go 1.17
 
 require (
 	github.com/briandowns/spinner v1.12.0
-	github.com/golang-jwt/jwt v3.2.0+incompatible
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/cobra v1.1.3
 )
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/magefile/mage v1.10.0 // indirect

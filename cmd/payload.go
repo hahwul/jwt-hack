@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"os"
-	"github.com/golang-jwt/jwt"
+
+	"github.com/dgrijalva/jwt-go"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 	jwtPayload "github.com/hahwul/jwt-hack/pkg/payload"
 	log "github.com/sirupsen/logrus"

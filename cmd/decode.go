@@ -1,18 +1,18 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 	"strconv"
-	"encoding/json"
+	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/dgrijalva/jwt-go"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 
 	//. "github.com/logrusorgru/aurora"
-	"github.com/spf13/cobra"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 // decodeCmd represents the decode command
@@ -40,28 +40,27 @@ var decodeCmd = &cobra.Command{
 				"method": token.Method,
 				"header": string(header),
 			}).Info("Decoded data(claims)")
-			
-			data,_ := json.Marshal(token.Claims)
-			json.Unmarshal([]byte(data),&jdata)
 
+			data, _ := json.Marshal(token.Claims)
+			json.Unmarshal([]byte(data), &jdata)
 
 			if jdata["iat"] != nil {
 				iatf := jdata["iat"].(float64)
-				iats := fmt.Sprintf("%.0f",iatf)
-				iat,_ := strconv.Atoi(iats)
-				iatt := time.Unix(0,int64(iat))
+				iats := fmt.Sprintf("%.0f", iatf)
+				iat, _ := strconv.Atoi(iats)
+				iatt := time.Unix(0, int64(iat))
 				log.WithFields(logrus.Fields{
-					"IAT": iats,
+					"IAT":  iats,
 					"TIME": iatt,
 				}).Info("Issued At Time")
 			}
 			if jdata["exp"] != nil {
 				expf := jdata["exp"].(float64)
-				exps := fmt.Sprintf("%.0f",expf)
-				exp,_ := strconv.Atoi(exps)
-				expt := time.Unix(0,int64(exp))
+				exps := fmt.Sprintf("%.0f", expf)
+				exp, _ := strconv.Atoi(exps)
+				expt := time.Unix(0, int64(exp))
 				log.WithFields(logrus.Fields{
-					"EXP": exps,
+					"EXP":  exps,
 					"TIME": expt,
 				}).Info("Expiraton Time")
 			}
@@ -70,7 +69,7 @@ var decodeCmd = &cobra.Command{
 			var log = logrus.New()
 			log.Out = os.Stdout
 			log.Error("Arguments Error")
-			log.Error("e.g jwt-hack decode {JWT_CODE}")	
+			log.Error("e.g jwt-hack decode {JWT_CODE}")
 		}
 	},
 }
