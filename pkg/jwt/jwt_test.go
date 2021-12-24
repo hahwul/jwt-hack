@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/dgrijalva/jwt-go"
 )
 
 func TestJWTencode(t *testing.T) {
