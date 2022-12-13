@@ -141,8 +141,8 @@ INFO[0000] Invalid signature                             word=calendar
 
 for jku and x5u (what is? [readme this slide](https://www.slideshare.net/snyff/jwt-jku-x5u))
 * `--jwk-attack` : A attack payload domain for jku&x5u (e.g hahwul.com)
-* `--jwk-trust` : jku&x5u protocol (http/https) (default "https")
-* `--jwk-protocol` : A trusted domain for jku&x5u (e.g google.com)
+* `--jwk-trust` : A trusted domain for jku&x5u (e.g google.com)
+* `--jwk-protocol` : jku&x5u protocol (http/https) (default "https")
 
 e.g
 ```
