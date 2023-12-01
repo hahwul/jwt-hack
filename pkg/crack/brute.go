@@ -1,44 +1,25 @@
 package crack
 
-import "sync"
-
-func GenerateBruteforcePayloads(chars string) []string {
+func GenerateBruteforcePayloads(chars string, max int) []string {
 	var payloads []string
-	for str := range generate(chars) {
+	for str := range generate(chars, max) {
 		payloads = append(payloads, str)
 	}
 	return payloads
-
 }
 
-func generate(alphabet string) <-chan string {
-	c := make(chan string, len(alphabet))
+func generate(alphabet string, max int) <-chan string {
+	c := make(chan string)
 
 	go func() {
 		defer close(c)
-
-		if len(alphabet) == 0 {
+		if max <= 0 {
 			return
 		}
-
-		// Use a sync.WaitGroup to spawn permutation
-		// goroutines and allow us to wait for them all
-		// to finish.
-		var wg sync.WaitGroup
-		wg.Add(len(alphabet))
-
-		for i := 1; i <= len(alphabet); i++ {
-			go func(i int) {
-				// Perform permutation.
-				Word(alphabet[:i]).Permute(c)
-
-				// Signal Waitgroup that we are done.
-				wg.Done()
-			}(i)
+		word := make(Word, max)
+		for i := 1; i <= max; i++ {
+			generateRecursive(c, alphabet, i, word, 0)
 		}
-
-		// Wait for all routines to finish.
-		wg.Wait()
 	}()
 
 	return c
@@ -46,10 +27,8 @@ func generate(alphabet string) <-chan string {
 
 type Word []rune
 
-// Permute generates all possible combinations of
-// the current word. This assumes the runes are sorted.
-func (w Word) Permute(out chan<- string) {
-	if len(w) <= 1 {
+func (w Word) Permute(out chan<- string, max int) {
+	if len(w) <= max {
 		out <- string(w)
 		return
 	}
@@ -57,9 +36,23 @@ func (w Word) Permute(out chan<- string) {
 	// Write first result manually.
 	out <- string(w)
 
-	// Find and print all remaining permutations.
 	for w.next() {
-		out <- string(w)
+		if len(w) <= max {
+			out <- string(w)
+		}
+	}
+}
+
+//Generating strings recursively
+func generateRecursive(out chan<- string, alphabet string, max int, current Word, index int) {
+	if index == max {
+		out <- string(current)
+		return
+	}
+
+	for _, char := range alphabet {
+		current[index] = char
+		generateRecursive(out, alphabet, max, current, index+1)
 	}
 }
 

@@ -18,7 +18,7 @@ func Crack(mode, token, data string, concurrency, max int, power bool, verbose b
 	log.Out = os.Stdout
 	fmt.Println("[*] Start " + mode + " cracking mode")
 	if mode == "brute" {
-		bf := GenerateBruteforcePayloads(data)
+		bf := GenerateBruteforcePayloads(data, max)
 		RunTestingJWT(token, bf, concurrency, verbose)
 	} else { // if dict
 		var words []string
