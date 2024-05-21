@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	jwtInterface "github.com/hahwul/jwt-hack/pkg/jwt"
 
 	//. "github.com/logrusorgru/aurora"
