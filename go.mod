@@ -1,6 +1,6 @@
 module github.com/hahwul/jwt-hack
 
-go 1.18
+go 1.21
 
 require (
 	github.com/briandowns/spinner v1.23.0
