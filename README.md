@@ -15,14 +15,8 @@
 
 ## Installation
 ### from the source
-**go1.17**
 ```
 go install github.com/hahwul/jwt-hack@latest
-```
-
-**go1.16**
-```
-GO111MODULE=on go get -u github.com/hahwul/jwt-hack
 ```
 
 ### homebrew
