@@ -3,7 +3,7 @@ package jwtInterface
 import (
 	"fmt"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // JWTencode is JWT interface for encode
