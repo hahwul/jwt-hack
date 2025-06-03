@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href=""><img src="https://user-images.githubusercontent.com/13212227/91675684-26561500-eb78-11ea-9f59-d904d743afae.png" alt="" width="260px;"></a>
+  <a href=""><img src="./images/logo.png" alt="" width="260px;"></a>
   <br>
   Hack the JWT(JSON Web Token)
   <br>
@@ -15,7 +15,7 @@ JWT-Hack is a tool for testing and analyzing JSON Web Tokens. This is the Rust i
 ## Installation
 
 ### From source
-```
+```bash
 # Clone the repository
 git clone https://github.com/hahwul/jwt-hack
 cd jwt-hack/rust-jwt-hack
@@ -26,7 +26,7 @@ cargo install --path .
 ```
 
 ### Cargo
-```
+```bash
 cargo install jwt-hack
 ```
 
