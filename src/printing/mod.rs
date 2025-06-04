@@ -1,8 +1,8 @@
 pub mod version;
 
 use colored::Colorize;
-use std::io::Write;
 use log::{Level, LevelFilter, Metadata, Record};
+use std::io::Write;
 
 pub use version::VERSION;
 
@@ -48,8 +48,7 @@ impl log::Log for PrettyLogger {
 
 // Initialize the custom logger
 pub fn setup_logger() -> Result<(), log::SetLoggerError> {
-    log::set_logger(&PrettyLogger)
-        .map(|()| log::set_max_level(LevelFilter::Info))
+    log::set_logger(&PrettyLogger).map(|()| log::set_max_level(LevelFilter::Info))
 }
 
 // Print the banner with version information
@@ -59,11 +58,12 @@ pub fn banner() {
         r#"
       ██╗██╗    ██╗████████╗      ██╗  ██╗ █████╗  ██████╗██╗  ██╗
       ██║██║    ██║╚══██╔══╝      ██║  ██║██╔══██╗██╔════╝██║ ██╔╝
-      ██║██║ █╗ ██║   ██║         ███████║███████║██║     █████╔╝ 
- ██   ██║██║███╗██║   ██║         ██╔══██║██╔══██║██║     ██╔═██╗ 
+      ██║██║ █╗ ██║   ██║         ███████║███████║██║     █████╔╝
+ ██   ██║██║███╗██║   ██║         ██╔══██║██╔══██║██║     ██╔═██╗
  ╚█████╔╝╚███╔███╔╝   ██║         ██║  ██║██║  ██║╚██████╗██║  ██╗
   ╚════╝  ╚══╝╚══╝    ╚═╝         ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
-"#.bright_blue()
+"#
+        .bright_blue()
     );
     println!(
         "{}{}{}",
@@ -71,5 +71,8 @@ pub fn banner() {
         VERSION.bright_green(),
         " by @hahwul".bright_yellow()
     );
-    println!("{}\n", "          https://github.com/hahwul/jwt-hack".dimmed());
+    println!(
+        "{}\n",
+        "          https://github.com/hahwul/jwt-hack".dimmed()
+    );
 }

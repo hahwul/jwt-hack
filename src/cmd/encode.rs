@@ -1,27 +1,118 @@
 use anyhow::Result;
 use serde_json::Value;
 use colored::Colorize;
+use std::fs;
+use std::path::PathBuf;
+use std::collections::HashMap;
 
 use crate::jwt;
 use crate::utils;
 
 /// Execute the encode command
-pub fn execute(json_str: &str, secret: Option<&str>, algorithm: &str) {
+pub fn execute(
+    json_str: &str, 
+    secret: Option<&str>, 
+    private_key_path: Option<&PathBuf>,
+    algorithm: &str,
+    no_signature: bool,
+    headers: Vec<(String, String)>
+) {
     utils::log_info(format!("Encoding JSON to JWT with algorithm: {}", algorithm.bright_green()));
-    if let Err(e) = encode_json(json_str, secret.unwrap_or(""), algorithm) {
+    
+    if let Err(e) = encode_json(json_str, secret, private_key_path, algorithm, no_signature, &headers) {
         utils::log_error(format!("JSON Encode Error: {}", e));
         utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
+        utils::log_error("or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256");
     }
 }
 
-fn encode_json(json_str: &str, secret: &str, algorithm: &str) -> Result<()> {
+fn encode_json(
+    json_str: &str, 
+    secret: Option<&str>, 
+    private_key_path: Option<&PathBuf>,
+    algorithm: &str,
+    no_signature: bool,
+    headers: &Vec<(String, String)>
+) -> Result<()> {
     // Parse the JSON string
     let claims: Value = serde_json::from_str(json_str)?;
 
     let progress = utils::start_progress("Encoding JWT token...");
     
-    // Encode the JWT
-    let token = jwt::encode(&claims, secret, algorithm)?;
+    // Process custom headers
+    let header_map: Option<HashMap<&str, &str>> = if !headers.is_empty() {
+        let mut map = HashMap::new();
+        for (key, value) in headers {
+            map.insert(key.as_str(), value.as_str());
+        }
+        Some(map)
+    } else {
+        None
+    };
+    
+    // Build encoding options - only for no_signature and secret options
+    // (private key option handled separately due to lifetime concerns)
+    let options = if no_signature {
+        // 'none' algorithm - no signature
+        jwt::EncodeOptions {
+            algorithm: "none",
+            key_data: jwt::KeyData::None,
+            header_params: header_map,
+        }
+    } else if let Some(path) = private_key_path {
+        // Read private key from file
+        let key_content = fs::read_to_string(path)?;
+        
+        // Use RSA or EC key with key content owned in this scope
+        let options = jwt::EncodeOptions {
+            algorithm,
+            key_data: jwt::KeyData::PrivateKeyPem(&key_content),
+            header_params: header_map,
+        };
+        
+        // Encode immediately while key_content is in scope
+        let token = jwt::encode_with_options(&claims, &options)?;
+        
+        progress.finish_and_clear();
+        
+        // Display results with pretty formatting
+        utils::log_success("JWT token created successfully");
+        
+        // Show algorithm and secret info
+        println!("\n{}", "━━━ Encoding Details ━━━".bright_cyan().bold());
+        utils::log_info(format!("Algorithm: {}", algorithm.bright_green()));
+        
+        // Show key info
+        utils::log_info(format!("Key: {} ({})", 
+            path.display().to_string().bright_yellow(),
+            "Private Key".bright_cyan())
+        );
+        
+        // Show custom headers if present
+        if !headers.is_empty() {
+            utils::log_info("Custom Headers:".to_string());
+            for (key, value) in headers {
+                println!("  • {}: {}", key.bright_blue(), value.bright_yellow());
+            }
+        }
+        
+        // Display token with colored segments
+        println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
+        let formatted_token = utils::format_jwt_token(&token);
+        println!("{}\n", formatted_token);
+        
+        return Ok(());
+    } else {
+        // Default: use HMAC with secret
+        jwt::EncodeOptions {
+            algorithm,
+            key_data: jwt::KeyData::Secret(secret.unwrap_or("")),
+            header_params: header_map,
+        }
+    };
+    
+    // Encode the JWT (only for no_signature and secret options)
+    let token = jwt::encode_with_options(&claims, &options)?;
     
     progress.finish_and_clear();
     
@@ -31,10 +122,24 @@ fn encode_json(json_str: &str, secret: &str, algorithm: &str) -> Result<()> {
     // Show algorithm and secret info
     println!("\n{}", "━━━ Encoding Details ━━━".bright_cyan().bold());
     utils::log_info(format!("Algorithm: {}", algorithm.bright_green()));
-    utils::log_info(format!("Secret: {}", 
-        if secret.is_empty() { "None (unsigned)".dimmed().to_string() } 
-        else { "****".bright_yellow().to_string() }
-    ));
+    
+    // Show key info based on what was used
+    if no_signature {
+        utils::log_info("Signature: None (unsigned)".dimmed().to_string());
+    } else {
+        utils::log_info(format!("Key: {}", 
+            if secret.unwrap_or("").is_empty() { "None (unsigned)".dimmed().to_string() } 
+            else { "****".bright_yellow().to_string() }
+        ));
+    }
+    
+    // Show custom headers if present
+    if !headers.is_empty() {
+        utils::log_info("Custom Headers:".to_string());
+        for (key, value) in headers {
+            println!("  • {}: {}", key.bright_blue(), value.bright_yellow());
+        }
+    }
     
     // Display token with colored segments
     println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());

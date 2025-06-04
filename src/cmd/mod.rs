@@ -8,6 +8,12 @@ mod encode;
 mod payload;
 mod version;
 
+/// Parse key-value pairs in format key=value
+fn parse_key_value(s: &str) -> Result<(String, String), String> {
+    let pos = s.find('=').ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].to_string(), s[pos+1..].to_string()))
+}
+
 /// CLI for jwt-hack
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -29,13 +35,25 @@ pub enum Commands {
         /// JSON data to encode
         json: String,
 
-        /// Secret key for JWT signature
+        /// Secret key for HMAC algorithms (HS256, HS384, HS512)
         #[arg(long)]
         secret: Option<String>,
+
+        /// RSA or ECDSA private key in PEM format for asymmetric algorithms
+        #[arg(long)]
+        private_key: Option<PathBuf>,
 
         /// Algorithm to use
         #[arg(long, default_value = "HS256")]
         algorithm: String,
+
+        /// Use 'none' algorithm (no signature)
+        #[arg(long)]
+        no_signature: bool,
+
+        /// Add custom header parameter (format: key=value)
+        #[arg(long, value_parser = parse_key_value)]
+        header: Vec<(String, String)>,
     },
 
     /// Cracking JWT Token
@@ -105,9 +123,12 @@ pub fn execute() {
         Some(Commands::Encode {
             json,
             secret,
+            private_key,
             algorithm,
+            no_signature,
+            header,
         }) => {
-            encode::execute(json, secret.as_deref(), algorithm);
+            encode::execute(json, secret.as_deref(), private_key.as_ref(), algorithm, *no_signature, header.clone());
         }
         Some(Commands::Crack {
             token,
