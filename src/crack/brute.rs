@@ -170,3 +170,94 @@ pub fn format_time(seconds: f64) -> String {
         hours as u64, minutes as u64, secs as u64
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_combinations_chunked_simple() {
+        let chars = "ab";
+        let length = 2;
+        let chunk_size = 1;
+        let mut all_combinations = Vec::new();
+
+        for chunk in generate_combinations_chunked(chars, length, chunk_size) {
+            all_combinations.extend(chunk);
+        }
+
+        all_combinations.sort(); // Sort for consistent comparison
+
+        let expected = vec!["aa", "ab", "ba", "bb"];
+        assert_eq!(all_combinations.len(), 4);
+        assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+    }
+
+    #[test]
+    fn test_generate_combinations_chunked_larger_chunks() {
+        let chars = "a";
+        let length = 3;
+        let chunk_size = 10; // Larger than total combinations
+        let mut all_combinations = Vec::new();
+
+        for chunk in generate_combinations_chunked(chars, length, chunk_size) {
+            all_combinations.extend(chunk);
+        }
+
+        let expected = vec!["aaa"];
+        assert_eq!(all_combinations.len(), 1);
+        assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+    }
+
+    #[test]
+    fn test_estimate_combinations_simple() {
+        assert_eq!(estimate_combinations(2, 2), 6); // 2^1 + 2^2 = 2 + 4 = 6
+    }
+
+    #[test]
+    fn test_estimate_combinations_single_char() {
+        assert_eq!(estimate_combinations(1, 3), 3); // 1^1 + 1^2 + 1^3 = 1 + 1 + 1 = 3
+    }
+
+    #[test]
+    fn test_estimate_combinations_zero_length() {
+        assert_eq!(estimate_combinations(3, 0), 0);
+    }
+
+    #[test]
+    fn test_estimate_time_remaining_half_done() {
+        let result = estimate_time_remaining(50.0, 10.0);
+        let expected = 10.0;
+        assert!((result - expected).abs() < 1e-9, "Expected approx 10.0, got {}", result);
+    }
+
+    #[test]
+    fn test_estimate_time_remaining_zero_progress() {
+        assert_eq!(estimate_time_remaining(0.0, 10.0), 0.0);
+    }
+
+    #[test]
+    fn test_estimate_time_remaining_full_progress() {
+        assert_eq!(estimate_time_remaining(100.0, 10.0), 0.0);
+    }
+
+    #[test]
+    fn test_format_time_seconds() {
+        assert_eq!(format_time(30.0), "00:00:30");
+    }
+
+    #[test]
+    fn test_format_time_minutes_seconds() {
+        assert_eq!(format_time(90.0), "00:01:30");
+    }
+
+    #[test]
+    fn test_format_time_hours_minutes_seconds() {
+        assert_eq!(format_time(3661.0), "01:01:01");
+    }
+
+    #[test]
+    fn test_format_time_zero() {
+        assert_eq!(format_time(0.0), "00:00:00");
+    }
+}

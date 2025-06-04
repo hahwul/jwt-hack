@@ -116,3 +116,115 @@ pub fn estimate_remaining_time(progress_percent: f64, elapsed: Duration) -> Stri
     let remaining_secs = brute::estimate_time_remaining(progress_percent, elapsed.as_secs_f64());
     brute::format_time(remaining_secs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    // Removed std::fs::File as it's unused
+    use tempfile::NamedTempFile;
+    use std::time::Duration;
+
+    #[test]
+    fn test_generate_bruteforce_payloads_simple() {
+        let chars = "a";
+        let max_length = 2;
+        let mut result = generate_bruteforce_payloads(chars, max_length);
+        result.sort(); // Sort for consistent comparison
+        let mut expected = vec!["a".to_string(), "aa".to_string()];
+        expected.sort();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_generate_bruteforce_payloads_empty_chars() {
+        let chars = "";
+        let max_length = 3;
+        let result = generate_bruteforce_payloads(chars, max_length);
+        assert!(result.is_empty(), "Expected empty vector for empty charset, got {:?}", result);
+    }
+
+    #[test]
+    fn test_generate_bruteforce_payloads_zero_max_length() {
+        let chars = "ab";
+        let max_length = 0;
+        let result = generate_bruteforce_payloads(chars, max_length);
+        assert!(result.is_empty(), "Expected empty vector for max_length 0, got {:?}", result);
+    }
+
+    #[test]
+    fn test_read_lines_or_literal_literal() {
+        let result = read_lines_or_literal("test_string");
+        assert_eq!(result, vec!["test_string".to_string()]);
+    }
+
+    #[test]
+    fn test_read_lines_or_literal_file() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "line1").unwrap();
+        writeln!(temp_file, "line2").unwrap();
+
+        let result = read_lines_or_literal(temp_file.path().to_str().unwrap());
+        assert_eq!(result, vec!["line1".to_string(), "line2".to_string()]);
+    }
+
+    #[test]
+    fn test_read_lines_or_literal_file_not_exists() {
+        let result = read_lines_or_literal("non_existent_file_for_sure.txt");
+        assert_eq!(result, vec!["non_existent_file_for_sure.txt".to_string()]);
+    }
+
+    #[test]
+    fn test_unique_empty() {
+        let input: Vec<String> = Vec::new();
+        let result = unique(input);
+        assert!(result.is_empty(), "Expected empty vector for empty input");
+    }
+
+    #[test]
+    fn test_unique_no_duplicates() {
+        let input = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let expected = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let result = unique(input);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_unique_with_duplicates() {
+        let input = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "a".to_string(),
+            "c".to_string(),
+            "b".to_string(),
+            "a".to_string(),
+        ];
+        let expected = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let result = unique(input);
+        assert_eq!(result, expected, "Duplicates were not removed correctly or order changed");
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_format_duration_seconds() {
+        assert_eq!(format_duration(Duration::from_secs(5)), "00:00:05");
+    }
+
+    #[test]
+    fn test_format_duration_minutes() {
+        assert_eq!(format_duration(Duration::from_secs(125)), "00:02:05"); // 2 minutes and 5 seconds
+    }
+
+    #[test]
+    fn test_format_duration_hours() {
+        assert_eq!(format_duration(Duration::from_secs(3661)), "01:01:01"); // 1 hour, 1 minute, 1 second
+    }
+
+    // It seems format_duration(Duration::from_secs(0)) was not explicitly requested,
+    // but it's good practice. The underlying brute::format_time(0.0) is tested, which covers this.
+    // Adding one for Duration::ZERO for completeness of `format_duration` specific tests.
+    #[test]
+    fn test_format_duration_zero() {
+        assert_eq!(format_duration(Duration::ZERO), "00:00:00");
+    }
+}

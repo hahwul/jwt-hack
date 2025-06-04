@@ -96,3 +96,96 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     
     format!("{}h {}m {}s", hours, remain_minutes, remain_seconds)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use colored::Colorize;
+
+    #[test]
+    fn test_format_jwt_token_full() {
+        let token = "header.payload.signature";
+        let expected = format!(
+            "{}.{}.{}",
+            "header".bright_blue(),
+            "payload".bright_magenta(),
+            "signature".bright_yellow()
+        );
+        assert_eq!(format_jwt_token(token), expected);
+    }
+
+    #[test]
+    fn test_format_jwt_token_no_signature() {
+        let token = "header.payload";
+        let expected = format!(
+            "{}.{}",
+            "header".bright_blue(),
+            "payload".bright_magenta()
+        );
+        assert_eq!(format_jwt_token(token), expected);
+    }
+
+    #[test]
+    fn test_format_jwt_token_invalid_format() {
+        let token = "invalidtoken";
+        assert_eq!(format_jwt_token(token), "invalidtoken");
+    }
+
+    #[test]
+    fn test_format_jwt_token_empty_string() {
+        let token = "";
+        assert_eq!(format_jwt_token(token), "");
+    }
+
+    #[test]
+    fn test_format_duration_util_seconds() {
+        assert_eq!(format_duration(Duration::from_secs(5)), "5s");
+    }
+
+    #[test]
+    fn test_format_duration_util_minutes_seconds() {
+        assert_eq!(format_duration(Duration::from_secs(125)), "2m 5s");
+    }
+
+    #[test]
+    fn test_format_duration_util_hours_minutes_seconds() {
+        assert_eq!(format_duration(Duration::from_secs(3723)), "1h 2m 3s");
+    }
+
+    #[test]
+    fn test_format_duration_util_exact_minute() {
+        assert_eq!(format_duration(Duration::from_secs(60)), "1m 0s");
+    }
+
+    #[test]
+    fn test_format_duration_util_exact_hour() {
+        assert_eq!(format_duration(Duration::from_secs(3600)), "1h 0m 0s");
+    }
+
+    #[test]
+    fn test_format_duration_util_zero() {
+        assert_eq!(format_duration(Duration::ZERO), "0s");
+    }
+
+    #[test]
+    fn test_format_value_success() {
+        let expected = "success_text".bright_green();
+        assert_eq!(format_value("success_text", true), expected);
+    }
+
+    #[test]
+    fn test_format_value_failure() {
+        let expected = "failure_text".bright_red();
+        assert_eq!(format_value("failure_text", false), expected);
+    }
+
+    #[test]
+    fn test_format_value_integer() {
+        let expected = "123".bright_green(); // is_success = true
+        assert_eq!(format_value(123, true), expected);
+
+        let expected_fail = "456".bright_red(); // is_success = false
+        assert_eq!(format_value(456, false), expected_fail);
+    }
+}
