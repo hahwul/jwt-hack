@@ -15,13 +15,13 @@ pub fn execute(json_str: &str, secret: Option<&str>, algorithm: &str) {
 fn encode_json(json_str: &str, secret: &str, algorithm: &str) -> Result<()> {
     // Parse the JSON string
     let claims: Value = serde_json::from_str(json_str)?;
-    
+
     // Encode the JWT
     let token = jwt::encode(&claims, secret, algorithm)?;
-    
+
     // Log and output
     info!("Encoded result algorithm={}", algorithm);
     println!("{}", token);
-    
+
     Ok(())
 }

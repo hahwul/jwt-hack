@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
+use base64::Engine;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde_json::Value;
-use base64::Engine;
 use std::collections::HashMap;
 
 /// JWT Decoded token data
@@ -38,7 +38,11 @@ pub fn encode(claims: &Value, secret: &str, alg_str: &str) -> Result<String> {
         Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
             EncodingKey::from_secret(secret.as_bytes())
         }
-        _ => return Err(anyhow!("Only HMAC algorithms are currently supported for encoding")),
+        _ => {
+            return Err(anyhow!(
+                "Only HMAC algorithms are currently supported for encoding"
+            ))
+        }
     };
 
     // Encode JWT token
@@ -63,25 +67,29 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
     let header: HashMap<String, Value> = serde_json::from_str(&header_str)?;
 
     // Extract algorithm
-    let alg_value = header.get("alg").ok_or_else(|| anyhow!("Missing 'alg' in header"))?;
-    let alg_str = alg_value.as_str().ok_or_else(|| anyhow!("'alg' is not a string"))?;
-    
+    let alg_value = header
+        .get("alg")
+        .ok_or_else(|| anyhow!("Missing 'alg' in header"))?;
+    let alg_str = alg_value
+        .as_str()
+        .ok_or_else(|| anyhow!("'alg' is not a string"))?;
+
     // Parse algorithm
-let algorithm = match alg_str.to_uppercase().as_str() {
-    "HS256" => Algorithm::HS256,
-    "HS384" => Algorithm::HS384,
-    "HS512" => Algorithm::HS512,
-    "RS256" => Algorithm::RS256,
-    "RS384" => Algorithm::RS384,
-    "RS512" => Algorithm::RS512,
-    "ES256" => Algorithm::ES256,
-    "ES384" => Algorithm::ES384,
-    "PS256" => Algorithm::PS256,
-    "PS384" => Algorithm::PS384,
-    "PS512" => Algorithm::PS512,
-    "NONE" => Algorithm::HS256, // Treat 'none' as HS256 for parsing
-    _ => return Err(anyhow!("Unsupported algorithm: {}", alg_str)),
-};
+    let algorithm = match alg_str.to_uppercase().as_str() {
+        "HS256" => Algorithm::HS256,
+        "HS384" => Algorithm::HS384,
+        "HS512" => Algorithm::HS512,
+        "RS256" => Algorithm::RS256,
+        "RS384" => Algorithm::RS384,
+        "RS512" => Algorithm::RS512,
+        "ES256" => Algorithm::ES256,
+        "ES384" => Algorithm::ES384,
+        "PS256" => Algorithm::PS256,
+        "PS384" => Algorithm::PS384,
+        "PS512" => Algorithm::PS512,
+        "NONE" => Algorithm::HS256, // Treat 'none' as HS256 for parsing
+        _ => return Err(anyhow!("Unsupported algorithm: {}", alg_str)),
+    };
 
     // Extract payload (claims)
     let payload_b64 = parts[1];
@@ -108,7 +116,7 @@ pub fn verify(token: &str, secret: &str) -> Result<bool> {
 
     // Try to decode the token without validation
     let decoded_token = decode(token)?;
-    
+
     // Split the token
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 3 {
@@ -118,7 +126,7 @@ pub fn verify(token: &str, secret: &str) -> Result<bool> {
     // Get message and signature parts
     let message = format!("{}.{}", parts[0], parts[1]);
     let signature_b64 = parts[2];
-    
+
     // Decode signature
     let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(signature_b64)
@@ -129,13 +137,16 @@ pub fn verify(token: &str, secret: &str) -> Result<bool> {
         Algorithm::HS256 => {
             let key = hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes());
             Ok(signature == key.as_slice())
-        },
+        }
         Algorithm::HS384 | Algorithm::HS512 => {
             // For HS384 and HS512, use jsonwebtoken directly
             let decoding_key = DecodingKey::from_secret(secret.as_bytes());
             let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
             Ok(result.is_ok())
-        },
-        _ => Err(anyhow!("Unsupported algorithm for verification: {:?}", decoded_token.algorithm)),
+        }
+        _ => Err(anyhow!(
+            "Unsupported algorithm for verification: {:?}",
+            decoded_token.algorithm
+        )),
     }
 }
