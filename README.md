@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="JWT-HACK Logo" src="./images/logo.png" width="260px;">
+    <img alt="JWT-HACK Logo" src="https://raw.githubusercontent.com/hahwul/jwt-hack/refs/heads/v2/images/logo.png" width="260px;">
   </picture>
   <p>JSON Web Token Hack Toolkit</p>
 </div>
@@ -94,6 +94,9 @@ Written in Rust for:
 - Parallel processing
 - Robust error handling
 
-## Contributors
+## Contribute
 
-.
+Urx is open-source project and made it with ❤️
+if you want contribute this project, please see [CONTRIBUTING.md](./CONTRIBUTING.md) and Pull-Request with cool your contents.
+
+[![](https://raw.githubusercontent.com/hahwul/jwt-hack/refs/heads/main/CONTRIBUTORS.svg)](https://github.com/hahwul/jwt-hack/graphs/contributors)
