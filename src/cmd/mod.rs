@@ -10,8 +10,10 @@ mod version;
 
 /// Parse key-value pairs in format key=value
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
-    let pos = s.find('=').ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].to_string(), s[pos+1..].to_string()))
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 
 /// CLI for jwt-hack
@@ -74,11 +76,11 @@ pub enum Commands {
         chars: String,
 
         /// Concurrency level
-        #[arg(short, long, default_value = "100")]
+        #[arg(short, long, default_value = "20")]
         concurrency: usize,
 
         /// Max length (for bruteforce attack)
-        #[arg(long, default_value = "6")]
+        #[arg(long, default_value = "4")]
         max: usize,
 
         /// Use all CPU cores
@@ -128,7 +130,14 @@ pub fn execute() {
             no_signature,
             header,
         }) => {
-            encode::execute(json, secret.as_deref(), private_key.as_ref(), algorithm, *no_signature, header.clone());
+            encode::execute(
+                json,
+                secret.as_deref(),
+                private_key.as_ref(),
+                algorithm,
+                *no_signature,
+                header.clone(),
+            );
         }
         Some(Commands::Crack {
             token,
