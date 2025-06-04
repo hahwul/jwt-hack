@@ -1,6 +1,12 @@
+use colored::Colorize;
 use crate::printing::VERSION;
 
 /// Show version command
 pub fn execute() {
-    println!("{}", VERSION);
+    println!("\n{}", "━━━ JWT-HACK ━━━".bright_green().bold());
+    println!("{}: {}", "Version".bright_blue(), VERSION.bright_green());
+    println!("{}: {}", "Author".bright_blue(), "@hahwul".bright_yellow());
+    println!("{}: {}", "Repository".bright_blue(), "https://github.com/hahwul/jwt-hack".bright_cyan());
+    println!("{}: {}", "License".bright_blue(), "MIT".bright_magenta());
+    println!("\n{}", "Thank you for using JWT-Hack!".bright_green());
 }

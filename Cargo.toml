@@ -24,6 +24,7 @@ indicatif = "0.17"
 rayon = "1.7"
 tokio = { version = "1.32", features = ["full"] }
 hmac-sha256 = "1.1.6"
+chrono = "0.4"
 
 [profile.release]
 opt-level = 3
