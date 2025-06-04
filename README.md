@@ -2,7 +2,7 @@
   <picture>
     <img alt="JWT-HACK Logo" src="./images/logo.png" width="260px;">
   </picture>
-  <p>Hack the JWT(JSON Web Token)</p>
+  <p>Let's hack JWT(JSON Web Token)</p>
 </div>
 
 <p align="center">
