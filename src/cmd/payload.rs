@@ -78,9 +78,9 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
 
     // Format as JWT (without signature)
     println!("\n{}", format!("━━━ None Algorithm Payload ({}) ━━━", alg_value).bright_cyan().bold());
-    println!("{}", format!("{}.{}", 
+    println!("{}.{}", 
         encoded_header.bright_blue(),
-        claims.bright_magenta()));
+        claims.bright_magenta());
     println!();
 
     Ok(())
@@ -113,9 +113,9 @@ fn generate_url_payloads(
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
         println!("\n{}", format!("━━━ JKU/X5U Basic Payload ({}) ━━━", key_type).bright_cyan().bold());
-        println!("{}", format!("{}.{}", 
+        println!("{}.{}", 
             encoded_header.bright_blue(),
-            claims.bright_magenta()));
+            claims.bright_magenta());
         println!();
 
         // If trust domain is provided, generate bypass payloads
@@ -136,9 +136,9 @@ fn generate_url_payloads(
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!("\n{}", format!("━━━ Z-Separator Bypass Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}", format!("{}.{}", 
+            println!("{}.{}", 
                 encoded_header.bright_blue(),
-                claims.bright_magenta()));
+                claims.bright_magenta());
             println!();
 
             // Bypass host validation - @ separator
@@ -157,9 +157,9 @@ fn generate_url_payloads(
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!("\n{}", format!("━━━ @-Separator Bypass Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}", format!("{}.{}", 
+            println!("{}.{}", 
                 encoded_header.bright_blue(),
-                claims.bright_magenta()));
+                claims.bright_magenta());
             println!();
 
             // Host header injection with CRLF
@@ -181,9 +181,9 @@ fn generate_url_payloads(
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!("\n{}", format!("━━━ CRLF Injection Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}", format!("{}.{}", 
+            println!("{}.{}", 
                 encoded_header.bright_blue(),
-                claims.bright_magenta()));
+                claims.bright_magenta());
             println!();
         }
     }

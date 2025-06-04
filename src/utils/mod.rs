@@ -22,11 +22,13 @@ pub fn log_error<T: Display>(message: T) {
 }
 
 /// Log a debug message with a cyan question mark icon
+#[allow(dead_code)]
 pub fn log_debug<T: Display>(message: T) {
     println!("{} {}", "[?]".cyan(), message);
 }
 
 /// Format a value with specified color
+#[allow(dead_code)]
 pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredString {
     if is_success {
         format!("{}", value).bright_green()
@@ -74,6 +76,7 @@ pub fn start_progress(message: &str) -> indicatif::ProgressBar {
 }
 
 /// Format a duration in a human-readable way
+#[allow(dead_code)]
 pub fn format_duration(duration: std::time::Duration) -> String {
     let seconds = duration.as_secs();
     
