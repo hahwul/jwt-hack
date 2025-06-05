@@ -50,7 +50,12 @@ jwt-hack decode eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.CHANGED
 
 ### Encode a JWT
 ```bash
+# With Secret
 jwt-hack encode '{"sub":"1234"}' --secret=your-secret
+
+# With Private Key
+ssh-keygen -t rsa -b 4096 -E SHA256 -m PEM -P "" -f RS256.key
+jwt-hack encode '{"a":"z"}' --private-key RS256.key --algorithm=RS256
 ```
 
 ### Crack a JWT
