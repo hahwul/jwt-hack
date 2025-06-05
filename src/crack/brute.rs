@@ -188,7 +188,7 @@ mod tests {
 
         all_combinations.sort(); // Sort for consistent comparison
 
-        let expected = vec!["aa", "ab", "ba", "bb"];
+        let expected = ["aa", "ab", "ba", "bb"];
         assert_eq!(all_combinations.len(), 4);
         assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
     }
@@ -204,7 +204,7 @@ mod tests {
             all_combinations.extend(chunk);
         }
 
-        let expected = vec!["aaa"];
+        let expected = ["aaa"];
         assert_eq!(all_combinations.len(), 1);
         assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
     }

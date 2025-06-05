@@ -6,10 +6,10 @@ use crate::jwt::{self, VerifyOptions, VerifyKeyData};
 use crate::utils;
 
 /// Execute the verify command
-pub fn execute(token: &str, secret: Option<&str>, private_key_path: Option<&PathBuf>) {
+pub fn execute(token: &str, secret: Option<&str>, private_key_path: Option<&PathBuf>, validate_exp: bool) {
     utils::log_info(format!("Verifying JWT token: {}", utils::format_jwt_token(token)));
 
-    match verify_token(token, secret, private_key_path) {
+    match verify_token(token, secret, private_key_path, validate_exp) {
         Ok(is_valid) => {
             if is_valid {
                 utils::log_success("Token is valid.");
@@ -19,21 +19,37 @@ pub fn execute(token: &str, secret: Option<&str>, private_key_path: Option<&Path
         }
         Err(e) => {
             utils::log_error(format!("JWT Verification Error: {}", e));
-            // Suggest common issues or next steps
-            match e.downcast_ref::<jwt::JwtError>() {
-                Some(jwt::JwtError::InvalidSignature) => {
+            // Suggest common issues or next steps based on error message
+            if let Some(jwt_error) = e.downcast_ref::<jwt::JwtError>() {
+                match jwt_error {
+                    jwt::JwtError::InvalidSignature => {
+                        utils::log_error("This could be due to an incorrect secret or key.".to_string());
+                    }
+                    jwt::JwtError::ExpiredSignature => {
+                        utils::log_error("The token has expired. Check the 'exp' claim.".to_string());
+                    }
+                    jwt::JwtError::ImmatureSignature => {
+                        utils::log_error("The token is not yet valid. Check the 'nbf' claim.".to_string());
+                    }
+                    jwt::JwtError::InvalidAlgorithm => {
+                        utils::log_error("The token's algorithm does not match the expected algorithm or the key provided.".to_string());
+                    }
+                    _ => {
+                        utils::log_error("An unknown error occurred during JWT verification.".to_string());
+                    }
+                }
+            } else {
+                // Try to infer the error type from the message
+                let err_msg = e.to_string().to_lowercase();
+                if err_msg.contains("invalid signature") {
                     utils::log_error("This could be due to an incorrect secret or key.".to_string());
-                }
-                Some(jwt::JwtError::ExpiredSignature) => {
+                } else if err_msg.contains("expired") {
                     utils::log_error("The token has expired. Check the 'exp' claim.".to_string());
-                }
-                Some(jwt::JwtError::ImmatureSignature) => {
+                } else if err_msg.contains("immature") || err_msg.contains("not yet valid") {
                     utils::log_error("The token is not yet valid. Check the 'nbf' claim.".to_string());
-                }
-                Some(jwt::JwtError::InvalidAlgorithm) | Some(jwt::JwtError::AlgorithmMismatch) => {
+                } else if err_msg.contains("algorithm") {
                     utils::log_error("The token's algorithm does not match the expected algorithm or the key provided.".to_string());
-                }
-                _ => {
+                } else {
                     utils::log_error("An unknown error occurred during JWT verification.".to_string());
                 }
             }
@@ -47,6 +63,7 @@ fn verify_token(
     token: &str,
     secret: Option<&str>,
     private_key_path: Option<&PathBuf>,
+    validate_exp: bool,
 ) -> Result<bool> {
     // First, decode the token to get the algorithm without verification
     // This is important because jsonwebtoken::verify_with_options needs the algorithm
@@ -55,8 +72,7 @@ fn verify_token(
     // So, we can directly proceed to prepare VerifyOptions.
 
     let key_data: VerifyKeyData;
-    let validate_claims = false; // By default, we are only checking signature as per issue.
-                                     // Flags for --validate-exp, --validate-nbf could be added later.
+    let validate_nbf = false; // We only validate exp if requested
 
     let private_key_content: String; // Needs to live long enough
 
@@ -89,8 +105,8 @@ fn verify_token(
 
     let options = VerifyOptions {
         key_data,
-        validate_exp: validate_claims, // Set to true if --validate-exp flag is added
-        validate_nbf: validate_claims, // Set to true if --validate-nbf flag is added
+        validate_exp, // Set based on the provided flag
+        validate_nbf, // Could be added as a separate flag later
         leeway: 0, // Could be configurable too
     };
 
