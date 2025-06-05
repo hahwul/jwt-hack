@@ -108,6 +108,10 @@ pub enum Commands {
         /// jku&x5u protocol (http/https)
         #[arg(long, default_value = "https")]
         jwk_protocol: String,
+
+        /// Target payload types (comma-separated: all,none,jku,x5u,alg_confusion,kid_sql,x5c,cty)
+        #[arg(long, default_value = "all")]
+        target: Option<String>,
     },
 
     /// Show version
@@ -165,12 +169,14 @@ pub fn execute() {
             jwk_trust,
             jwk_attack,
             jwk_protocol,
+            target,
         }) => {
             payload::execute(
                 token,
                 jwk_trust.as_deref(),
                 jwk_attack.as_deref(),
                 jwk_protocol,
+                target.as_deref(),
             );
         }
         Some(Commands::Version) => {

