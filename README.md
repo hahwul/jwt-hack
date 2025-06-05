@@ -36,7 +36,7 @@ cargo install --path .
 
 | Mode    | Description                  | Support                                                 |
 |---------|------------------------------|---------------------------------------------------------|
-| Encode  | JWT Encoder                  | Secret based /Key based / Algorithm / Custom Header     |
+| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header     |
 | Decode  | JWT Decoder                  | Algorithm, Issued At Check                              |
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force                         |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty    |
