@@ -447,6 +447,9 @@ mod tests {
 
     #[test]
     fn test_verify_rs256_token_correct_key() {
+        // This test uses a placeholder public key.
+        // DecodingKey::from_rsa_pem is expected to fail, leading to an Err result.
+        // This tests the pathway, not successful crypto verification.
         // This test currently expects failure because we use placeholder keys.
         // 1. Encode a token (this will likely fail with placeholder private key)
         // For the purpose of testing verify_with_options structure, we can create a "valid-looking" token string.
@@ -602,6 +605,47 @@ mod tests {
         // jsonwebtoken::decode returns Err for an NBF in the future if validate_nbf is true
         assert!(result.is_err(), "Verification of not-yet-valid nbf token should return an error. Result: {:?}", result);
         // You could also check the specific error kind if desired, e.g., result.unwrap_err().kind() == ErrorKind::ImmatureSignature
+    }
+
+    #[test]
+    fn test_verify_es256_token_pathway() {
+        // This test checks the pathway for ES256 verification.
+        // It uses a placeholder public key and a manually constructed token string.
+        // True cryptographic verification is expected to fail (return Err)
+        // because jsonwebtoken::DecodingKey::from_ec_pem will fail with a placeholder PEM.
+        let header = json!({"alg": "ES256", "typ": "JWT"});
+        let claims = json!({"user": "test_es256_verify"});
+        let encoded_header = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
+        let encoded_claims = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+        let fake_signature = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("fake_es256_signature");
+        let token_str = format!("{}.{}.{}", encoded_header, encoded_claims, fake_signature);
+
+        let public_key_pem_string = fs::read_to_string("src/jwt/test_ec_public.pem")
+            .expect("Should have created/found test_ec_public.pem");
+
+        let options_verify = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&public_key_pem_string),
+            validate_exp: false,
+            validate_nbf: false,
+            leeway: 0,
+        };
+
+        let result = verify_with_options(&token_str, &options_verify);
+        assert!(result.is_err(), "Verification should return Err with a placeholder EC public key. Result was: {:?}", result);
+        // Optionally, check for specific error content if possible, e.g., related to key parsing.
+    }
+
+    #[test]
+    fn test_verify_es256_token_invalid_key_format() {
+        let token_str = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoidGVzdCJ9.c2lnbmF0dXJl"; // Dummy token
+        let invalid_pem = "this is not a valid pem";
+
+        let options_verify = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&invalid_pem),
+            ..Default::default()
+        };
+        let result = verify_with_options(&token_str, &options_verify);
+        assert!(result.is_err(), "Verification should fail with an invalid EC key format");
     }
 }
 

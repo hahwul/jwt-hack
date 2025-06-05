@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod crack;
 mod decode;
 mod encode;
+mod verify;
 mod payload;
 mod version;
 
@@ -56,6 +57,20 @@ pub enum Commands {
         /// Add custom header parameter (format: key=value)
         #[arg(long, value_parser = parse_key_value)]
         header: Vec<(String, String)>,
+    },
+
+    /// Verify JWT token
+    Verify {
+        /// JWT token to verify
+        token: String,
+
+        /// Secret key for HMAC algorithms (HS256, HS384, HS512)
+        #[arg(long)]
+        secret: Option<String>,
+
+        /// RSA or ECDSA private key in PEM format for asymmetric algorithms
+        #[arg(long)]
+        private_key: Option<PathBuf>,
     },
 
     /// Cracking JWT Token
@@ -142,6 +157,9 @@ pub fn execute() {
                 *no_signature,
                 header.clone(),
             );
+        }
+        Some(Commands::Verify { token, secret, private_key }) => {
+            verify::execute(token, secret.as_deref(), private_key.as_ref());
         }
         Some(Commands::Crack {
             token,
