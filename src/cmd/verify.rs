@@ -20,14 +20,22 @@ pub fn execute(token: &str, secret: Option<&str>, private_key_path: Option<&Path
         Err(e) => {
             utils::log_error(format!("JWT Verification Error: {}", e));
             // Suggest common issues or next steps
-            if e.to_string().contains("Invalid signature") {
-                 utils::log_error("This could be due to an incorrect secret or key.".to_string());
-            } else if e.to_string().contains("ExpiredSignature") {
-                 utils::log_error("The token has expired. Check the 'exp' claim.".to_string());
-            } else if e.to_string().contains("ImmatureSignature") {
-                 utils::log_error("The token is not yet valid. Check the 'nbf' claim.".to_string());
-            } else if e.to_string().contains("InvalidAlgorithm") || e.to_string().contains("AlgorithmMismatch") {
-                 utils::log_error("The token's algorithm does not match the expected algorithm or the key provided.".to_string());
+            match e.downcast_ref::<jwt::JwtError>() {
+                Some(jwt::JwtError::InvalidSignature) => {
+                    utils::log_error("This could be due to an incorrect secret or key.".to_string());
+                }
+                Some(jwt::JwtError::ExpiredSignature) => {
+                    utils::log_error("The token has expired. Check the 'exp' claim.".to_string());
+                }
+                Some(jwt::JwtError::ImmatureSignature) => {
+                    utils::log_error("The token is not yet valid. Check the 'nbf' claim.".to_string());
+                }
+                Some(jwt::JwtError::InvalidAlgorithm) | Some(jwt::JwtError::AlgorithmMismatch) => {
+                    utils::log_error("The token's algorithm does not match the expected algorithm or the key provided.".to_string());
+                }
+                _ => {
+                    utils::log_error("An unknown error occurred during JWT verification.".to_string());
+                }
             }
              utils::log_error("e.g jwt-hack verify {JWT_CODE} --secret={YOUR_SECRET}".to_string());
              utils::log_error("or with RSA/ECDSA: jwt-hack verify {JWT_CODE} --private-key=key.pem".to_string());
