@@ -34,10 +34,12 @@ cargo install --path .
 
 ## Features
 
-- **Decode** - Analyze JWT structure and claims
-- **Encode** - Create custom JWTs with various algorithms
-- **Crack** - Test JWT secrets with dictionary attacks or bruteforce
-- **Payloads** - Generate attack payloads (alg none, jku/x5u)
+| Mode    | Description                  | Support                                                 |
+|---------|------------------------------|---------------------------------------------------------|
+| Encode  | JWT Encoder                  | Secret based /Key based / Algorithm / Custom Header     |
+| Decode  | JWT Decoder                  | Algorithm, Issued At Check                              |
+| Crack   | Secret Cracker               | Dictionary Attack / Brute Force                         |
+| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty    |
 
 ## Basic Usage
 
@@ -64,35 +66,6 @@ jwt-hack crack -m brute JWT_TOKEN --max=4
 ```bash
 jwt-hack payload JWT_TOKEN --jwk-attack evil.com --jwk-trust trusted.com
 ```
-
-## Advanced Options
-
-### Encode Options
-- `--algorithm` - Specify algorithm (default: HS256)
-- `--no-signature` - Use 'none' algorithm
-- `--private-key` - RSA/ECDSA private key file
-- `--header` - Add custom header parameters
-
-### Crack Options
-- `-w, --wordlist` - Wordlist file for dictionary attack
-- `-m, --mode` - Attack mode (dict/brute)
-- `--chars` - Character set for bruteforce
-- `--max` - Max length for bruteforce
-- `--concurrency` - Parallel operations
-- `--power` - Use all CPU cores
-
-### Payload Options
-- `--jwk-trust` - Trusted domain for jku/x5u
-- `--jwk-attack` - Attack domain for jku/x5u
-- `--jwk-protocol` - Protocol (http/https)
-
-## Performance
-
-Written in Rust for:
-- Fast execution with large wordlists
-- Memory efficiency
-- Parallel processing
-- Robust error handling
 
 ## Contribute
 
