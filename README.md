@@ -34,12 +34,13 @@ cargo install --path .
 
 ## Features
 
-| Mode    | Description                  | Support                                                 |
-|---------|------------------------------|---------------------------------------------------------|
-| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header     |
-| Decode  | JWT Decoder                  | Algorithm, Issued At Check                              |
-| Crack   | Secret Cracker               | Dictionary Attack / Brute Force                         |
-| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty    |
+| Mode    | Description                  | Support                                                      |
+|---------|------------------------------|--------------------------------------------------------------|
+| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header          |
+| Decode  | JWT Decoder                  | Algorithm, Issued At Check                                   |
+| Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)   |
+| Crack   | Secret Cracker               | Dictionary Attack / Brute Force                              |
+| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
 
 ## Basic Usage
 
@@ -56,6 +57,20 @@ jwt-hack encode '{"sub":"1234"}' --secret=your-secret
 # With Private Key
 ssh-keygen -t rsa -b 4096 -E SHA256 -m PEM -P "" -f RS256.key
 jwt-hack encode '{"a":"z"}' --private-key RS256.key --algorithm=RS256
+```
+
+### Verify a JWT
+Checks if a JWT's signature is valid using the provided secret or key.
+
+```bash
+# With Secret (HMAC algorithms like HS256, HS384, HS512)
+jwt-hack verify YOUR_JWT_TOKEN_HERE --secret=your-256-bit-secret
+
+# With Private Key (for asymmetric algorithms like RS256, ES256)
+# Note: Provide the private key file that was used for signing.
+# For verification, the corresponding public key is used. The tool attempts
+# to derive public key components from the provided private key PEM file.
+jwt-hack verify YOUR_JWT_TOKEN_HERE --private-key path/to/your/RS256_private.key
 ```
 
 ### Crack a JWT
