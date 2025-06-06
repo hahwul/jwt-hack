@@ -18,15 +18,19 @@ A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens.
 
 ## Installation
 
+### Cargo
 ```bash
-# From Homebrew
+cargo install jwt-hack
+```
+
+### Homebrew
+```bash
 brew tap hahwul/jwt-hack
 brew install jwt-hack
+```
 
-# From Cargo
-cargo install jwt-hack
-
-# From source
+### From source
+```bash
 git clone https://github.com/hahwul/jwt-hack
 cd jwt-hack
 cargo install --path .
