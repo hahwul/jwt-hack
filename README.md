@@ -28,11 +28,28 @@ cargo install jwt-hack
 brew install jwt-hack
 ```
 
+### Snapcraft (Ubuntu)
+
+```bash
+sudo snap install jwt-hack
+```
+
 ### From source
 ```bash
 git clone https://github.com/hahwul/jwt-hack
 cd jwt-hack
 cargo install --path .
+```
+
+### Docker images
+#### GHCR
+```bash
+docker pull ghcr.io/hahwul/jwt-hack:latest
+```
+
+#### Docker Hub
+```bash
+docker pull hahwul/jwt-hack:v2.0.0
 ```
 
 ## Features
