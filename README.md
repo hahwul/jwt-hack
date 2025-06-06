@@ -25,7 +25,6 @@ cargo install jwt-hack
 
 ### Homebrew
 ```bash
-brew tap hahwul/jwt-hack
 brew install jwt-hack
 ```
 
