@@ -12,12 +12,8 @@ apps:
   jwt-hack:
     command: jwt-hack
     plugs: [home, network, network-bind]
+
 parts:
   jwt-hack:
     source: .
     plugin: rust
-    build-packages: []
-    override-build: |
-      cargo build --release
-      cp ./target/release/jwt-hack $SNAPCRAFT_PART_INSTALL/
-      snapcraftctl build
