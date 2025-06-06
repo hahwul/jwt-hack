@@ -10,7 +10,7 @@ version: v2.0.0
 
 apps:
   jwt-hack:
-    command: jwt-hack
+    command: bin/jwt-hack
     plugs: [home, network, network-bind]
 
 parts:
