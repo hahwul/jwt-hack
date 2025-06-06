@@ -22,7 +22,7 @@ jobs:
           - amd64
           - armhf
           - arm64
-          - ppc64el
+          - i386
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
