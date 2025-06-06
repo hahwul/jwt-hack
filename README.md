@@ -49,11 +49,13 @@ cargo install --path .
 ## Basic Usage
 
 ### Decode a JWT
+
 ```bash
 jwt-hack decode eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.CHANGED
 ```
 
 ### Encode a JWT
+
 ```bash
 # With Secret
 jwt-hack encode '{"sub":"1234"}' --secret=your-secret
@@ -64,6 +66,7 @@ jwt-hack encode '{"a":"z"}' --private-key RS256.key --algorithm=RS256
 ```
 
 ### Verify a JWT
+
 Checks if a JWT's signature is valid using the provided secret or key.
 
 ```bash
@@ -71,13 +74,11 @@ Checks if a JWT's signature is valid using the provided secret or key.
 jwt-hack verify YOUR_JWT_TOKEN_HERE --secret=your-256-bit-secret
 
 # With Private Key (for asymmetric algorithms like RS256, ES256)
-# Note: Provide the private key file that was used for signing.
-# For verification, the corresponding public key is used. The tool attempts
-# to derive public key components from the provided private key PEM file.
 jwt-hack verify YOUR_JWT_TOKEN_HERE --private-key path/to/your/RS256_private.key
 ```
 
 ### Crack a JWT
+
 ```bash
 # Dictionary attack
 jwt-hack crack -w wordlist.txt JWT_TOKEN
@@ -87,6 +88,7 @@ jwt-hack crack -m brute JWT_TOKEN --max=4
 ```
 
 ### Generate payloads
+
 ```bash
 jwt-hack payload JWT_TOKEN --jwk-attack evil.com --jwk-trust trusted.com
 ```
