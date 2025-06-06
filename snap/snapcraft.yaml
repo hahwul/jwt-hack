@@ -2,12 +2,11 @@
 name: jwt-hack
 summary: JSON Web Token Hack Toolkit.
 description: A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens.
-base: core22
+base: core20
 grade: stable
 confinement: strict
 license: MIT
 version: v2.0.0
-architectures: [amd64, arm64, armhf, i386]
 
 apps:
   jwt-hack:
