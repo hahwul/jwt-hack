@@ -1,0 +1,24 @@
+---
+name: jwt-hack
+summary: JSON Web Token Hack Toolkit.
+description: A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens.
+base: core20
+grade: stable
+confinement: strict
+license: MIT
+version: v2.0.0
+
+apps:
+  jwt-hack:
+    command: jwt-hack
+    plugs: [home, network, network-bind]
+parts:
+  jwt-hack:
+    source: https://github.com/hahwul/jwt-hack.git
+    source-type: git
+    plugin: rust
+    build-packages: [build-essential]
+    override-build: |
+      cargo build --release
+      cp ./target/release/jwt-hack $SNAPCRAFT_PART_INSTALL/
+      snapcraftctl build
