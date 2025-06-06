@@ -1,0 +1,38 @@
+[package]
+name = "jwt-hack"
+version = "2.0.0"
+edition = "2021"
+authors = ["hahwul"]
+description = "Hack the JWT (JSON Web Token) - A tool for JWT security testing and token manipulation"
+repository = "https://github.com/hahwul/jwt-hack"
+license = "MIT"
+keywords = ["jwt", "security", "penetration-testing", "hacking", "cli"]
+categories = ["command-line-utilities", "cryptography"]
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+jsonwebtoken = "8.3.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+base64 = "0.21.4"
+colored = "2.0.4"
+log = "0.4"
+env_logger = "0.10"
+indicatif = "0.17"
+rayon = "1.7"
+tokio = { version = "1.32", features = ["full"] }
+hmac-sha256 = "1.1.6"
+chrono = "0.4"
+tempfile = "3.20.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[[bin]]
+name = "jwt-hack"
+path = "src/main.rs"
