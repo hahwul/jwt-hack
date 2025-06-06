@@ -7,6 +7,8 @@ grade: stable
 confinement: strict
 license: MIT
 version: v2.0.0
+architectures:
+  - build-on: [amd64, arm64, armhf, i386]
 
 apps:
   jwt-hack:
