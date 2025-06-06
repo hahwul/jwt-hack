@@ -4,6 +4,11 @@ on:
   push:
     tags: [v*.*.*]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag version (e.g. v1.2.3)"
+        required: true
+        default: "manual"
 jobs:
   dockerhub-publish:
     runs-on: ubuntu-latest
@@ -14,11 +19,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: hahwul/dalfox
+          images: hahwul/jwt-hack
           tags: |
             type=semver,pattern=v{{major}}
             type=semver,pattern=v{{major}}.{{minor}}
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
