@@ -15,8 +15,6 @@ jobs:
         platform:
           - amd64
           - arm64
-          - i386
-          - armhf
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
