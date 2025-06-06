@@ -8,7 +8,10 @@ confinement: strict
 license: MIT
 version: v2.0.0
 architectures:
-  - build-on: [amd64, arm64, armhf, i386]
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+  - build-on: i386
 
 apps:
   jwt-hack:
