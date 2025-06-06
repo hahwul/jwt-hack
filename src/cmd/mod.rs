@@ -5,8 +5,8 @@ use std::path::PathBuf;
 mod crack;
 mod decode;
 mod encode;
-mod verify;
 mod payload;
+mod verify;
 mod version;
 
 /// Parse key-value pairs in format key=value
@@ -71,7 +71,7 @@ pub enum Commands {
         /// RSA or ECDSA private key in PEM format for asymmetric algorithms
         #[arg(long)]
         private_key: Option<PathBuf>,
-        
+
         /// Validate expiration claim (exp)
         #[arg(long)]
         validate_exp: bool,
@@ -162,8 +162,18 @@ pub fn execute() {
                 header.clone(),
             );
         }
-        Some(Commands::Verify { token, secret, private_key, validate_exp }) => {
-            verify::execute(token, secret.as_deref(), private_key.as_ref(), *validate_exp);
+        Some(Commands::Verify {
+            token,
+            secret,
+            private_key,
+            validate_exp,
+        }) => {
+            verify::execute(
+                token,
+                secret.as_deref(),
+                private_key.as_ref(),
+                *validate_exp,
+            );
         }
         Some(Commands::Crack {
             token,

@@ -122,8 +122,8 @@ mod tests {
     use super::*;
     use std::io::Write;
     // Removed std::fs::File as it's unused
-    use tempfile::NamedTempFile;
     use std::time::Duration;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_generate_bruteforce_payloads_simple() {
@@ -141,7 +141,11 @@ mod tests {
         let chars = "";
         let max_length = 3;
         let result = generate_bruteforce_payloads(chars, max_length);
-        assert!(result.is_empty(), "Expected empty vector for empty charset, got {:?}", result);
+        assert!(
+            result.is_empty(),
+            "Expected empty vector for empty charset, got {:?}",
+            result
+        );
     }
 
     #[test]
@@ -149,7 +153,11 @@ mod tests {
         let chars = "ab";
         let max_length = 0;
         let result = generate_bruteforce_payloads(chars, max_length);
-        assert!(result.is_empty(), "Expected empty vector for max_length 0, got {:?}", result);
+        assert!(
+            result.is_empty(),
+            "Expected empty vector for max_length 0, got {:?}",
+            result
+        );
     }
 
     #[test]
@@ -201,7 +209,10 @@ mod tests {
         ];
         let expected = vec!["a".to_string(), "b".to_string(), "c".to_string()];
         let result = unique(input);
-        assert_eq!(result, expected, "Duplicates were not removed correctly or order changed");
+        assert_eq!(
+            result, expected,
+            "Duplicates were not removed correctly or order changed"
+        );
         assert_eq!(result.len(), 3);
     }
 

@@ -40,21 +40,19 @@ pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredS
 /// Format a JWT token with colored segments
 pub fn format_jwt_token(token: &str) -> String {
     let parts: Vec<&str> = token.split('.').collect();
-    
+
     if parts.len() < 2 {
         return token.to_string();
     }
-    
+
     if parts.len() == 2 {
         // Header and payload only
-        return format!("{}.{}", 
-            parts[0].bright_blue(),
-            parts[1].bright_magenta()
-        );
+        return format!("{}.{}", parts[0].bright_blue(), parts[1].bright_magenta());
     }
-    
+
     // Full JWT with signature
-    format!("{}.{}.{}", 
+    format!(
+        "{}.{}.{}",
         parts[0].bright_blue(),
         parts[1].bright_magenta(),
         parts[2].bright_yellow()
@@ -68,7 +66,7 @@ pub fn start_progress(message: &str) -> indicatif::ProgressBar {
         indicatif::ProgressStyle::default_spinner()
             .template("{spinner:.blue} {msg}")
             .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     pb.set_message(message.to_string());
     pb.enable_steady_tick(std::time::Duration::from_millis(100));
@@ -79,29 +77,29 @@ pub fn start_progress(message: &str) -> indicatif::ProgressBar {
 #[allow(dead_code)]
 pub fn format_duration(duration: std::time::Duration) -> String {
     let seconds = duration.as_secs();
-    
+
     if seconds < 60 {
         return format!("{}s", seconds);
     }
-    
+
     let minutes = seconds / 60;
     let remain_seconds = seconds % 60;
-    
+
     if minutes < 60 {
         return format!("{}m {}s", minutes, remain_seconds);
     }
-    
+
     let hours = minutes / 60;
     let remain_minutes = minutes % 60;
-    
+
     format!("{}h {}m {}s", hours, remain_minutes, remain_seconds)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
     use colored::Colorize;
+    use std::time::Duration;
 
     #[test]
     fn test_format_jwt_token_full() {
@@ -118,11 +116,7 @@ mod tests {
     #[test]
     fn test_format_jwt_token_no_signature() {
         let token = "header.payload";
-        let expected = format!(
-            "{}.{}",
-            "header".bright_blue(),
-            "payload".bright_magenta()
-        );
+        let expected = format!("{}.{}", "header".bright_blue(), "payload".bright_magenta());
         assert_eq!(format_jwt_token(token), expected);
     }
 

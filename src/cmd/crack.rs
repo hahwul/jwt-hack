@@ -52,10 +52,12 @@ pub fn execute(
 
 /// Execute the crack command with options struct
 fn execute_with_options(options: &CrackOptions) {
-    utils::log_info(format!("Starting {} cracking mode for: {}", 
+    utils::log_info(format!(
+        "Starting {} cracking mode for: {}",
         options.mode.bright_green(),
-        utils::format_jwt_token(options.token)));
-    
+        utils::format_jwt_token(options.token)
+    ));
+
     if options.mode == "dict" {
         if let Some(wordlist_path) = options.wordlist {
             if let Err(e) = crack_dictionary(
@@ -99,7 +101,10 @@ fn crack_dictionary(
     let start_time = Instant::now();
 
     // Load wordlist
-    utils::log_info(format!("Loading wordlist from {}", wordlist_path.display().to_string().bright_yellow()));
+    utils::log_info(format!(
+        "Loading wordlist from {}",
+        wordlist_path.display().to_string().bright_yellow()
+    ));
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file);
 
@@ -110,7 +115,7 @@ fn crack_dictionary(
         ProgressStyle::default_spinner()
             .template("{spinner:.blue} {msg}")
             .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     loading_pb.set_message("Reading wordlist...");
     loading_pb.enable_steady_tick(Duration::from_millis(100));
@@ -128,10 +133,14 @@ fn crack_dictionary(
     loading_pb.finish_with_message(format!(
         "Loaded {} unique words in {}",
         words_vec.len().to_string().bright_green(),
-        HumanDuration(start_time.elapsed()).to_string().bright_cyan()
+        HumanDuration(start_time.elapsed())
+            .to_string()
+            .bright_cyan()
     ));
-    utils::log_info(format!("Loaded {} unique words after deduplication", 
-        words_vec.len().to_string().bright_green()));
+    utils::log_info(format!(
+        "Loaded {} unique words after deduplication",
+        words_vec.len().to_string().bright_green()
+    ));
 
     // Prepare for cracking
     let found = Arc::new(Mutex::new(None::<String>));
@@ -159,8 +168,10 @@ fn crack_dictionary(
         concurrency.min(rayon::current_num_threads())
     };
 
-    utils::log_info(format!("Starting dictionary attack with {} threads", 
-        pool_size.to_string().bright_green()));
+    utils::log_info(format!(
+        "Starting dictionary attack with {} threads",
+        pool_size.to_string().bright_green()
+    ));
 
     // Create a local thread pool instead of a global one
     let pool = match rayon::ThreadPoolBuilder::new()
@@ -267,24 +278,30 @@ fn crack_dictionary(
     let rate = attempts_total as f64 / elapsed.as_secs_f64();
 
     if let Some(secret) = found.lock().unwrap().clone() {
-        utils::log_success(format!("Found JWT signature secret: {}", 
-            secret.bright_yellow().bold()));
-        utils::log_success(format!("Cracking completed in {} ({:.2} keys/sec)",
+        utils::log_success(format!(
+            "Found JWT signature secret: {}",
+            secret.bright_yellow().bold()
+        ));
+        utils::log_success(format!(
+            "Cracking completed in {} ({:.2} keys/sec)",
             HumanDuration(elapsed).to_string().bright_cyan(),
             rate.to_string().bright_green()
         ));
-        
+
         println!("\n{}", "━━━ Crack Results ━━━".bright_green().bold());
         println!("Token:  {}", utils::format_jwt_token(token));
         println!("Secret: {}", secret.bright_yellow().bold());
         println!();
     } else {
-        utils::log_error(format!("Secret not found after trying {} keys in {}",
+        utils::log_error(format!(
+            "Secret not found after trying {} keys in {}",
             attempts_total.to_string().bright_yellow(),
             HumanDuration(elapsed).to_string().bright_cyan()
         ));
-        utils::log_error(format!("Average speed: {:.2} keys/sec", 
-            rate.to_string().bright_green()));
+        utils::log_error(format!(
+            "Average speed: {:.2} keys/sec",
+            rate.to_string().bright_green()
+        ));
     }
 
     utils::log_info("Finished dictionary crack mode");
@@ -309,8 +326,10 @@ fn crack_bruteforce(
 
     // Calculate total combinations
     let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
-    utils::log_info(format!("Will try up to {} combinations", 
-        total_combinations.to_string().bright_yellow()));
+    utils::log_info(format!(
+        "Will try up to {} combinations",
+        total_combinations.to_string().bright_yellow()
+    ));
 
     // Create multi-progress display
     let multi = MultiProgress::new();
@@ -348,7 +367,9 @@ fn crack_bruteforce(
     gen_pb.finish_with_message(format!(
         "Generated {} potential payloads in {}",
         payloads.len().to_string().bright_green(),
-        HumanDuration(start_time.elapsed()).to_string().bright_cyan()
+        HumanDuration(start_time.elapsed())
+            .to_string()
+            .bright_cyan()
     ));
 
     utils::log_info(format!(
@@ -377,8 +398,10 @@ fn crack_bruteforce(
         concurrency.min(rayon::current_num_threads())
     };
 
-    utils::log_info(format!("Starting bruteforce attack with {} threads", 
-        pool_size.to_string().bright_green()));
+    utils::log_info(format!(
+        "Starting bruteforce attack with {} threads",
+        pool_size.to_string().bright_green()
+    ));
 
     // Create a local thread pool
     let pool = match rayon::ThreadPoolBuilder::new()
@@ -486,26 +509,32 @@ fn crack_bruteforce(
     let rate = attempts_total as f64 / elapsed.as_secs_f64();
 
     if let Some(secret) = found.lock().unwrap().clone() {
-        utils::log_success(format!("Found JWT signature secret: {}", 
-            secret.bright_yellow().bold()));
-        utils::log_success(format!("Cracking completed in {} ({:.2} keys/sec)",
+        utils::log_success(format!(
+            "Found JWT signature secret: {}",
+            secret.bright_yellow().bold()
+        ));
+        utils::log_success(format!(
+            "Cracking completed in {} ({:.2} keys/sec)",
             HumanDuration(elapsed).to_string().bright_cyan(),
             rate.to_string().bright_green()
         ));
-        
+
         println!("\n{}", "━━━ Crack Results ━━━".bright_green().bold());
         println!("Token:  {}", utils::format_jwt_token(token));
         println!("Secret: {}", secret.bright_yellow().bold());
         println!();
     } else {
-        utils::log_error(format!("Secret not found after trying {} keys in {}",
+        utils::log_error(format!(
+            "Secret not found after trying {} keys in {}",
             attempts_total.to_string().bright_yellow(),
             HumanDuration(elapsed).to_string().bright_cyan()
         ));
-        utils::log_error(format!("Average speed: {:.2} keys/sec", 
-            rate.to_string().bright_green()));
+        utils::log_error(format!(
+            "Average speed: {:.2} keys/sec",
+            rate.to_string().bright_green()
+        ));
     }
-    
+
     utils::log_info("Finished bruteforce crack mode");
 
     Ok(())
@@ -527,19 +556,18 @@ mod tests {
             "name": "Test User",
             "iat": 1516239022
         });
-        
+
         // Create options with the given secret
         let options = crate::jwt::EncodeOptions {
             algorithm: "HS256",
             key_data: crate::jwt::KeyData::Secret(secret),
             header_params: None,
         };
-        
+
         // Encode token
-        crate::jwt::encode_with_options(&claims, &options)
-            .expect("Failed to create test token")
+        crate::jwt::encode_with_options(&claims, &options).expect("Failed to create test token")
     }
-    
+
     // Helper function to create a temporary wordlist file for testing
     fn create_temp_wordlist(words: &[&str]) -> NamedTempFile {
         let file = NamedTempFile::new().expect("Failed to create temp file");
@@ -554,7 +582,7 @@ mod tests {
     fn test_execute_no_panic() {
         // Create a test token with a known secret
         let token = create_test_token("test_secret");
-        
+
         // Test that execute doesn't panic with valid parameters
         let result = std::panic::catch_unwind(|| {
             execute(
@@ -565,18 +593,21 @@ mod tests {
                 10,
                 4,
                 false,
-                false
+                false,
             );
         });
-        
-        assert!(result.is_ok(), "execute should not panic with valid parameters");
+
+        assert!(
+            result.is_ok(),
+            "execute should not panic with valid parameters"
+        );
     }
-    
+
     #[test]
     fn test_execute_with_options_dict_no_wordlist() {
         // Create a test token
         let token = create_test_token("test_secret");
-        
+
         // Create options without a wordlist
         let options = CrackOptions {
             token: &token,
@@ -588,20 +619,23 @@ mod tests {
             power: false,
             verbose: false,
         };
-        
+
         // Execute should handle the missing wordlist without panicking
         let result = std::panic::catch_unwind(|| {
             execute_with_options(&options);
         });
-        
-        assert!(result.is_ok(), "execute_with_options should not panic with missing wordlist");
+
+        assert!(
+            result.is_ok(),
+            "execute_with_options should not panic with missing wordlist"
+        );
     }
-    
+
     #[test]
     fn test_execute_with_invalid_mode() {
         // Create a test token
         let token = create_test_token("test_secret");
-        
+
         // Create options with invalid mode
         let options = CrackOptions {
             token: &token,
@@ -613,102 +647,103 @@ mod tests {
             power: false,
             verbose: false,
         };
-        
+
         // Execute should handle the invalid mode without panicking
         let result = std::panic::catch_unwind(|| {
             execute_with_options(&options);
         });
-        
-        assert!(result.is_ok(), "execute_with_options should not panic with invalid mode");
+
+        assert!(
+            result.is_ok(),
+            "execute_with_options should not panic with invalid mode"
+        );
     }
-    
+
     #[test]
     fn test_crack_dictionary_with_matching_word() {
         // Create a test token with a known secret that will be in our wordlist
         let secret = "correct_secret";
         let token = create_test_token(secret);
-        
+
         // Create a temporary wordlist file with the correct secret
         let wordlist = create_temp_wordlist(&[
-            "wrong1", 
-            "wrong2", 
-            secret, // The correct secret
-            "wrong3"
+            "wrong1", "wrong2", secret, // The correct secret
+            "wrong3",
         ]);
-        
+
         // Test that dictionary cracking finds the secret
         let path_buf = PathBuf::from(wordlist.path());
         let result = crack_dictionary(
-            &token,
-            &path_buf,
-            2, // Small concurrency for test
+            &token, &path_buf, 2,     // Small concurrency for test
             false, // Don't use all cores
-            false  // Don't print verbose logs
+            false, // Don't print verbose logs
         );
-        
+
         assert!(result.is_ok(), "crack_dictionary should not fail");
-        
+
         // Clean up is automatic when wordlist goes out of scope
     }
-    
+
     #[test]
     fn test_crack_dictionary_with_no_match() {
         // Create a test token with a secret that won't be in our wordlist
         let token = create_test_token("secret_not_in_list");
-        
+
         // Create a temporary wordlist file without the correct secret
         let wordlist = create_temp_wordlist(&["wrong1", "wrong2", "wrong3"]);
-        
+
         // Test that dictionary cracking handles no match without error
         let path_buf = PathBuf::from(wordlist.path());
         let result = crack_dictionary(
-            &token,
-            &path_buf,
-            2, // Small concurrency for test
+            &token, &path_buf, 2,     // Small concurrency for test
             false, // Don't use all cores
-            false  // Don't print verbose logs
+            false, // Don't print verbose logs
         );
-        
-        assert!(result.is_ok(), "crack_dictionary should not fail when no match is found");
-        
+
+        assert!(
+            result.is_ok(),
+            "crack_dictionary should not fail when no match is found"
+        );
+
         // Clean up is automatic when wordlist goes out of scope
     }
-    
+
     #[test]
     fn test_crack_bruteforce_simple() {
         // For this test, we'll use a very short secret that can be found quickly
         let secret = "ab";
         let token = create_test_token(secret);
-        
+
         // Test with minimal parameters to avoid long test runs
         let result = crack_bruteforce(
-            &token,
-            "abc", // Very limited charset
+            &token, "abc", // Very limited charset
             2,     // Only try up to length 2
             2,     // Small concurrency
             false, // Don't use all cores
-            false  // Don't print verbose logs
+            false, // Don't print verbose logs
         );
-        
+
         assert!(result.is_ok(), "crack_bruteforce should not fail");
     }
-    
+
     #[test]
     #[ignore] // This test would take too long for regular test runs
     fn test_crack_bruteforce_no_match() {
         // Create a test token with a secret that won't be found in our limited search
         let token = create_test_token("longsecret123");
-        
+
         // Test with parameters that will not find the secret
         let result = crack_bruteforce(
-            &token,
-            "abc", // Limited charset that doesn't contain digits
+            &token, "abc", // Limited charset that doesn't contain digits
             3,     // Only try up to length 3
             2,     // Small concurrency
             false, // Don't use all cores
-            false  // Don't print verbose logs
+            false, // Don't print verbose logs
         );
-        
-        assert!(result.is_ok(), "crack_bruteforce should not fail when no match is found");
+
+        assert!(
+            result.is_ok(),
+            "crack_bruteforce should not fail when no match is found"
+        );
     }
 }

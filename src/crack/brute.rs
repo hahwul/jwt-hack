@@ -190,7 +190,13 @@ mod tests {
 
         let expected = ["aa", "ab", "ba", "bb"];
         assert_eq!(all_combinations.len(), 4);
-        assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+        assert_eq!(
+            all_combinations,
+            expected
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        );
     }
 
     #[test]
@@ -206,7 +212,13 @@ mod tests {
 
         let expected = ["aaa"];
         assert_eq!(all_combinations.len(), 1);
-        assert_eq!(all_combinations, expected.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+        assert_eq!(
+            all_combinations,
+            expected
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        );
     }
 
     #[test]
@@ -228,7 +240,11 @@ mod tests {
     fn test_estimate_time_remaining_half_done() {
         let result = estimate_time_remaining(50.0, 10.0);
         let expected = 10.0;
-        assert!((result - expected).abs() < 1e-9, "Expected approx 10.0, got {}", result);
+        assert!(
+            (result - expected).abs() < 1e-9,
+            "Expected approx 10.0, got {}",
+            result
+        );
     }
 
     #[test]

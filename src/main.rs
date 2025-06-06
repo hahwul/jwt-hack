@@ -13,7 +13,7 @@ fn main() {
 
     // Print banner
     printing::banner();
-    
+
     // Parse command line arguments
     cmd::execute();
 }
