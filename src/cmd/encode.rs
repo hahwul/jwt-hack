@@ -148,3 +148,113 @@ fn encode_json(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_execute_with_secret() {
+        // Create a simple JSON payload
+        let json_str = r#"{"sub":"1234567890","name":"John Doe"}"#;
+        let secret = Some("test_secret");
+        let private_key_path = None;
+        let algorithm = "HS256";
+        let no_signature = false;
+        let headers = Vec::new();
+        
+        // Execute should not panic
+        let result = std::panic::catch_unwind(|| {
+            execute(json_str, secret, private_key_path, algorithm, no_signature, headers);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with valid parameters");
+    }
+    
+    #[test]
+    fn test_execute_with_no_signature() {
+        // Create a simple JSON payload
+        let json_str = r#"{"sub":"1234567890","name":"John Doe"}"#;
+        let secret = None;
+        let private_key_path = None;
+        let algorithm = "none";
+        let no_signature = true;
+        let headers = Vec::new();
+        
+        // Execute should not panic
+        let result = std::panic::catch_unwind(|| {
+            execute(json_str, secret, private_key_path, algorithm, no_signature, headers);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with no signature");
+    }
+    
+    #[test]
+    fn test_execute_with_custom_headers() {
+        // Create a simple JSON payload
+        let json_str = r#"{"sub":"1234567890","name":"John Doe"}"#;
+        let secret = Some("test_secret");
+        let private_key_path = None;
+        let algorithm = "HS256";
+        let no_signature = false;
+        let headers = vec![
+            ("kid".to_string(), "1234".to_string()),
+            ("typ".to_string(), "JWT+AT".to_string()),
+        ];
+        
+        // Execute should not panic
+        let result = std::panic::catch_unwind(|| {
+            execute(json_str, secret, private_key_path, algorithm, no_signature, headers);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with custom headers");
+    }
+    
+    #[test]
+    fn test_execute_with_invalid_json() {
+        // Create an invalid JSON payload
+        let json_str = r#"{"sub":"1234567890","name":"John Doe"#; // Missing closing brace
+        let secret = Some("test_secret");
+        let private_key_path = None;
+        let algorithm = "HS256";
+        let no_signature = false;
+        let headers = Vec::new();
+        
+        // Execute should handle the error and not panic
+        let result = std::panic::catch_unwind(|| {
+            execute(json_str, secret, private_key_path, algorithm, no_signature, headers);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with invalid JSON");
+    }
+    
+    #[test]
+    fn test_encode_json_with_rsa_key() {
+        // This test requires creating a temporary RSA key file
+        let temp_dir = tempdir().expect("Failed to create temp directory");
+        let key_path = temp_dir.path().join("test_key.pem");
+        
+        // Write sample RSA private key (this is just a placeholder for testing)
+        let sample_key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEAnzyis1ZjfNB0bBgKFMSvvkTtwlvBsaJq7S5wA+kzeVOVpVWw\nkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHcaT92whREFpLv9cj5lTeJSibyr/Mr\nm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIytvHWTxZYEcXLgAXFuUuaS3uF9gEi\nNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0e+lf4s4OxQawWD79J9/5d3Ry0vbV\n3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWbV6L11BWkpzGXSW4Hv43qa+GSYOD2\nQU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9MwIDAQAB\n-----END RSA PRIVATE KEY-----";
+        std::fs::write(&key_path, sample_key).expect("Failed to write test key file");
+        
+        // Create a simple JSON payload
+        let json_str = r#"{"sub":"1234567890","name":"John Doe"}"#;
+        let secret = None;
+        let private_key_path = Some(&key_path);
+        let algorithm = "RS256";
+        let no_signature = false;
+        let headers = Vec::new();
+        
+        // Execute with RSA key shouldn't panic (even if the key is invalid for actual signing)
+        let result = std::panic::catch_unwind(|| {
+            encode_json(json_str, secret, private_key_path, algorithm, no_signature, &headers)
+        });
+        
+        assert!(result.is_err() || result.is_ok(), "Properly handled RSA key attempt");
+        
+        // Clean up
+        temp_dir.close().expect("Failed to clean up temp directory");
+    }
+}

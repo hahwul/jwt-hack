@@ -10,3 +10,18 @@ pub fn execute() {
     println!("{}: {}", "License".bright_blue(), "MIT".bright_magenta());
     println!("\n{}", "Thank you for using JWT-Hack!".bright_green());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_execute_no_panic() {
+        // Simply test that execute() does not panic
+        let result = std::panic::catch_unwind(|| {
+            execute();
+        });
+        
+        assert!(result.is_ok(), "execute() should not panic");
+    }
+}

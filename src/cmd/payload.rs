@@ -289,3 +289,127 @@ fn generate_url_payloads(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use base64::engine::general_purpose;
+
+    fn create_test_token() -> String {
+        // Create a simple header and payload
+        let header = json!({
+            "alg": "HS256",
+            "typ": "JWT"
+        });
+        
+        let payload = json!({
+            "sub": "1234567890",
+            "name": "Test User",
+            "iat": 1516239022
+        });
+        
+        // Encode to base64
+        let header_encoded = general_purpose::URL_SAFE_NO_PAD.encode(
+            header.to_string().as_bytes()
+        );
+        let payload_encoded = general_purpose::URL_SAFE_NO_PAD.encode(
+            payload.to_string().as_bytes()
+        );
+        
+        // Create a simple test token
+        format!("{}.{}.signature", header_encoded, payload_encoded)
+    }
+    
+    #[test]
+    fn test_execute_no_panic() {
+        // Create a test token
+        let token = create_test_token();
+        
+        // Test with minimal parameters
+        let result = std::panic::catch_unwind(|| {
+            execute(&token, None, None, "https", None);
+        });
+        
+        assert!(result.is_ok(), "execute() should not panic with minimal parameters");
+    }
+    
+    #[test]
+    fn test_execute_with_target_parameters() {
+        // Create a test token
+        let token = create_test_token();
+        
+        // Test with specific target
+        let result = std::panic::catch_unwind(|| {
+            execute(&token, None, None, "https", Some("none"));
+        });
+        
+        assert!(result.is_ok(), "execute() should not panic with 'none' target parameter");
+    }
+    
+    #[test]
+    fn test_execute_with_jwk_parameters() {
+        // Create a test token
+        let token = create_test_token();
+        
+        // Test with JWK parameters
+        let result = std::panic::catch_unwind(|| {
+            execute(
+                &token, 
+                Some("trust.example.com"), 
+                Some("attack.example.com"), 
+                "https", 
+                Some("jku,x5u")
+            );
+        });
+        
+        assert!(result.is_ok(), "execute() should not panic with JWK parameters");
+    }
+    
+    #[test]
+    fn test_execute_with_invalid_token() {
+        // Create an invalid token
+        let token = "invalid.token";
+        
+        // Test with invalid token
+        let result = std::panic::catch_unwind(|| {
+            execute(token, None, None, "https", None);
+        });
+        
+        assert!(result.is_ok(), "execute() should not panic with invalid token");
+    }
+    
+    #[test]
+    fn test_generate_none_payloads() {
+        // Create a valid payload part
+        let payload_str = "eyJzdWIiOiIxMjM0NTY3ODkwIn0";
+        
+        // Test generating none payload
+        let result = generate_none_payloads(payload_str, "none");
+        
+        assert!(result.is_ok(), "generate_none_payloads should not fail");
+    }
+    
+    #[test]
+    fn test_generate_url_payloads() {
+        // Create a valid payload part
+        let payload_str = "eyJzdWIiOiIxMjM0NTY3ODkwIn0";
+        
+        // Create a set of targets
+        let mut targets = HashSet::new();
+        targets.insert("jku".to_string());
+        targets.insert("x5u".to_string());
+        
+        // Test generating url payloads
+        let result = generate_url_payloads(
+            payload_str,
+            Some("trust.example.com"),
+            "attack.example.com",
+            "https",
+            &targets,
+            false
+        );
+        
+        assert!(result.is_ok(), "generate_url_payloads should not fail");
+    }
+}

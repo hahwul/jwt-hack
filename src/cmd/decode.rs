@@ -86,3 +86,81 @@ fn decode_token(token: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use chrono::Utc;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    #[test]
+    fn test_execute_valid_token() {
+        // Create a valid token for testing
+        let now = Utc::now();
+        let claims = json!({
+            "sub": "test_user",
+            "name": "Test User",
+            "iat": now.timestamp(),
+            "exp": (now + chrono::Duration::days(1)).timestamp()
+        });
+        
+        let token = jwt::encode(&claims, "", "HS256").expect("Failed to create test token");
+        
+        // Execute should not panic with a valid token
+        let result = std::panic::catch_unwind(|| {
+            execute(&token);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with valid token");
+    }
+    
+    #[test]
+    fn test_execute_invalid_token() {
+        // Create an invalid token for testing
+        let invalid_token = "invalid.token.format";
+        
+        // Execute should handle the error and not panic
+        let result = std::panic::catch_unwind(|| {
+            execute(invalid_token);
+        });
+        
+        assert!(result.is_ok(), "execute() panicked with invalid token");
+    }
+    
+    #[test]
+    fn test_decode_token_with_timestamps() {
+        // Create a token with timestamp fields
+        let now = SystemTime::now();
+        let since_epoch = now.duration_since(UNIX_EPOCH).unwrap();
+        let iat = since_epoch.as_secs() as i64;
+        let exp = (since_epoch + Duration::from_secs(86400)).as_secs() as i64;
+        
+        let claims = json!({
+            "sub": "test_user",
+            "iat": iat,
+            "exp": exp
+        });
+        
+        let token = jwt::encode(&claims, "", "HS256").expect("Failed to create test token");
+        
+        // Test that decode_token processes timestamps correctly
+        let result = decode_token(&token);
+        assert!(result.is_ok(), "decode_token failed for valid token with timestamps");
+    }
+    
+    #[test]
+    fn test_decode_token_without_timestamps() {
+        // Create a token without timestamp fields
+        let claims = json!({
+            "sub": "test_user",
+            "name": "Test User"
+        });
+        
+        let token = jwt::encode(&claims, "", "HS256").expect("Failed to create test token");
+        
+        // Test that decode_token handles tokens without timestamps
+        let result = decode_token(&token);
+        assert!(result.is_ok(), "decode_token failed for valid token without timestamps");
+    }
+}

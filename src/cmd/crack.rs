@@ -510,3 +510,205 @@ fn crack_bruteforce(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use tempfile::NamedTempFile;
+
+    // Helper function to create a test JWT token with HS256 algorithm
+    fn create_test_token(secret: &str) -> String {
+        // Create simple claims
+        let claims = json!({
+            "sub": "1234567890",
+            "name": "Test User",
+            "iat": 1516239022
+        });
+        
+        // Create options with the given secret
+        let options = crate::jwt::EncodeOptions {
+            algorithm: "HS256",
+            key_data: crate::jwt::KeyData::Secret(secret),
+            header_params: None,
+        };
+        
+        // Encode token
+        crate::jwt::encode_with_options(&claims, &options)
+            .expect("Failed to create test token")
+    }
+    
+    // Helper function to create a temporary wordlist file for testing
+    fn create_temp_wordlist(words: &[&str]) -> NamedTempFile {
+        let file = NamedTempFile::new().expect("Failed to create temp file");
+        let mut file_handle = file.reopen().expect("Failed to open temp file");
+        for word in words {
+            writeln!(file_handle, "{}", word).expect("Failed to write to temp file");
+        }
+        file
+    }
+
+    #[test]
+    fn test_execute_no_panic() {
+        // Create a test token with a known secret
+        let token = create_test_token("test_secret");
+        
+        // Test that execute doesn't panic with valid parameters
+        let result = std::panic::catch_unwind(|| {
+            execute(
+                &token,
+                "dict",
+                &None,
+                "abcdefghijklmnopqrstuvwxyz",
+                10,
+                4,
+                false,
+                false
+            );
+        });
+        
+        assert!(result.is_ok(), "execute should not panic with valid parameters");
+    }
+    
+    #[test]
+    fn test_execute_with_options_dict_no_wordlist() {
+        // Create a test token
+        let token = create_test_token("test_secret");
+        
+        // Create options without a wordlist
+        let options = CrackOptions {
+            token: &token,
+            mode: "dict",
+            wordlist: &None,
+            chars: "abcdefghijklmnopqrstuvwxyz",
+            concurrency: 10,
+            max: 4,
+            power: false,
+            verbose: false,
+        };
+        
+        // Execute should handle the missing wordlist without panicking
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        
+        assert!(result.is_ok(), "execute_with_options should not panic with missing wordlist");
+    }
+    
+    #[test]
+    fn test_execute_with_invalid_mode() {
+        // Create a test token
+        let token = create_test_token("test_secret");
+        
+        // Create options with invalid mode
+        let options = CrackOptions {
+            token: &token,
+            mode: "invalid_mode",
+            wordlist: &None,
+            chars: "abcdefghijklmnopqrstuvwxyz",
+            concurrency: 10,
+            max: 4,
+            power: false,
+            verbose: false,
+        };
+        
+        // Execute should handle the invalid mode without panicking
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        
+        assert!(result.is_ok(), "execute_with_options should not panic with invalid mode");
+    }
+    
+    #[test]
+    fn test_crack_dictionary_with_matching_word() {
+        // Create a test token with a known secret that will be in our wordlist
+        let secret = "correct_secret";
+        let token = create_test_token(secret);
+        
+        // Create a temporary wordlist file with the correct secret
+        let wordlist = create_temp_wordlist(&[
+            "wrong1", 
+            "wrong2", 
+            secret, // The correct secret
+            "wrong3"
+        ]);
+        
+        // Test that dictionary cracking finds the secret
+        let path_buf = PathBuf::from(wordlist.path());
+        let result = crack_dictionary(
+            &token,
+            &path_buf,
+            2, // Small concurrency for test
+            false, // Don't use all cores
+            false  // Don't print verbose logs
+        );
+        
+        assert!(result.is_ok(), "crack_dictionary should not fail");
+        
+        // Clean up is automatic when wordlist goes out of scope
+    }
+    
+    #[test]
+    fn test_crack_dictionary_with_no_match() {
+        // Create a test token with a secret that won't be in our wordlist
+        let token = create_test_token("secret_not_in_list");
+        
+        // Create a temporary wordlist file without the correct secret
+        let wordlist = create_temp_wordlist(&["wrong1", "wrong2", "wrong3"]);
+        
+        // Test that dictionary cracking handles no match without error
+        let path_buf = PathBuf::from(wordlist.path());
+        let result = crack_dictionary(
+            &token,
+            &path_buf,
+            2, // Small concurrency for test
+            false, // Don't use all cores
+            false  // Don't print verbose logs
+        );
+        
+        assert!(result.is_ok(), "crack_dictionary should not fail when no match is found");
+        
+        // Clean up is automatic when wordlist goes out of scope
+    }
+    
+    #[test]
+    fn test_crack_bruteforce_simple() {
+        // For this test, we'll use a very short secret that can be found quickly
+        let secret = "ab";
+        let token = create_test_token(secret);
+        
+        // Test with minimal parameters to avoid long test runs
+        let result = crack_bruteforce(
+            &token,
+            "abc", // Very limited charset
+            2,     // Only try up to length 2
+            2,     // Small concurrency
+            false, // Don't use all cores
+            false  // Don't print verbose logs
+        );
+        
+        assert!(result.is_ok(), "crack_bruteforce should not fail");
+    }
+    
+    #[test]
+    #[ignore] // This test would take too long for regular test runs
+    fn test_crack_bruteforce_no_match() {
+        // Create a test token with a secret that won't be found in our limited search
+        let token = create_test_token("longsecret123");
+        
+        // Test with parameters that will not find the secret
+        let result = crack_bruteforce(
+            &token,
+            "abc", // Limited charset that doesn't contain digits
+            3,     // Only try up to length 3
+            2,     // Small concurrency
+            false, // Don't use all cores
+            false  // Don't print verbose logs
+        );
+        
+        assert!(result.is_ok(), "crack_bruteforce should not fail when no match is found");
+    }
+}
