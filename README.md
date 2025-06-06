@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="JWT-HACK Logo" src="https://raw.githubusercontent.com/hahwul/jwt-hack/refs/heads/v2/images/logo.png" width="260px;">
+    <img alt="JWT-HACK Logo" src="https://raw.githubusercontent.com/hahwul/jwt-hack/refs/heads/main/images/logo.png" width="260px;">
   </picture>
   <p>JSON Web Token Hack Toolkit</p>
 </div>
