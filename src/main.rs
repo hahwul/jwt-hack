@@ -6,14 +6,14 @@ mod printing;
 mod utils;
 
 fn main() {
-    // Initialize custom logger
+    // Set up the logging system for the application
     if let Err(e) = printing::setup_logger() {
         eprintln!("Logger initialization error: {}", e);
     }
 
-    // Print banner
+    // Display the application banner
     printing::banner();
 
-    // Parse command line arguments
+    // Parse and execute command line arguments
     cmd::execute();
 }

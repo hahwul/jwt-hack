@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::jwt;
 use crate::utils;
 
-/// Execute the encode command
+/// Encodes JSON data into a JWT token with various algorithm and signing options
 pub fn execute(
     json_str: &str,
     secret: Option<&str>,
@@ -46,12 +46,12 @@ fn encode_json(
     no_signature: bool,
     headers: &Vec<(String, String)>,
 ) -> Result<()> {
-    // Parse the JSON string
+    // Parse the input JSON into a Value object
     let claims: Value = serde_json::from_str(json_str)?;
 
     let progress = utils::start_progress("Encoding JWT token...");
 
-    // Process custom headers
+    // Convert custom header key-value pairs into a hashmap for JWT encoding
     let header_map: Option<HashMap<&str, &str>> = if !headers.is_empty() {
         let mut map = HashMap::new();
         for (key, value) in headers {
@@ -62,46 +62,46 @@ fn encode_json(
         None
     };
 
-    // Build encoding options - only for no_signature and secret options
-    // (private key option handled separately due to lifetime concerns)
+    // Build JWT encoding options based on provided parameters
+    // Private key option is handled separately due to Rust lifetime requirements
     let options = if no_signature {
-        // 'none' algorithm - no signature
+        // Use 'none' algorithm (creates unsigned JWT token)
         jwt::EncodeOptions {
             algorithm: "none",
             key_data: jwt::KeyData::None,
             header_params: header_map,
         }
     } else if let Some(path) = private_key_path {
-        // Read private key from file
+        // Read RSA/EC private key from file for asymmetric algorithms
         let key_content = fs::read_to_string(path)?;
 
-        // Use RSA or EC key with key content owned in this scope
+        // Create encoding options with the private key content (keeping ownership in this scope)
         let options = jwt::EncodeOptions {
             algorithm,
             key_data: jwt::KeyData::PrivateKeyPem(&key_content),
             header_params: header_map,
         };
 
-        // Encode immediately while key_content is in scope
+        // Encode JWT immediately while private key content is in scope
         let token = jwt::encode_with_options(&claims, &options)?;
 
         progress.finish_and_clear();
 
-        // Display results with pretty formatting
+        // Display successful encoding result with formatted output
         utils::log_success("JWT token created successfully");
 
-        // Show algorithm and secret info
+        // Display algorithm information
         println!("\n{}", "━━━ Encoding Details ━━━".bright_cyan().bold());
         utils::log_info(format!("Algorithm: {}", algorithm.bright_green()));
 
-        // Show key info
+        // Display private key file path information
         utils::log_info(format!(
             "Key: {} ({})",
             path.display().to_string().bright_yellow(),
             "Private Key".bright_cyan()
         ));
 
-        // Show custom headers if present
+        // Display any custom headers included in the token
         if !headers.is_empty() {
             utils::log_info("Custom Headers:".to_string());
             for (key, value) in headers {
@@ -109,14 +109,14 @@ fn encode_json(
             }
         }
 
-        // Display token with colored segments
+        // Display the generated JWT token with color-coded segments
         println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
         let formatted_token = utils::format_jwt_token(&token);
         println!("{}\n", formatted_token);
 
         return Ok(());
     } else {
-        // Default: use HMAC with secret
+        // Default case: use HMAC with provided secret (or empty string)
         jwt::EncodeOptions {
             algorithm,
             key_data: jwt::KeyData::Secret(secret.unwrap_or("")),
@@ -124,19 +124,19 @@ fn encode_json(
         }
     };
 
-    // Encode the JWT (only for no_signature and secret options)
+    // Encode the JWT token using the configured options
     let token = jwt::encode_with_options(&claims, &options)?;
 
     progress.finish_and_clear();
 
-    // Display results with pretty formatting
+    // Display successful encoding result with formatted output
     utils::log_success("JWT token created successfully");
 
-    // Show algorithm and secret info
+    // Display algorithm information
     println!("\n{}", "━━━ Encoding Details ━━━".bright_cyan().bold());
     utils::log_info(format!("Algorithm: {}", algorithm.bright_green()));
 
-    // Show key info based on what was used
+    // Display key/secret information based on what was used
     if no_signature {
         utils::log_info("Signature: None (unsigned)".dimmed().to_string());
     } else {
@@ -150,7 +150,7 @@ fn encode_json(
         ));
     }
 
-    // Show custom headers if present
+    // Display any custom headers included in the token
     if !headers.is_empty() {
         utils::log_info("Custom Headers:".to_string());
         for (key, value) in headers {
@@ -158,7 +158,7 @@ fn encode_json(
         }
     }
 
-    // Display token with colored segments
+    // Display the generated JWT token with color-coded segments
     println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
     let formatted_token = utils::format_jwt_token(&token);
     println!("{}\n", formatted_token);

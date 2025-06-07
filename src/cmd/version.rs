@@ -1,7 +1,7 @@
 use crate::printing::VERSION;
 use colored::Colorize;
 
-/// Show version command
+/// Displays version information and other project details
 pub fn execute() {
     println!("\n{}", "━━━ JWT-HACK ━━━".bright_green().bold());
     println!("{}: {}", "Version".bright_blue(), VERSION.bright_green());

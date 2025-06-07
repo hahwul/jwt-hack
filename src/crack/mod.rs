@@ -3,15 +3,15 @@ pub mod brute;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Generate bruteforce payloads based on a character set and maximum length
+/// Creates all possible character combinations up to the specified maximum length
 #[allow(dead_code)]
 pub fn generate_bruteforce_payloads(chars: &str, max_length: usize) -> Vec<String> {
-    // Use the optimized implementation from brute module
+    // Delegate to the optimized implementation in the brute module
     let progress = Arc::new(Mutex::new(0.0));
     brute::generate_bruteforce_payloads(chars, max_length, Some(progress))
 }
 
-/// Generate bruteforce payloads with progress reporting
+/// Creates all possible character combinations with real-time progress reporting
 pub fn generate_bruteforce_payloads_with_progress<F>(
     chars: &str,
     max_length: usize,
@@ -23,7 +23,7 @@ where
     let progress = Arc::new(Mutex::new(0.0));
     let start_time = Instant::now();
 
-    // Spawn a thread to monitor progress
+    // Start a background thread that monitors and reports progress
     let progress_clone = Arc::clone(&progress);
     let callback = progress_callback.clone();
     let monitor_handle = std::thread::spawn(move || {
@@ -38,38 +38,38 @@ where
             };
 
             if progress_diff > 0.1 {
-                // Only call back when progress changes meaningfully
+                // Call progress callback only when there's a significant change
                 callback(current_progress, start_time.elapsed());
                 last_progress = current_progress;
             }
         }
     });
 
-    // Generate the payloads
+    // Generate all possible combinations using parallel processing
     let result =
         brute::generate_bruteforce_payloads(chars, max_length, Some(Arc::clone(&progress)));
 
-    // Ensure 100% progress is reported
+    // Force final progress to 100% to signal completion
     *progress.lock().unwrap() = 100.0;
     progress_callback(100.0, start_time.elapsed());
 
-    // Wait for monitor thread to finish
+    // Wait for progress monitor thread to terminate
     let _ = monitor_handle.join();
 
     result
 }
 
-/// Chunked generation of combinations for memory efficiency
+/// Generates combinations in manageable chunks to optimize memory usage
 #[allow(dead_code)]
 fn generate_combinations(chars: &str, length: usize) -> Vec<String> {
     if length == 0 {
         return vec![String::new()];
     } else if length == 1 {
-        // Optimization for single-character case
+        // Special case optimization for single-character combinations
         return chars.chars().map(|c| c.to_string()).collect();
     }
 
-    // For longer combinations, use the optimized parallel approach
+    // For multi-character combinations, use the chunked approach for better memory efficiency
     let chunk_size = 10000;
     let mut result = Vec::new();
 
@@ -80,7 +80,7 @@ fn generate_combinations(chars: &str, length: usize) -> Vec<String> {
     result
 }
 
-/// Read lines from a file or return the string as a single item if it's not a file
+/// Reads wordlist from a file if path exists, otherwise treats input as a single password to try
 #[allow(dead_code)]
 pub fn read_lines_or_literal(data: &str) -> Vec<String> {
     match std::fs::read_to_string(data) {
@@ -89,7 +89,7 @@ pub fn read_lines_or_literal(data: &str) -> Vec<String> {
     }
 }
 
-/// Remove duplicate values from a vector
+/// Filters out duplicate items from a vector while preserving order
 #[allow(dead_code)]
 pub fn unique(vec: Vec<String>) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
@@ -104,13 +104,13 @@ pub fn unique(vec: Vec<String>) -> Vec<String> {
     result
 }
 
-/// Format a duration into a human-readable string
+/// Converts Duration into a human-readable time format (HH:MM:SS)
 #[allow(dead_code)]
 pub fn format_duration(duration: Duration) -> String {
     brute::format_time(duration.as_secs_f64())
 }
 
-/// Estimate time remaining based on progress percentage and elapsed time
+/// Calculates estimated time to completion based on current progress and elapsed time
 #[allow(dead_code)]
 pub fn estimate_remaining_time(progress_percent: f64, elapsed: Duration) -> String {
     let remaining_secs = brute::estimate_time_remaining(progress_percent, elapsed.as_secs_f64());

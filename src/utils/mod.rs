@@ -1,33 +1,33 @@
 use colored::Colorize;
 use std::fmt::Display;
 
-/// Log a success message with a green plus icon
+/// Displays a success message with a green plus icon prefix
 pub fn log_success<T: Display>(message: T) {
     println!("{} {}", "[+]".bright_green(), message);
 }
 
-/// Log an info message with a blue asterisk icon
+/// Displays an information message with a blue asterisk icon prefix
 pub fn log_info<T: Display>(message: T) {
     println!("{} {}", "[*]".bright_blue(), message);
 }
 
-/// Log a warning message with a yellow warning icon
+/// Displays a warning message with a yellow exclamation mark prefix
 pub fn log_warning<T: Display>(message: T) {
     println!("{} {}", "[!]".yellow(), message);
 }
 
-/// Log an error message with a red minus icon
+/// Displays an error message with a red minus icon prefix
 pub fn log_error<T: Display>(message: T) {
     println!("{} {}", "[-]".bright_red(), message);
 }
 
-/// Log a debug message with a cyan question mark icon
+/// Displays a debug message with a cyan question mark prefix for development purposes
 #[allow(dead_code)]
 pub fn log_debug<T: Display>(message: T) {
     println!("{} {}", "[?]".cyan(), message);
 }
 
-/// Format a value with specified color
+/// Returns a value formatted with color based on success status (green for success, red for failure)
 #[allow(dead_code)]
 pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredString {
     if is_success {
@@ -37,7 +37,7 @@ pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredS
     }
 }
 
-/// Format a JWT token with colored segments
+/// Colorizes JWT token components for better visual distinction (header=blue, payload=magenta, signature=yellow)
 pub fn format_jwt_token(token: &str) -> String {
     let parts: Vec<&str> = token.split('.').collect();
 
@@ -59,7 +59,7 @@ pub fn format_jwt_token(token: &str) -> String {
     )
 }
 
-/// Show progress spinner for operations
+/// Creates an animated spinner to indicate ongoing operations with the specified message
 pub fn start_progress(message: &str) -> indicatif::ProgressBar {
     let pb = indicatif::ProgressBar::new_spinner();
     pb.set_style(
@@ -73,7 +73,7 @@ pub fn start_progress(message: &str) -> indicatif::ProgressBar {
     pb
 }
 
-/// Format a duration in a human-readable way
+/// Converts a duration into human-readable format (hours, minutes, seconds)
 #[allow(dead_code)]
 pub fn format_duration(duration: std::time::Duration) -> String {
     let seconds = duration.as_secs();

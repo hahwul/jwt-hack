@@ -9,7 +9,7 @@ mod payload;
 mod verify;
 mod version;
 
-/// Parse key-value pairs in format key=value
+/// Parses command-line arguments in "key=value" format for custom header parameters
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let pos = s
         .find('=')
@@ -17,7 +17,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
     Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 
-/// CLI for jwt-hack
+/// Command-line interface for the jwt-hack tool
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -27,13 +27,13 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Decode JWT to JSON
+    /// Decodes a JWT token and displays its header, payload, and validation info
     Decode {
         /// JWT token to decode
         token: String,
     },
 
-    /// Encode JSON to JWT
+    /// Encodes JSON data into a JWT token with specified algorithm and signing options
     Encode {
         /// JSON data to encode
         json: String,
@@ -59,7 +59,7 @@ pub enum Commands {
         header: Vec<(String, String)>,
     },
 
-    /// Verify JWT token
+    /// Verifies a JWT token's signature and optionally validates its expiration claim
     Verify {
         /// JWT token to verify
         token: String,
@@ -77,7 +77,7 @@ pub enum Commands {
         validate_exp: bool,
     },
 
-    /// Cracking JWT Token
+    /// Attempts to crack a JWT token using dictionary or bruteforce methods
     Crack {
         /// JWT token to crack
         token: String,
@@ -111,7 +111,7 @@ pub enum Commands {
         verbose: bool,
     },
 
-    /// Generate JWT Attack payloads
+    /// Generates various JWT attack payloads for security testing
     Payload {
         /// JWT token to use for payload generation
         token: String,
@@ -133,11 +133,11 @@ pub enum Commands {
         target: Option<String>,
     },
 
-    /// Show version
+    /// Displays version information and project details
     Version,
 }
 
-/// Execute the CLI commands
+/// Parses command-line arguments and executes the appropriate command
 pub fn execute() {
     let cli = Cli::parse();
 
