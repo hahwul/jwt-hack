@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::jwt::{self, VerifyKeyData, VerifyOptions};
 use crate::utils;
 
-/// Execute the verify command
+/// Validates a JWT token's signature and optionally checks its expiration time
 pub fn execute(
     token: &str,
     secret: Option<&str>,
@@ -89,11 +89,8 @@ fn verify_token(
     private_key_path: Option<&PathBuf>,
     validate_exp: bool,
 ) -> Result<bool> {
-    // First, decode the token to get the algorithm without verification
-    // This is important because jsonwebtoken::verify_with_options needs the algorithm
-    // to be known if we are to construct the Validation struct with the correct Algorithm.
-    // However, our jwt::verify_with_options already calls jwt::decode internally to get the algorithm.
-    // So, we can directly proceed to prepare VerifyOptions.
+    // Prepare verification options based on provided parameters
+    // Note: jwt::verify_with_options internally calls jwt::decode to determine the algorithm
 
     let key_data: VerifyKeyData;
     let validate_nbf = false; // We only validate exp if requested
@@ -101,31 +98,24 @@ fn verify_token(
     let private_key_content: String; // Needs to live long enough
 
     if let Some(pk_path) = private_key_path {
-        // Using a private key (implies asymmetric algorithm)
+        // For asymmetric algorithms, read the private key file
         private_key_content = fs::read_to_string(pk_path)
             .map_err(|e| anyhow!("Failed to read private key from {:?}: {}", pk_path, e))?;
         key_data = VerifyKeyData::PublicKeyPem(&private_key_content);
-        // For asymmetric keys, claims validation (like exp, nbf) is often desired.
-        // However, the issue doesn't specify flags for it, so keeping it simple.
-        // The underlying jwt::verify_with_options uses jsonwebtoken::decode which can validate these
-        // if options.validate_exp/nbf are true.
     } else if let Some(s) = secret {
-        // Using a secret (implies HMAC algorithm)
+        // For HMAC algorithms, use the provided secret
         key_data = VerifyKeyData::Secret(s);
     } else {
-        // No key/secret provided.
-        // If the token is 'none' algorithm, it might be considered valid.
-        // If it's another alg, it will fail validation.
-        // We can try to decode and see if it's 'none' alg.
-        let decoded_unverified = jwt::decode(token)?; //
+        // Handle case where no key/secret is provided
+        // Check if token uses 'none' algorithm which doesn't require verification
+        let decoded_unverified = jwt::decode(token)?;
         if decoded_unverified
             .header
             .get("alg")
             .and_then(|v| v.as_str())
             == Some("none")
         {
-            // For "none" alg, verify_with_options should handle it.
-            // We pass a dummy secret as it will be ignored for "none".
+            // For 'none' algorithm, use empty secret (will be ignored)
             key_data = VerifyKeyData::Secret("");
         } else {
             return Err(anyhow!("No secret or private key provided for a token that is not using 'none' algorithm. Please provide --secret or --private-key."));
@@ -134,9 +124,9 @@ fn verify_token(
 
     let options = VerifyOptions {
         key_data,
-        validate_exp, // Set based on the provided flag
-        validate_nbf, // Could be added as a separate flag later
-        leeway: 0,    // Could be configurable too
+        validate_exp, // Controls expiration time validation
+        validate_nbf, // Controls not-before time validation
+        leeway: 0,    // Time leeway in seconds for validation
     };
 
     jwt::verify_with_options(token, &options)

@@ -4,7 +4,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-/// Generate all possible combinations for brute force in chunks for parallel processing
+/// Generates combinations of characters efficiently in chunks to support parallel processing
 pub fn generate_combinations_chunked(
     chars: &str,
     length: usize,
@@ -84,39 +84,39 @@ pub fn generate_combinations_chunked(
     }
 }
 
-/// Generate brute force payloads efficiently using parallel processing
+/// Creates all possible brute force combinations using parallel processing for better performance
 pub fn generate_bruteforce_payloads(
     chars: &str,
     max_length: usize,
     progress: Option<Arc<Mutex<f64>>>,
 ) -> Vec<String> {
-    const CHUNK_SIZE: usize = 10000; // Adjust based on experimentation
+    const CHUNK_SIZE: usize = 10000; // Chunk size optimized for memory usage and parallelism
     let result = Arc::new(Mutex::new(Vec::new()));
 
-    // Calculate total combinations for progress tracking
+    // Calculate total number of combinations for accurate progress reporting
     let total_combinations: usize = (1..=max_length)
         .map(|len| chars.len().pow(len as u32))
         .sum();
 
     let completed = Arc::new(AtomicUsize::new(0));
 
-    // Process each length in parallel
+    // Process combinations of each length in parallel for better performance
     (1..=max_length).into_par_iter().for_each(|length| {
         let local_completed = Arc::clone(&completed);
         let local_progress = progress.clone();
         let local_result = Arc::clone(&result);
         let mut combinations = Vec::new();
 
-        // Process chunks of combinations for this length
+        // Generate and process combinations in manageable chunks
         for chunk in generate_combinations_chunked(chars, length, CHUNK_SIZE) {
             combinations.extend(chunk.clone());
 
-            // Update progress if tracking is enabled
+            // Update progress tracker with current completion percentage
             if let Some(ref progress_tracker) = local_progress {
                 let chunk_size = chunk.len();
                 let prev = local_completed.fetch_add(chunk_size, Ordering::Relaxed);
 
-                // Don't update too frequently to avoid lock contention
+                // Update periodically rather than every chunk to reduce lock contention
                 if prev % 50000 < chunk_size {
                     let percentage = (prev + chunk_size) as f64 / total_combinations as f64 * 100.0;
                     *progress_tracker.lock().unwrap() = percentage;
@@ -124,7 +124,7 @@ pub fn generate_bruteforce_payloads(
             }
         }
 
-        // Critical section: append to main result
+        // Thread-safe update of the shared result collection
         let mut main_result = local_result.lock().unwrap();
         main_result.extend(combinations);
     });
@@ -132,12 +132,12 @@ pub fn generate_bruteforce_payloads(
     Arc::try_unwrap(result).unwrap().into_inner().unwrap()
 }
 
-/// Estimate the total number of combinations for a given charset and max length
+/// Calculates the total number of possible combinations based on charset length and maximum word length
 pub fn estimate_combinations(charset_len: usize, max_len: usize) -> u64 {
     let mut total: u64 = 0;
 
     for length in 1..=max_len {
-        // For each length, we have charset_len^length combinations
+        // Sum up number of combinations for each length (charset_len^length)
         let combinations = (charset_len as u64).pow(length as u32);
         total += combinations;
     }
@@ -145,7 +145,7 @@ pub fn estimate_combinations(charset_len: usize, max_len: usize) -> u64 {
     total
 }
 
-/// Calculate an estimated time remaining based on progress and elapsed time
+/// Calculates estimated completion time based on current progress and elapsed time
 #[allow(dead_code)]
 pub fn estimate_time_remaining(progress_percent: f64, elapsed_seconds: f64) -> f64 {
     if progress_percent <= 0.0 {
@@ -158,7 +158,7 @@ pub fn estimate_time_remaining(progress_percent: f64, elapsed_seconds: f64) -> f
     remaining_percent * time_per_percent
 }
 
-/// Format seconds into a human-readable time string (HH:MM:SS)
+/// Converts seconds into human-readable time format (HH:MM:SS)
 #[allow(dead_code)]
 pub fn format_time(seconds: f64) -> String {
     let hours = (seconds / 3600.0).floor();

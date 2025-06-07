@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use crate::jwt;
 use crate::utils;
 
-/// Execute the decode command
+/// Decodes and displays JWT token components with formatted output
 pub fn execute(token: &str) {
     utils::log_info(format!(
         "Decoding JWT token: {}",
@@ -19,11 +19,11 @@ pub fn execute(token: &str) {
 }
 
 fn decode_token(token: &str) -> Result<()> {
-    // Decode the JWT token
+    // Decode JWT token into its components
     let decoded = jwt::decode(token)?;
     utils::log_success("Token decoded successfully");
 
-    // Display header section
+    // Display formatted header section
     println!("\n{}", "━━━ Header ━━━".bright_cyan().bold());
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
     println!("{}", header_json.bright_blue());
@@ -33,12 +33,12 @@ fn decode_token(token: &str) -> Result<()> {
         format!("{:?}", decoded.algorithm).bright_green()
     ));
 
-    // Display payload section with special handling for time fields
+    // Display payload section with human-readable timestamp formatting
     println!("\n{}", "━━━ Payload ━━━".bright_magenta().bold());
 
     let mut claims_map: Value = decoded.claims.clone();
 
-    // Process and format timestamp fields
+    // Convert Unix timestamps to human-readable dates
     if let Some(iat) = decoded.claims.get("iat") {
         if let Some(iat_val) = iat.as_f64() {
             let iat_seconds = iat_val as u64;
@@ -53,7 +53,7 @@ fn decode_token(token: &str) -> Result<()> {
                 formatted_time.bright_cyan()
             ));
 
-            // Add human-readable time to the claims for display
+            // Add human-readable time format to the JSON output
             if let Some(obj) = claims_map.as_object_mut() {
                 obj.insert("iat_time".to_string(), Value::String(formatted_time));
             }
@@ -84,7 +84,7 @@ fn decode_token(token: &str) -> Result<()> {
                 status
             ));
 
-            // Add human-readable time to the claims for display
+            // Add human-readable time and expiration status to the JSON output
             if let Some(obj) = claims_map.as_object_mut() {
                 obj.insert("exp_time".to_string(), Value::String(formatted_time));
                 obj.insert(
@@ -95,7 +95,7 @@ fn decode_token(token: &str) -> Result<()> {
         }
     }
 
-    // Print claims as formatted JSON
+    // Display claims as properly formatted JSON with added time information
     println!("\n{}", serde_json::to_string_pretty(&claims_map)?);
 
     Ok(())
