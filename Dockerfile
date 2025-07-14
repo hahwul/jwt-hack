@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.85.1-alpine3.20 AS chef
+FROM rust:1.87.0-alpine3.22 AS chef
 
 WORKDIR /usr/src/project
 
