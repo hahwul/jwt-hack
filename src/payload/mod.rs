@@ -22,9 +22,7 @@ pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
     });
 
     let header_json = serde_json::to_string(&header)?;
-    info!(
-        "Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}"
-    );
+    info!("Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}");
 
     // Encode header to base64
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
@@ -60,9 +58,7 @@ pub fn generate_url_payload(
     });
 
     let header_json = serde_json::to_string(&header)?;
-    info!(
-        "Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}"
-    );
+    info!("Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}");
 
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
     payloads.push(format!("{encoded_header}.{claims_part}"));

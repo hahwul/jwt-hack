@@ -330,9 +330,7 @@ fn generate_url_payloads(
             println!();
 
             // Generate CRLF-based Host header injection payload
-            let crlf_url = format!(
-                "{jwk_protocol}://{trust_domain}%0d0aHost: {jwk_attack}"
-            );
+            let crlf_url = format!("{jwk_protocol}://{trust_domain}%0d0aHost: {jwk_attack}");
             let header = json!({
                 "alg": "hs256",
                 key_type: crlf_url,
