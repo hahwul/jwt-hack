@@ -8,7 +8,7 @@ mod utils;
 fn main() {
     // Set up the logging system for the application
     if let Err(e) = printing::setup_logger() {
-        eprintln!("Logger initialization error: {}", e);
+        eprintln!("Logger initialization error: {e}");
     }
 
     // Display the application banner

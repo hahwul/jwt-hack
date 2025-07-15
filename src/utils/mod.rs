@@ -31,9 +31,9 @@ pub fn log_debug<T: Display>(message: T) {
 #[allow(dead_code)]
 pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredString {
     if is_success {
-        format!("{}", value).bright_green()
+        format!("{value}").bright_green()
     } else {
-        format!("{}", value).bright_red()
+        format!("{value}").bright_red()
     }
 }
 
@@ -79,20 +79,20 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     let seconds = duration.as_secs();
 
     if seconds < 60 {
-        return format!("{}s", seconds);
+        return format!("{seconds}s");
     }
 
     let minutes = seconds / 60;
     let remain_seconds = seconds % 60;
 
     if minutes < 60 {
-        return format!("{}m {}s", minutes, remain_seconds);
+        return format!("{minutes}m {remain_seconds}s");
     }
 
     let hours = minutes / 60;
     let remain_minutes = minutes % 60;
 
-    format!("{}h {}m {}s", hours, remain_minutes, remain_seconds)
+    format!("{hours}h {remain_minutes}m {remain_seconds}s")
 }
 
 #[cfg(test)]
