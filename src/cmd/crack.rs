@@ -67,7 +67,7 @@ fn execute_with_options(options: &CrackOptions) {
                 options.power,
                 options.verbose,
             ) {
-                utils::log_error(format!("Dictionary cracking failed: {}", e));
+                utils::log_error(format!("Dictionary cracking failed: {e}"));
             }
         } else {
             utils::log_error("Wordlist is required for dictionary mode");
@@ -82,7 +82,7 @@ fn execute_with_options(options: &CrackOptions) {
             options.power,
             options.verbose,
         ) {
-            utils::log_error(format!("Bruteforce cracking failed: {}", e));
+            utils::log_error(format!("Bruteforce cracking failed: {e}"));
         }
     } else {
         utils::log_error(format!("Invalid mode: {}", options.mode));
@@ -233,8 +233,7 @@ fn crack_dictionary(
                     Ok(true) => {
                         if verbose {
                             info!(
-                                "Found! Token signature secret is {} Signature=Verified Word={}",
-                                word, word
+                                "Found! Token signature secret is {word} Signature=Verified Word={word}"
                             );
                         }
 
@@ -247,7 +246,7 @@ fn crack_dictionary(
                     }
                     _ => {
                         if verbose {
-                            info!("Invalid signature word={}", word);
+                            info!("Invalid signature word={word}");
                         }
                     }
                 }
@@ -464,8 +463,7 @@ fn crack_bruteforce(
                     Ok(true) => {
                         if verbose {
                             info!(
-                                "Found! Token signature secret is {} Signature=Verified",
-                                payload
+                                "Found! Token signature secret is {payload} Signature=Verified"
                             );
                         }
 
@@ -478,7 +476,7 @@ fn crack_bruteforce(
                     }
                     _ => {
                         if verbose {
-                            info!("Invalid signature payload={}", payload);
+                            info!("Invalid signature payload={payload}");
                         }
                     }
                 }
@@ -573,7 +571,7 @@ mod tests {
         let file = NamedTempFile::new().expect("Failed to create temp file");
         let mut file_handle = file.reopen().expect("Failed to open temp file");
         for word in words {
-            writeln!(file_handle, "{}", word).expect("Failed to write to temp file");
+            writeln!(file_handle, "{word}").expect("Failed to write to temp file");
         }
         file
     }

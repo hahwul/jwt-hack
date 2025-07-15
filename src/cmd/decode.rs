@@ -13,7 +13,7 @@ pub fn execute(token: &str) {
         utils::format_jwt_token(token)
     ));
     if let Err(e) = decode_token(token) {
-        utils::log_error(format!("JWT Decode Error: {}", e));
+        utils::log_error(format!("JWT Decode Error: {e}"));
         utils::log_error("e.g jwt-hack decode {JWT_CODE}");
     }
 }
