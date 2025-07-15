@@ -30,7 +30,7 @@ pub fn execute(
         no_signature,
         &headers,
     ) {
-        utils::log_error(format!("JSON Encode Error: {}", e));
+        utils::log_error(format!("JSON Encode Error: {e}"));
         utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
         utils::log_error(
             "or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256",
@@ -112,7 +112,7 @@ fn encode_json(
         // Display the generated JWT token with color-coded segments
         println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
         let formatted_token = utils::format_jwt_token(&token);
-        println!("{}\n", formatted_token);
+        println!("{formatted_token}\n");
 
         return Ok(());
     } else {
@@ -161,7 +161,7 @@ fn encode_json(
     // Display the generated JWT token with color-coded segments
     println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
     let formatted_token = utils::format_jwt_token(&token);
-    println!("{}\n", formatted_token);
+    println!("{formatted_token}\n");
 
     Ok(())
 }

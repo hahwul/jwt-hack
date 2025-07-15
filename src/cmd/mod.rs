@@ -13,7 +13,7 @@ mod version;
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let pos = s
         .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{s}`"))?;
     Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 

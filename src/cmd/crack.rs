@@ -67,7 +67,7 @@ fn execute_with_options(options: &CrackOptions) {
                 options.power,
                 options.verbose,
             ) {
-                utils::log_error(format!("Dictionary cracking failed: {}", e));
+                utils::log_error(format!("Dictionary cracking failed: {e}"));
             }
         } else {
             utils::log_error("Wordlist is required for dictionary mode");
@@ -82,7 +82,7 @@ fn execute_with_options(options: &CrackOptions) {
             options.power,
             options.verbose,
         ) {
-            utils::log_error(format!("Bruteforce cracking failed: {}", e));
+            utils::log_error(format!("Bruteforce cracking failed: {e}"));
         }
     } else {
         utils::log_error(format!("Invalid mode: {}", options.mode));
@@ -180,7 +180,7 @@ fn crack_dictionary(
     {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to build thread pool: {}", e);
+            error!("Failed to build thread pool: {e}");
             return Err(anyhow::anyhow!("Thread pool initialization failed: {}", e));
         }
     };
@@ -202,7 +202,7 @@ fn crack_dictionary(
 
                 if time_diff > 0.0 {
                     let rate = (current_count - last_count) as f64 / time_diff;
-                    progress_clone.set_message(format!("({:.2} keys/sec)", rate));
+                    progress_clone.set_message(format!("({rate:.2} keys/sec)"));
 
                     last_count = current_count;
                     last_time = current_time;
@@ -233,8 +233,7 @@ fn crack_dictionary(
                     Ok(true) => {
                         if verbose {
                             info!(
-                                "Found! Token signature secret is {} Signature=Verified Word={}",
-                                word, word
+                                "Found! Token signature secret is {word} Signature=Verified Word={word}"
                             );
                         }
 
@@ -247,7 +246,7 @@ fn crack_dictionary(
                     }
                     _ => {
                         if verbose {
-                            info!("Invalid signature word={}", word);
+                            info!("Invalid signature word={word}");
                         }
                     }
                 }
@@ -410,7 +409,7 @@ fn crack_bruteforce(
     {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to build thread pool: {}", e);
+            error!("Failed to build thread pool: {e}");
             return Err(anyhow::anyhow!("Thread pool initialization failed: {}", e));
         }
     };
@@ -432,7 +431,7 @@ fn crack_bruteforce(
 
                 if time_diff > 0.0 {
                     let rate = (current_count - last_count) as f64 / time_diff;
-                    progress_clone.set_message(format!("({:.2} keys/sec)", rate));
+                    progress_clone.set_message(format!("({rate:.2} keys/sec)"));
 
                     last_count = current_count;
                     last_time = current_time;
@@ -463,10 +462,7 @@ fn crack_bruteforce(
                 match jwt::verify(token, payload) {
                     Ok(true) => {
                         if verbose {
-                            info!(
-                                "Found! Token signature secret is {} Signature=Verified",
-                                payload
-                            );
+                            info!("Found! Token signature secret is {payload} Signature=Verified");
                         }
 
                         local_found = true;
@@ -478,7 +474,7 @@ fn crack_bruteforce(
                     }
                     _ => {
                         if verbose {
-                            info!("Invalid signature payload={}", payload);
+                            info!("Invalid signature payload={payload}");
                         }
                     }
                 }
@@ -573,7 +569,7 @@ mod tests {
         let file = NamedTempFile::new().expect("Failed to create temp file");
         let mut file_handle = file.reopen().expect("Failed to open temp file");
         for word in words {
-            writeln!(file_handle, "{}", word).expect("Failed to write to temp file");
+            writeln!(file_handle, "{word}").expect("Failed to write to temp file");
         }
         file
     }

@@ -29,7 +29,7 @@ impl fmt::Display for JwtError {
             JwtError::ExpiredSignature => write!(f, "Expired signature"),
             JwtError::ImmatureSignature => write!(f, "Immature signature"),
             JwtError::InvalidAlgorithm => write!(f, "Invalid algorithm"),
-            JwtError::Other(msg) => write!(f, "JWT error: {}", msg),
+            JwtError::Other(msg) => write!(f, "JWT error: {msg}"),
         }
     }
 }
@@ -43,7 +43,7 @@ impl From<ErrorKind> for JwtError {
             ErrorKind::ExpiredSignature => JwtError::ExpiredSignature,
             ErrorKind::ImmatureSignature => JwtError::ImmatureSignature,
             ErrorKind::InvalidAlgorithm => JwtError::InvalidAlgorithm,
-            _ => JwtError::Other(format!("{:?}", kind)),
+            _ => JwtError::Other(format!("{kind:?}")),
         }
     }
 }
@@ -159,7 +159,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         let encoded_claims =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims_json.as_bytes());
 
-        return Ok(format!("{}.{}.''", encoded_header, encoded_claims));
+        return Ok(format!("{encoded_header}.{encoded_claims}.''"));
     }
 
     // Create encoding key based on the key data
@@ -859,8 +859,7 @@ mod tests {
         let err = decode_result.err().unwrap();
         assert!(
             err.to_string().contains("Invalid header encoding"),
-            "Unexpected error message: {}",
-            err
+            "Unexpected error message: {err}"
         );
     }
 
@@ -870,15 +869,14 @@ mod tests {
         let header = json!({"alg": "HS256", "typ": "JWT"});
         let encoded_header =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string().as_bytes());
-        let token_str = format!("{}.!!!!.", encoded_header); // Invalid Base64 for payload
+        let token_str = format!("{encoded_header}.!!!!."); // Invalid Base64 for payload
 
         let decode_result = decode(&token_str);
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
             err.to_string().contains("Invalid payload encoding"),
-            "Unexpected error message: {}",
-            err
+            "Unexpected error message: {err}"
         );
     }
 
@@ -890,15 +888,14 @@ mod tests {
         let payload = json!({"user": "test"});
         let encoded_payload =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
-        let token_str = format!("{}.{}.", encoded_header_no_alg, encoded_payload);
+        let token_str = format!("{encoded_header_no_alg}.{encoded_payload}.");
 
         let decode_result = decode(&token_str);
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
             err.to_string().contains("Missing 'alg' in header"),
-            "Unexpected error message: {}",
-            err
+            "Unexpected error message: {err}"
         );
     }
 
@@ -910,15 +907,14 @@ mod tests {
         let payload = json!({"user": "test"});
         let encoded_payload =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
-        let token_str = format!("{}.{}.", encoded_header_alg_not_string, encoded_payload);
+        let token_str = format!("{encoded_header_alg_not_string}.{encoded_payload}.");
 
         let decode_result = decode(&token_str);
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
             err.to_string().contains("'alg' is not a string"),
-            "Unexpected error message: {}",
-            err
+            "Unexpected error message: {err}"
         );
     }
 
@@ -930,8 +926,7 @@ mod tests {
         let err = decode_result.err().unwrap();
         assert!(
             err.to_string().contains("Invalid token format"),
-            "Unexpected error message: {}",
-            err
+            "Unexpected error message: {err}"
         );
 
         let token_str_one_dot = "only.onepart";
@@ -946,8 +941,7 @@ mod tests {
             assert!(
                 err.to_string().contains("Invalid header encoding")
                     || err.to_string().contains("invalid utf-8"),
-                "Unexpected error message for 'only.onepart': {}",
-                err
+                "Unexpected error message for 'only.onepart': {err}"
             );
         }
     }
@@ -1018,7 +1012,7 @@ mod tests {
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
         let fake_signature =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("fake_signature");
-        let token_str = format!("{}.{}.{}", encoded_header, encoded_claims, fake_signature);
+        let token_str = format!("{encoded_header}.{encoded_claims}.{fake_signature}");
 
         // 2. Attempt to verify with placeholder public key
         let public_key_pem_string = fs::read_to_string(RSA_PUBLIC_KEY_PEM_PATH)
@@ -1038,8 +1032,7 @@ mod tests {
         // The underlying jsonwebtoken crate's `decode_from_rsa_pem` would fail.
         assert!(
             result.is_err(),
-            "Verification should fail with placeholder RSA public key. Result was: {:?}",
-            result
+            "Verification should fail with placeholder RSA public key. Result was: {result:?}"
         );
     }
 
@@ -1127,8 +1120,7 @@ mod tests {
         // jsonwebtoken::decode returns Err for an expired token if validate_exp is true
         assert!(
             result.is_err(),
-            "Verification of expired token should return an error. Result: {:?}",
-            result
+            "Verification of expired token should return an error. Result: {result:?}"
         );
         // You could also check the specific error kind if desired, e.g., result.unwrap_err().kind() == ErrorKind::ExpiredSignature
     }
@@ -1193,8 +1185,7 @@ mod tests {
         // jsonwebtoken::decode returns Err for an NBF in the future if validate_nbf is true
         assert!(
             result.is_err(),
-            "Verification of not-yet-valid nbf token should return an error. Result: {:?}",
-            result
+            "Verification of not-yet-valid nbf token should return an error. Result: {result:?}"
         );
         // You could also check the specific error kind if desired, e.g., result.unwrap_err().kind() == ErrorKind::ImmatureSignature
     }
@@ -1213,7 +1204,7 @@ mod tests {
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
         let fake_signature =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("fake_es256_signature");
-        let token_str = format!("{}.{}.{}", encoded_header, encoded_claims, fake_signature);
+        let token_str = format!("{encoded_header}.{encoded_claims}.{fake_signature}");
 
         let public_key_pem_string = fs::read_to_string("src/jwt/test_ec_public.pem")
             .expect("Should have created/found test_ec_public.pem");
@@ -1228,8 +1219,7 @@ mod tests {
         let result = verify_with_options(&token_str, &options_verify);
         assert!(
             result.is_err(),
-            "Verification should return Err with a placeholder EC public key. Result was: {:?}",
-            result
+            "Verification should return Err with a placeholder EC public key. Result was: {result:?}"
         );
         // Optionally, check for specific error content if possible, e.g., related to key parsing.
     }

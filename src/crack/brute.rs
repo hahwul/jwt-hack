@@ -242,8 +242,7 @@ mod tests {
         let expected = 10.0;
         assert!(
             (result - expected).abs() < 1e-9,
-            "Expected approx 10.0, got {}",
-            result
+            "Expected approx 10.0, got {result}"
         );
     }
 

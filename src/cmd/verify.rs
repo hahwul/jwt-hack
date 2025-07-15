@@ -26,7 +26,7 @@ pub fn execute(
             }
         }
         Err(e) => {
-            utils::log_error(format!("JWT Verification Error: {}", e));
+            utils::log_error(format!("JWT Verification Error: {e}"));
             // Suggest common issues or next steps based on error message
             if let Some(jwt_error) = e.downcast_ref::<jwt::JwtError>() {
                 match jwt_error {

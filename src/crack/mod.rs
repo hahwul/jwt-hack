@@ -143,8 +143,7 @@ mod tests {
         let result = generate_bruteforce_payloads(chars, max_length);
         assert!(
             result.is_empty(),
-            "Expected empty vector for empty charset, got {:?}",
-            result
+            "Expected empty vector for empty charset, got {result:?}"
         );
     }
 
@@ -155,8 +154,7 @@ mod tests {
         let result = generate_bruteforce_payloads(chars, max_length);
         assert!(
             result.is_empty(),
-            "Expected empty vector for max_length 0, got {:?}",
-            result
+            "Expected empty vector for max_length 0, got {result:?}"
         );
     }
 
