@@ -203,9 +203,7 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     });
 
     let header_json = serde_json::to_string(&header)?;
-    info!(
-        "Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}"
-    );
+    info!("Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}");
 
     // Base64 encode the header for JWT format
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
@@ -259,9 +257,7 @@ fn generate_url_payloads(
         });
 
         let header_json = serde_json::to_string(&header)?;
-        info!(
-            "Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}"
-        );
+        info!("Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}");
 
         let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
         println!(

@@ -462,9 +462,7 @@ fn crack_bruteforce(
                 match jwt::verify(token, payload) {
                     Ok(true) => {
                         if verbose {
-                            info!(
-                                "Found! Token signature secret is {payload} Signature=Verified"
-                            );
+                            info!("Found! Token signature secret is {payload} Signature=Verified");
                         }
 
                         local_found = true;
