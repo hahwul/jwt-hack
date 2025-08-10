@@ -16,6 +16,7 @@ pub fn execute(
     algorithm: &str,
     no_signature: bool,
     headers: Vec<(String, String)>,
+    compress: bool,
 ) {
     utils::log_info(format!(
         "Encoding JSON to JWT with algorithm: {}",
@@ -29,6 +30,7 @@ pub fn execute(
         algorithm,
         no_signature,
         &headers,
+        compress,
     ) {
         utils::log_error(format!("JSON Encode Error: {e}"));
         utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
@@ -45,6 +47,7 @@ fn encode_json(
     algorithm: &str,
     no_signature: bool,
     headers: &Vec<(String, String)>,
+    compress: bool,
 ) -> Result<()> {
     // Parse the input JSON into a Value object
     let claims: Value = serde_json::from_str(json_str)?;
@@ -70,6 +73,7 @@ fn encode_json(
             algorithm: "none",
             key_data: jwt::KeyData::None,
             header_params: header_map,
+            compress_payload: compress,
         }
     } else if let Some(path) = private_key_path {
         // Read RSA/EC private key from file for asymmetric algorithms
@@ -80,6 +84,7 @@ fn encode_json(
             algorithm,
             key_data: jwt::KeyData::PrivateKeyPem(&key_content),
             header_params: header_map,
+            compress_payload: compress,
         };
 
         // Encode JWT immediately while private key content is in scope
@@ -121,6 +126,7 @@ fn encode_json(
             algorithm,
             key_data: jwt::KeyData::Secret(secret.unwrap_or("")),
             header_params: header_map,
+            compress_payload: compress,
         }
     };
 
@@ -190,6 +196,7 @@ mod tests {
                 algorithm,
                 no_signature,
                 headers,
+                false, // compress
             );
         });
 
@@ -215,6 +222,7 @@ mod tests {
                 algorithm,
                 no_signature,
                 headers,
+                false, // compress
             );
         });
 
@@ -243,6 +251,7 @@ mod tests {
                 algorithm,
                 no_signature,
                 headers,
+                false, // compress
             );
         });
 
@@ -268,6 +277,7 @@ mod tests {
                 algorithm,
                 no_signature,
                 headers,
+                false, // compress
             );
         });
 
@@ -301,6 +311,7 @@ mod tests {
                 algorithm,
                 no_signature,
                 &headers,
+                false, // compress
             )
         });
 

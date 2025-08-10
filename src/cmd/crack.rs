@@ -558,6 +558,7 @@ mod tests {
             algorithm: "HS256",
             key_data: crate::jwt::KeyData::Secret(secret),
             header_params: None,
+            compress_payload: false,
         };
 
         // Encode token

@@ -56,25 +56,36 @@ docker pull hahwul/jwt-hack:v2.0.0
 
 | Mode    | Description                  | Support                                                      |
 |---------|------------------------------|--------------------------------------------------------------|
-| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header          |
-| Decode  | JWT Decoder                  | Algorithm, Issued At Check                                   |
-| Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)   |
-| Crack   | Secret Cracker               | Dictionary Attack / Brute Force                              |
+| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression |
+| Decode  | JWT Decoder                  | Algorithm, Issued At Check, DEFLATE Compression              |
+| Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
+| Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
 
 ## Basic Usage
 
 ### Decode a JWT
 
+You can decode both regular and DEFLATE-compressed JWTs. The tool will automatically detect and decompress compressed tokens.
+
 ```bash
 jwt-hack decode eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.CHANGED
+jwt-hack decode COMPRESSED_JWT_TOKEN
 ```
 
 ### Encode a JWT
 
 ```bash
-# With Secret
 jwt-hack encode '{"sub":"1234"}' --secret=your-secret
+```
+
+#### Encode a JWT with DEFLATE Compression
+
+You can use the `--compress` option to apply DEFLATE compression to the JWT payload.
+
+```bash
+jwt-hack encode '{"sub":"1234"}' --secret=your-secret --compress
+```
 
 # With Private Key
 ssh-keygen -t rsa -b 4096 -E SHA256 -m PEM -P "" -f RS256.key
@@ -95,12 +106,16 @@ jwt-hack verify YOUR_JWT_TOKEN_HERE --private-key path/to/your/RS256_private.key
 
 ### Crack a JWT
 
+Dictionary and brute force attacks also support JWTs compressed with DEFLATE.
+
 ```bash
 # Dictionary attack
 jwt-hack crack -w wordlist.txt JWT_TOKEN
+jwt-hack crack -w wordlist.txt COMPRESSED_JWT_TOKEN
 
 # Bruteforce attack
 jwt-hack crack -m brute JWT_TOKEN --max=4
+jwt-hack crack -m brute COMPRESSED_JWT_TOKEN --max=4
 ```
 
 ### Generate payloads
@@ -108,6 +123,13 @@ jwt-hack crack -m brute JWT_TOKEN --max=4
 ```bash
 jwt-hack payload JWT_TOKEN --jwk-attack evil.com --jwk-trust trusted.com
 ```
+
+## DEFLATE Compression Support
+
+> **DEFLATE Compression Support**
+> The `jwt-hack` toolkit supports DEFLATE compression for JWTs.
+> - Use the `--compress` option with `encode` to generate compressed JWTs.
+> - The `decode` and `crack` modes automatically detect and handle compressed JWTs.
 
 ## Contribute
 

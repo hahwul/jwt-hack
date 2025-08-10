@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
+use crate::utils::compression;
+
 /// Error types for JWT operations
 #[derive(Debug, Clone)]
 pub enum JwtError {
@@ -79,6 +81,8 @@ pub struct EncodeOptions<'a> {
     pub key_data: KeyData<'a>,
     /// Optional header parameters to add
     pub header_params: Option<HashMap<&'a str, &'a str>>,
+    /// Whether to compress the payload using DEFLATE compression
+    pub compress_payload: bool,
 }
 
 impl<'a> Default for EncodeOptions<'a> {
@@ -87,6 +91,7 @@ impl<'a> Default for EncodeOptions<'a> {
             algorithm: "HS256",
             key_data: KeyData::Secret(""),
             header_params: None,
+            compress_payload: false,
         }
     }
 }
@@ -98,6 +103,7 @@ pub fn encode(claims: &Value, secret: &str, alg_str: &str) -> Result<String> {
         algorithm: alg_str,
         key_data: KeyData::Secret(secret),
         header_params: None,
+        compress_payload: false,
     };
 
     encode_with_options(claims, &options)
@@ -106,6 +112,7 @@ pub fn encode(claims: &Value, secret: &str, alg_str: &str) -> Result<String> {
 /// Encode JSON claims into a JWT token with advanced options
 pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<String> {
     use std::collections::BTreeMap;
+
     // Parse algorithm
     let algorithm = match options.algorithm.to_uppercase().as_str() {
         "HS256" => Algorithm::HS256,
@@ -123,7 +130,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         _ => return Err(anyhow!("Unsupported algorithm: {}", options.algorithm)),
     };
 
-    // Create header with any additional parameters
+    // If compression is requested, we need to manually build the JWT
+    if options.compress_payload {
+        return encode_compressed_jwt(claims, options, algorithm);
+    }
+
+    // Standard JWT encoding without compression
     let mut header = Header::new(algorithm);
     if let Some(params) = &options.header_params {
         for (key, value) in params {
@@ -139,7 +151,6 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
     // Handle "none" algorithm specially
     if options.algorithm.to_uppercase() == "NONE" {
         // For "none", we create the token without a signature
-        // For "none" algorithm, we need to create a custom header with "alg":"none"
         let mut header_map = BTreeMap::new();
         header_map.insert("alg".to_string(), Value::String("none".to_string()));
         header_map.insert("typ".to_string(), Value::String("JWT".to_string()));
@@ -208,6 +219,93 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
     Ok(token)
 }
 
+/// Encode a JWT with compressed payload by manually constructing the token
+fn encode_compressed_jwt(
+    claims: &Value,
+    options: &EncodeOptions,
+    algorithm: Algorithm,
+) -> Result<String> {
+    use std::collections::BTreeMap;
+
+    // Create header with compression indicator
+    let mut header_map = BTreeMap::new();
+    header_map.insert(
+        "alg".to_string(),
+        Value::String(options.algorithm.to_string()),
+    );
+    header_map.insert("typ".to_string(), Value::String("JWT".to_string()));
+    header_map.insert("zip".to_string(), Value::String("DEF".to_string()));
+
+    // Add any additional header parameters
+    if let Some(params) = &options.header_params {
+        for (key, value) in params {
+            if *key != "zip" {
+                // Don't override zip parameter
+                header_map.insert(key.to_string(), Value::String(value.to_string()));
+            }
+        }
+    }
+
+    // Serialize and compress the payload
+    let claims_json = serde_json::to_string(claims)?;
+    let compressed_payload = compression::compress_deflate(claims_json.as_bytes())?;
+
+    // Encode header and payload
+    let header_json = serde_json::to_string(&header_map)?;
+    let encoded_header =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+    let encoded_payload =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&compressed_payload);
+
+    // Handle "none" algorithm specially
+    if options.algorithm.to_uppercase() == "NONE" {
+        return Ok(format!("{encoded_header}.{encoded_payload}.''"));
+    }
+
+    // Create message to sign
+    let message = format!("{encoded_header}.{encoded_payload}");
+
+    // Sign the message
+    let signature = match &options.key_data {
+        KeyData::Secret(secret) => match algorithm {
+            Algorithm::HS256 => {
+                hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes()).to_vec()
+            }
+            Algorithm::HS384 | Algorithm::HS512 => {
+                // For HS384/HS512, we need to use the jsonwebtoken library
+                // Create a temporary uncompressed token for signing
+                let temp_header = jsonwebtoken::Header::new(algorithm);
+                let temp_claims = serde_json::json!({"temp": "data"});
+                let encoding_key = EncodingKey::from_secret(secret.as_bytes());
+                let temp_token = jsonwebtoken::encode(&temp_header, &temp_claims, &encoding_key)?;
+
+                // Extract signature from temp token and apply to our message
+                let temp_parts: Vec<&str> = temp_token.split('.').collect();
+                if temp_parts.len() != 3 {
+                    return Err(anyhow!("Failed to create temporary token for signing"));
+                }
+
+                // We need to manually sign the compressed message
+                // This is complex for HS384/HS512, so let's use a different approach
+                return Err(anyhow!("HS384/HS512 with compression not yet supported"));
+            }
+            _ => return Err(anyhow!("HMAC algorithms require a secret key")),
+        },
+        _ => {
+            return Err(anyhow!(
+                "Only HMAC-SHA256 is currently supported for compressed JWTs"
+            ))
+        }
+    };
+
+    // Encode signature
+    let encoded_signature = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&signature);
+
+    Ok(format!(
+        "{encoded_header}.{encoded_payload}.{encoded_signature}"
+    ))
+}
+
 /// Decode a JWT token without verifying its signature
 pub fn decode(token: &str) -> Result<DecodedToken> {
     // Split the token and handle potential errors
@@ -254,7 +352,23 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
     let payload_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(payload_b64)
         .map_err(|_| anyhow!("Invalid payload encoding"))?;
-    let payload_str = String::from_utf8(payload_bytes)?;
+
+    // Check if payload is compressed
+    let is_compressed = header
+        .get("zip")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_uppercase() == "DEF")
+        .unwrap_or(false);
+
+    let payload_str = if is_compressed {
+        // Decompress the payload
+        let decompressed_bytes = compression::decompress_deflate(&payload_bytes)
+            .map_err(|e| anyhow!("Failed to decompress payload: {}", e))?;
+        String::from_utf8(decompressed_bytes)?
+    } else {
+        String::from_utf8(payload_bytes)?
+    };
+
     let claims: Value = serde_json::from_str(&payload_str)?;
 
     Ok(DecodedToken {
@@ -526,6 +640,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("test_secret"),
             header_params: None,
+            compress_payload: false,
         };
         let result = encode_with_options(&claims, &options);
         assert!(result.is_ok());
@@ -553,6 +668,7 @@ mod tests {
             algorithm: "RS256",
             key_data: KeyData::PrivateKeyPem(&rsa_private_key),
             header_params: None,
+            compress_payload: false,
         };
         let result = encode_with_options(&claims, &options);
         // Expecting an error here because the key is a placeholder
@@ -577,6 +693,7 @@ mod tests {
             algorithm: "ES256",
             key_data: KeyData::PrivateKeyPem(&ec_private_key),
             header_params: None,
+            compress_payload: false,
         };
         let result = encode_with_options(&claims, &options);
         // Expecting an error here because the key is a placeholder
@@ -598,6 +715,7 @@ mod tests {
             algorithm: "none",
             key_data: KeyData::None, // KeyData::None might not be the correct way if your lib expects a secret even for none
             header_params: None,
+            compress_payload: false,
         };
         let result = encode_with_options(&claims, &options);
         assert!(result.is_ok());
@@ -641,6 +759,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("test_secret_for_header_params"),
             header_params: Some(header_params),
+            compress_payload: false,
         };
         let result = encode_with_options(&claims, &options);
         assert!(result.is_ok());
@@ -740,6 +859,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("test_secret_for_cty"),
             header_params: Some(header_params_for_cty),
+            compress_payload: false,
         };
         let result_cty = encode_with_options(&claims, &options_cty);
         assert!(result_cty.is_ok(), "Encoding with cty should succeed");
@@ -777,6 +897,7 @@ mod tests {
             algorithm: "none",
             key_data: KeyData::None,
             header_params: Some(header_params_for_none),
+            compress_payload: false,
         };
         let result_none_custom = encode_with_options(&claims, &options_none_custom);
         assert!(
@@ -827,6 +948,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("test_secret_for_decode"),
             header_params: None,
+            compress_payload: false,
         };
         let encode_result = encode_with_options(&claims, &options);
         assert!(
@@ -953,6 +1075,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("correct_secret"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding failed for verify test");
@@ -980,6 +1103,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("correct_secret"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding failed for verify incorrect secret test");
@@ -1043,6 +1167,7 @@ mod tests {
             algorithm: "none",
             key_data: KeyData::None,
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Encoding 'none' algorithm token failed");
@@ -1075,6 +1200,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("secret_exp_valid"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding for exp valid test failed");
@@ -1107,6 +1233,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("secret_exp_expired"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding for exp expired test failed");
@@ -1137,6 +1264,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("secret_nbf_valid"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding for nbf valid test failed");
@@ -1171,6 +1299,7 @@ mod tests {
             algorithm: "HS256",
             key_data: KeyData::Secret("secret_nbf_not_yet_valid"),
             header_params: None,
+            compress_payload: false,
         };
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Token encoding for nbf not yet valid test failed");
@@ -1237,6 +1366,111 @@ mod tests {
         assert!(
             result.is_err(),
             "Verification should fail with an invalid EC key format"
+        );
+    }
+
+    #[test]
+    fn test_encode_with_compression() {
+        let claims = json!({"sub": "test", "name": "Test User", "description": "This is a test payload for compression testing"});
+        let options = EncodeOptions {
+            algorithm: "none",
+            key_data: KeyData::None,
+            header_params: None,
+            compress_payload: true,
+        };
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_ok(), "Encoding with compression should succeed");
+
+        let token = result.unwrap();
+        let decoded = decode(&token).expect("Decoding compressed token should succeed");
+
+        // Verify the header contains the zip parameter
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+
+        // Verify the payload was properly decompressed
+        assert_eq!(decoded.claims, claims);
+    }
+
+    #[test]
+    fn test_encode_with_compression_hs256() {
+        let claims =
+            json!({"sub": "test", "name": "Test User", "data": "Some test data for compression"});
+        let options = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret("test_secret"),
+            header_params: None,
+            compress_payload: true,
+        };
+        let result = encode_with_options(&claims, &options);
+        assert!(
+            result.is_ok(),
+            "Encoding HS256 with compression should succeed"
+        );
+
+        let token = result.unwrap();
+        let decoded = decode(&token).expect("Decoding compressed HS256 token should succeed");
+
+        // Verify the header contains the zip parameter
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+        assert_eq!(
+            decoded.header.get("alg").unwrap().as_str().unwrap(),
+            "HS256"
+        );
+
+        // Verify the payload was properly decompressed
+        assert_eq!(decoded.claims, claims);
+    }
+
+    #[test]
+    fn test_decode_compressed_token() {
+        // Create a compressed token first
+        let claims = json!({"user": "testuser", "role": "admin", "permissions": ["read", "write", "delete"]});
+        let options = EncodeOptions {
+            algorithm: "none",
+            key_data: KeyData::None,
+            header_params: None,
+            compress_payload: true,
+        };
+        let token =
+            encode_with_options(&claims, &options).expect("Failed to create compressed token");
+
+        // Now decode it and verify decompression works
+        let decoded = decode(&token).expect("Failed to decode compressed token");
+
+        assert_eq!(decoded.claims, claims);
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+    }
+
+    #[test]
+    fn test_compression_preserves_signature_verification() {
+        let claims = json!({"sub": "test", "exp": (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp()});
+        let secret = "test_secret_for_compression";
+
+        // Create compressed token
+        let options = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret(secret),
+            header_params: None,
+            compress_payload: true,
+        };
+        let token =
+            encode_with_options(&claims, &options).expect("Failed to create compressed token");
+
+        // Verify the token
+        let verify_options = VerifyOptions {
+            key_data: VerifyKeyData::Secret(secret),
+            validate_exp: false,
+            validate_nbf: false,
+            leeway: 0,
+        };
+        let verification_result = verify_with_options(&token, &verify_options);
+        assert!(
+            verification_result.is_ok(),
+            "Verification should succeed for compressed token"
+        );
+        assert!(
+            verification_result.unwrap(),
+            "Compressed token should be valid"
         );
     }
 }
