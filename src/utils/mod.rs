@@ -1,6 +1,8 @@
 use colored::Colorize;
 use std::fmt::Display;
 
+pub mod compression;
+
 /// Displays a success message with a green plus icon prefix
 pub fn log_success<T: Display>(message: T) {
     println!("{} {}", "[+]".bright_green(), message);

@@ -57,6 +57,10 @@ pub enum Commands {
         /// Add custom header parameter (format: key=value)
         #[arg(long, value_parser = parse_key_value)]
         header: Vec<(String, String)>,
+
+        /// Compress payload using DEFLATE compression (adds "zip":"DEF" header)
+        #[arg(long)]
+        compress: bool,
     },
 
     /// Verifies a JWT token's signature and optionally validates its expiration claim
@@ -152,6 +156,7 @@ pub fn execute() {
             algorithm,
             no_signature,
             header,
+            compress,
         }) => {
             encode::execute(
                 json,
@@ -160,6 +165,7 @@ pub fn execute() {
                 algorithm,
                 *no_signature,
                 header.clone(),
+                *compress,
             );
         }
         Some(Commands::Verify {

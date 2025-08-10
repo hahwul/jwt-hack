@@ -168,6 +168,7 @@ mod tests {
             algorithm: "HS256",
             key_data: jwt::KeyData::Secret(secret),
             header_params: None,
+            compress_payload: false,
         };
         let token =
             jwt::encode_with_options(&claims, &options).expect("Failed to create test token");
@@ -194,6 +195,7 @@ mod tests {
             algorithm: "HS256",
             key_data: jwt::KeyData::Secret(secret),
             header_params: None,
+            compress_payload: false,
         };
         let token =
             jwt::encode_with_options(&claims, &options).expect("Failed to create test token");
@@ -231,6 +233,7 @@ mod tests {
             algorithm: "none",
             key_data: jwt::KeyData::None,
             header_params: None,
+            compress_payload: false,
         };
         let token =
             jwt::encode_with_options(&claims, &options).expect("Failed to create test token");
