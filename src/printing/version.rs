@@ -1,2 +1,2 @@
 // Version information for jwt-hack
-pub const VERSION: &str = "v2.1.0";
+pub const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
