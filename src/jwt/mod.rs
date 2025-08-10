@@ -1351,4 +1351,94 @@ mod tests {
             "Verification should fail with an invalid EC key format"
         );
     }
+
+    #[test]
+    fn test_encode_with_compression() {
+        let claims = json!({"sub": "test", "name": "Test User", "description": "This is a test payload for compression testing"});
+        let options = EncodeOptions {
+            algorithm: "none",
+            key_data: KeyData::None,
+            header_params: None,
+            compress_payload: true,
+        };
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_ok(), "Encoding with compression should succeed");
+        
+        let token = result.unwrap();
+        let decoded = decode(&token).expect("Decoding compressed token should succeed");
+        
+        // Verify the header contains the zip parameter
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+        
+        // Verify the payload was properly decompressed
+        assert_eq!(decoded.claims, claims);
+    }
+
+    #[test]
+    fn test_encode_with_compression_hs256() {
+        let claims = json!({"sub": "test", "name": "Test User", "data": "Some test data for compression"});
+        let options = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret("test_secret"),
+            header_params: None,
+            compress_payload: true,
+        };
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_ok(), "Encoding HS256 with compression should succeed");
+        
+        let token = result.unwrap();
+        let decoded = decode(&token).expect("Decoding compressed HS256 token should succeed");
+        
+        // Verify the header contains the zip parameter
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+        assert_eq!(decoded.header.get("alg").unwrap().as_str().unwrap(), "HS256");
+        
+        // Verify the payload was properly decompressed
+        assert_eq!(decoded.claims, claims);
+    }
+
+    #[test]
+    fn test_decode_compressed_token() {
+        // Create a compressed token first
+        let claims = json!({"user": "testuser", "role": "admin", "permissions": ["read", "write", "delete"]});
+        let options = EncodeOptions {
+            algorithm: "none",
+            key_data: KeyData::None,
+            header_params: None,
+            compress_payload: true,
+        };
+        let token = encode_with_options(&claims, &options).expect("Failed to create compressed token");
+        
+        // Now decode it and verify decompression works
+        let decoded = decode(&token).expect("Failed to decode compressed token");
+        
+        assert_eq!(decoded.claims, claims);
+        assert_eq!(decoded.header.get("zip").unwrap().as_str().unwrap(), "DEF");
+    }
+
+    #[test]
+    fn test_compression_preserves_signature_verification() {
+        let claims = json!({"sub": "test", "exp": (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp()});
+        let secret = "test_secret_for_compression";
+        
+        // Create compressed token
+        let options = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret(secret),
+            header_params: None,
+            compress_payload: true,
+        };
+        let token = encode_with_options(&claims, &options).expect("Failed to create compressed token");
+        
+        // Verify the token
+        let verify_options = VerifyOptions {
+            key_data: VerifyKeyData::Secret(secret),
+            validate_exp: false,
+            validate_nbf: false,
+            leeway: 0,
+        };
+        let verification_result = verify_with_options(&token, &verify_options);
+        assert!(verification_result.is_ok(), "Verification should succeed for compressed token");
+        assert!(verification_result.unwrap(), "Compressed token should be valid");
+    }
 }
