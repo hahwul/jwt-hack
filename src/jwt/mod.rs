@@ -344,6 +344,7 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
         "PS384" => Algorithm::PS384,
         "PS512" => Algorithm::PS512,
         "NONE" => Algorithm::HS256, // Treat 'none' as HS256 for parsing
+        "A256GCMKW" => Algorithm::HS256, // Treat JWE algorithm as HS256 for parsing
         _ => return Err(anyhow!("Unsupported algorithm: {}", alg_str)),
     };
 
@@ -1066,6 +1067,39 @@ mod tests {
                 "Unexpected error message for 'only.onepart': {err}"
             );
         }
+    }
+
+    #[test]
+    fn test_decode_token_a256gcmkw_algorithm() {
+        // Test decoding of a token with A256GCMKW algorithm (JWE)
+        let header = json!({"alg": "A256GCMKW", "typ": "JWT"});
+        let encoded_header =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string().as_bytes());
+        let payload = json!({"sub": "1234567890", "name": "John Doe", "iat": 1516239022});
+        let encoded_payload =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
+        let token_str = format!("{encoded_header}.{encoded_payload}.invalid_signature");
+
+        let decode_result = decode(&token_str);
+        assert!(
+            decode_result.is_ok(),
+            "Decoding A256GCMKW token failed: {:?}",
+            decode_result.err()
+        );
+
+        let decoded_token = decode_result.unwrap();
+
+        // Verify that the algorithm in header is preserved as A256GCMKW
+        assert_eq!(
+            decoded_token.header.get("alg").unwrap().as_str().unwrap(),
+            "A256GCMKW"
+        );
+
+        // Verify that internal algorithm is mapped to HS256 for parsing
+        assert_eq!(decoded_token.algorithm, Algorithm::HS256);
+
+        // Verify payload is correctly decoded
+        assert_eq!(decoded_token.claims, payload);
     }
 
     #[test]
