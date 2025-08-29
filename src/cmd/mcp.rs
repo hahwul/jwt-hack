@@ -40,7 +40,7 @@ pub struct DecodeArgs {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct EncodeArgs {
-    /// JSON data to encode  
+    /// JSON data to encode
     pub json: String,
     /// Secret key for HMAC algorithms
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,7 +57,7 @@ pub struct EncodeArgs {
 pub struct VerifyArgs {
     /// JWT token to verify
     pub token: String,
-    /// Secret key for HMAC algorithms  
+    /// Secret key for HMAC algorithms
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
     /// Validate expiration claim (exp)
@@ -79,7 +79,7 @@ pub struct CrackArgs {
     /// Max length for bruteforce attack
     #[serde(default = "default_max_length")]
     pub max: usize,
-    /// Concurrency level  
+    /// Concurrency level
     #[serde(default = "default_concurrency")]
     #[allow(dead_code)]
     pub concurrency: usize,
@@ -346,7 +346,7 @@ impl ServerHandler for JwtHackServer {
                 .build(),
             server_info: Implementation {
                 name: "jwt-hack".to_string(),
-                version: "2.1.0".to_string(),
+                version: "2.2.0".to_string(),
             },
             instructions: Some("JWT-HACK MCP Server - Provides tools for JWT security testing including decode, encode, verify, crack, and payload generation.".to_string()),
         }
@@ -400,7 +400,7 @@ mod tests {
         let info = server.get_info();
 
         assert_eq!(info.server_info.name, "jwt-hack");
-        assert_eq!(info.server_info.version, "2.1.0");
+        assert_eq!(info.server_info.version, "2.2.0");
         assert!(info.capabilities.tools.is_some());
     }
 
