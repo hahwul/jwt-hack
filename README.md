@@ -49,7 +49,7 @@ docker pull ghcr.io/hahwul/jwt-hack:latest
 
 #### Docker Hub
 ```bash
-docker pull hahwul/jwt-hack:v2.1.0
+docker pull hahwul/jwt-hack:v2.2.0
 ```
 
 ## Features
@@ -184,7 +184,7 @@ The MCP server is designed to be used by AI models and MCP clients. Each tool ac
 **Encode Tool:**
 ```json
 {
-  "name": "encode", 
+  "name": "encode",
   "arguments": {
     "json": "{\"sub\":\"1234\",\"name\":\"test\"}",
     "secret": "mysecret",
