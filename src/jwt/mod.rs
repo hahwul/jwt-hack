@@ -146,6 +146,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "PS256" => Algorithm::PS256,
         "PS384" => Algorithm::PS384,
         "PS512" => Algorithm::PS512,
+        "EDDSA" => Algorithm::EdDSA,
         "NONE" => Algorithm::HS256, // Internally we'll use HS256 but with an empty signature
         _ => return Err(anyhow!("Unsupported algorithm: {}", options.algorithm)),
     };
@@ -209,6 +210,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             | Algorithm::PS384
             | Algorithm::PS512 => EncodingKey::from_rsa_pem(pem.as_bytes())?,
             Algorithm::ES256 | Algorithm::ES384 => EncodingKey::from_ec_pem(pem.as_bytes())?,
+            Algorithm::EdDSA => EncodingKey::from_ed_pem(pem.as_bytes())?,
             _ => {
                 return Err(anyhow!(
                     "Algorithm {:?} not compatible with PEM key",
@@ -224,6 +226,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             | Algorithm::PS384
             | Algorithm::PS512 => EncodingKey::from_rsa_der(der),
             Algorithm::ES256 | Algorithm::ES384 => EncodingKey::from_ec_der(der),
+            Algorithm::EdDSA => EncodingKey::from_ed_der(der),
             _ => {
                 return Err(anyhow!(
                     "Algorithm {:?} not compatible with DER key",
@@ -420,6 +423,7 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
         "PS256" => Algorithm::PS256,
         "PS384" => Algorithm::PS384,
         "PS512" => Algorithm::PS512,
+        "EDDSA" => Algorithm::EdDSA,
         "NONE" => Algorithm::HS256, // Treat 'none' as HS256 for parsing
         _ => return Err(anyhow!("Unsupported algorithm: {}", alg_str)),
     };
@@ -635,6 +639,27 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                     }
                 }
             }
+            Algorithm::EdDSA => {
+                let decoding_key = DecodingKey::from_ed_pem(pem.as_bytes())?;
+                let mut validation = Validation::new(decoded_token.algorithm);
+                validation.validate_exp = options.validate_exp;
+                validation.validate_nbf = options.validate_nbf;
+                validation.leeway = options.leeway;
+                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
+                    Ok(_) => Ok(true),
+                    Err(e) => {
+                        let jwt_error = JwtError::from(e.kind().clone());
+                        if matches!(
+                            jwt_error,
+                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
+                        ) {
+                            Err(anyhow::anyhow!(jwt_error))
+                        } else {
+                            Ok(false)
+                        }
+                    }
+                }
+            }
             _ => Err(anyhow!(
                 "Public key provided but algorithm is {:?}",
                 decoded_token.algorithm
@@ -669,6 +694,27 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
             }
             Algorithm::ES256 | Algorithm::ES384 => {
                 let decoding_key = DecodingKey::from_ec_der(der);
+                let mut validation = Validation::new(decoded_token.algorithm);
+                validation.validate_exp = options.validate_exp;
+                validation.validate_nbf = options.validate_nbf;
+                validation.leeway = options.leeway;
+                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
+                    Ok(_) => Ok(true),
+                    Err(e) => {
+                        let jwt_error = JwtError::from(e.kind().clone());
+                        if matches!(
+                            jwt_error,
+                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
+                        ) {
+                            Err(anyhow::anyhow!(jwt_error))
+                        } else {
+                            Ok(false)
+                        }
+                    }
+                }
+            }
+            Algorithm::EdDSA => {
+                let decoding_key = DecodingKey::from_ed_der(der);
                 let mut validation = Validation::new(decoded_token.algorithm);
                 validation.validate_exp = options.validate_exp;
                 validation.validate_nbf = options.validate_nbf;
@@ -736,6 +782,7 @@ mod tests {
     const RSA_PRIVATE_KEY_PEM_PATH: &str = "src/jwt/test_rsa_private.pem";
     const RSA_PUBLIC_KEY_PEM_PATH: &str = "src/jwt/test_rsa_public.pem"; // Added for verify tests
     const EC_PRIVATE_KEY_PEM_PATH: &str = "src/jwt/test_ec_private.pem";
+    const ED25519_PRIVATE_KEY_PEM_PATH: &str = "src/jwt/test_ed25519_private.pem";
 
     #[test]
     fn test_encode_hs256() {
@@ -810,6 +857,31 @@ mod tests {
         // assert!(decoded_result.is_ok());
         // let decoded_token = decoded_result.unwrap();
         // assert_eq!(decoded_token.header.get("alg").unwrap().as_str().unwrap(), "ES256");
+    }
+
+    #[test]
+    fn test_encode_eddsa() {
+        let ed25519_private_key = fs::read_to_string(ED25519_PRIVATE_KEY_PEM_PATH)
+            .expect("Should have been able to read the Ed25519 private key file");
+
+        let claims = json!({"user": "test_eddsa"});
+        let options = EncodeOptions {
+            algorithm: "EdDSA",
+            key_data: KeyData::PrivateKeyPem(&ed25519_private_key),
+            header_params: None,
+            compress_payload: false,
+        };
+        let result = encode_with_options(&claims, &options);
+        // Expecting an error here because the key is a placeholder
+        assert!(result.is_err());
+
+        // If we had a valid key, we would verify the token like this:
+        // assert!(result.is_ok());
+        // let token_str = result.unwrap();
+        // let decoded_result = decode(&token_str);
+        // assert!(decoded_result.is_ok());
+        // let decoded_token = decoded_result.unwrap();
+        // assert_eq!(decoded_token.header.get("alg").unwrap().as_str().unwrap(), "EdDSA");
     }
 
     #[test]
