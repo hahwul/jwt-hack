@@ -4,7 +4,7 @@ FROM rust:1.87.0-alpine3.22 AS chef
 WORKDIR /usr/src/project
 
 RUN set -eux; \
-    apk add --no-cache build-base musl-dev openssl-dev openssl-libs-static pkgconf perl; \
+    apk add --no-cache build-base musl-dev openssl-dev openssl-libs-static perl pkgconf; \
     cargo install cargo-chef; \
     rm -rf $CARGO_HOME/registry
 
