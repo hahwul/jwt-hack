@@ -400,7 +400,7 @@ mod tests {
         let info = server.get_info();
 
         assert_eq!(info.server_info.name, "jwt-hack");
-        assert_eq!(info.server_info.version, "2.2.0");
+        assert_eq!(info.server_info.version, env!("CARGO_PKG_VERSION"));
         assert!(info.capabilities.tools.is_some());
     }
 
