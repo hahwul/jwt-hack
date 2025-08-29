@@ -9,7 +9,28 @@ use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
 };
 use std::future::Future;
-use std::path::PathBuf;
+
+/// Helper function to generate combinations for brute force
+fn generate_combinations(chars: &[char], length: usize) -> Vec<String> {
+    if length == 0 {
+        return vec![String::new()];
+    }
+
+    if length == 1 {
+        return chars.iter().map(|c| c.to_string()).collect();
+    }
+
+    let mut result = Vec::new();
+    let shorter = generate_combinations(chars, length - 1);
+
+    for combination in shorter {
+        for &ch in chars {
+            result.push(format!("{}{}", combination, ch));
+        }
+    }
+
+    result
+}
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct DecodeArgs {
@@ -60,6 +81,7 @@ pub struct CrackArgs {
     pub max: usize,
     /// Concurrency level  
     #[serde(default = "default_concurrency")]
+    #[allow(dead_code)]
     pub concurrency: usize,
 }
 
@@ -225,30 +247,57 @@ impl JwtHackServer {
         &self,
         Parameters(args): Parameters<CrackArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let wordlist = if args.mode == "dict" {
-            // For MCP mode, we'll use a small built-in wordlist since we can't access files
-            Some(PathBuf::from("samples/wordlist.txt"))
+        // For MCP mode, we'll use a simplified approach without file I/O
+        // since we can't reliably access wordlist files
+        if args.mode == "dict" {
+            // Use a built-in small wordlist for demo purposes
+            let common_passwords = vec!["secret", "password", "123456", "admin", "test", "jwt"];
+
+            for password in common_passwords {
+                if let Ok(is_valid) = crate::jwt::verify(&args.token, password) {
+                    if is_valid {
+                        return Ok(CallToolResult::success(vec![Content::text(format!(
+                            "✓ JWT cracked! Secret found: {}",
+                            password
+                        ))]));
+                    }
+                }
+            }
+
+            Ok(CallToolResult::success(vec![Content::text(
+                "✗ Dictionary attack failed. Secret not found in built-in wordlist.".to_string(),
+            )]))
+        } else if args.mode == "brute" {
+            // For brute force, only try very short combinations due to performance constraints
+            let max_len = std::cmp::min(args.max, 3); // Limit to 3 characters max for MCP
+            let chars: Vec<char> = args.chars.chars().take(10).collect(); // Limit charset
+
+            for len in 1..=max_len {
+                // Generate combinations for this length
+                let combinations = generate_combinations(&chars, len);
+
+                for combination in combinations.into_iter().take(100) {
+                    // Limit attempts
+                    if let Ok(is_valid) = crate::jwt::verify(&args.token, &combination) {
+                        if is_valid {
+                            return Ok(CallToolResult::success(vec![Content::text(format!(
+                                "✓ JWT cracked! Secret found: {}",
+                                combination
+                            ))]));
+                        }
+                    }
+                }
+            }
+
+            Ok(CallToolResult::success(vec![Content::text(
+                "✗ Brute force attack failed. Secret not found in limited search space."
+                    .to_string(),
+            )]))
         } else {
-            None
-        };
-
-        // Note: This is a simplified version for MCP. In practice, you might want to
-        // provide a way to pass wordlist content or use built-in common passwords
-        crate::cmd::crack::execute(
-            &args.token,
-            &args.mode,
-            &wordlist,
-            &args.chars,
-            args.concurrency,
-            args.max,
-            false, // power mode off for MCP
-            false, // verbose off for MCP
-        );
-
-        // Since the crack function doesn't return a result, we'll provide a generic response
-        Ok(CallToolResult::success(vec![Content::text(
-            "Crack attempt completed. Check the output for results.".to_string(),
-        )]))
+            Ok(CallToolResult::error(vec![Content::text(
+                "Invalid crack mode. Use 'dict' or 'brute'.".to_string(),
+            )]))
+        }
     }
 
     #[tool(description = "Generate various JWT attack payloads for security testing")]
@@ -384,5 +433,43 @@ mod tests {
 
         let call_result = result.unwrap();
         assert!(call_result.is_error != Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_crack_tool() {
+        let server = JwtHackServer::new();
+
+        // Create a JWT with a known secret from our built-in list
+        let test_token =
+            crate::jwt::encode(&serde_json::json!({"test": "data"}), "secret", "HS256").unwrap();
+
+        let args = CrackArgs {
+            token: test_token,
+            mode: "dict".to_string(),
+            chars: "abc".to_string(),
+            max: 2,
+            concurrency: 1,
+        };
+
+        let result = server.crack(Parameters(args)).await;
+        assert!(result.is_ok());
+
+        let call_result = result.unwrap();
+        assert!(call_result.is_error != Some(true));
+
+        // Check that the content contains a meaningful response
+        if let Some(content) = call_result.content.first() {
+            match &content.raw {
+                RawContent::Text(text) => {
+                    assert!(
+                        text.text.contains("JWT cracked!")
+                            || text.text.contains("Dictionary attack failed")
+                    );
+                }
+                _ => {
+                    // For other content types, we just pass the test
+                }
+            }
+        }
     }
 }

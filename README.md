@@ -61,6 +61,7 @@ docker pull hahwul/jwt-hack:v2.1.0
 | Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
+| MCP     | Model Context Protocol Server | AI model integration via standardized protocol               |
 
 ## Basic Usage
 
@@ -145,6 +146,51 @@ jwt-hack crack -m brute COMPRESSED_JWT_TOKEN --max=4
 
 ```bash
 jwt-hack payload JWT_TOKEN --jwk-attack evil.com --jwk-trust trusted.com
+```
+
+### MCP (Model Context Protocol) Server Mode
+
+jwt-hack can run as an MCP server, allowing AI models to interact with JWT functionality through a standardized protocol.
+
+```bash
+# Start MCP server (communicates via stdio)
+jwt-hack mcp
+```
+
+The MCP server exposes the following tools:
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `decode` | Decode JWT tokens | `token` (string) |
+| `encode` | Encode JSON to JWT | `json` (string), `secret` (optional), `algorithm` (default: HS256), `no_signature` (boolean) |
+| `verify` | Verify JWT signatures | `token` (string), `secret` (optional), `validate_exp` (boolean) |
+| `crack` | Crack JWT tokens | `token` (string), `mode` (dict/brute), `chars` (string), `max` (number) |
+| `payload` | Generate attack payloads | `token` (string), `target` (string), `jwk_attack` (optional), `jwk_protocol` (default: https) |
+
+#### Example MCP Usage
+
+The MCP server is designed to be used by AI models and MCP clients. Each tool accepts JSON parameters and returns structured responses.
+
+**Decode Tool:**
+```json
+{
+  "name": "decode",
+  "arguments": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Encode Tool:**
+```json
+{
+  "name": "encode", 
+  "arguments": {
+    "json": "{\"sub\":\"1234\",\"name\":\"test\"}",
+    "secret": "mysecret",
+    "algorithm": "HS256"
+  }
+}
 ```
 
 ## DEFLATE Compression Support
