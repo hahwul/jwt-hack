@@ -204,7 +204,7 @@ You can connect jwt-hack’s MCP server to popular MCP-enabled clients. Make sur
   "servers": {
     "jwt-hack": {
       "type": "stdio",
-      "command": "/opt/homebrew/bin/jwt-hack",
+      "command": "jwt-hack",
       "args": [
         "mcp"
       ]
@@ -220,7 +220,7 @@ You can connect jwt-hack’s MCP server to popular MCP-enabled clients. Make sur
 {
   "mcpServers": {
     "jwt-hack": {
-      "command": "/usr/local/bin/jwt-hack",
+      "command": "jwt-hack",
       "args": ["mcp"],
       "env": {}
     }
