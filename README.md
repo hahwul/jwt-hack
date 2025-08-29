@@ -193,6 +193,41 @@ The MCP server is designed to be used by AI models and MCP clients. Each tool ac
 }
 ```
 
+#### MCP Client Integration Examples
+
+You can connect jwt-hack’s MCP server to popular MCP-enabled clients. Make sure the `jwt-hack` binary is on your system and accessible by the client.
+
+**VSCode**
+
+```json
+{
+  "servers": {
+    "jwt-hack": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/jwt-hack",
+      "args": [
+        "mcp"
+      ]
+    }
+  },
+  "inputs": []
+}
+```
+
+**Claude Desktop**
+
+```json
+{
+  "mcpServers": {
+    "jwt-hack": {
+      "command": "/usr/local/bin/jwt-hack",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
 ## DEFLATE Compression Support
 
 > **DEFLATE Compression Support**
