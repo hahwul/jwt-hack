@@ -42,7 +42,7 @@ pub enum Commands {
         #[arg(long)]
         secret: Option<String>,
 
-        /// RSA or ECDSA private key in PEM format for asymmetric algorithms
+        /// RSA, ECDSA, or EdDSA private key in PEM format for asymmetric algorithms
         #[arg(long)]
         private_key: Option<PathBuf>,
 
@@ -76,7 +76,7 @@ pub enum Commands {
         #[arg(long)]
         secret: Option<String>,
 
-        /// RSA or ECDSA private key in PEM format for asymmetric algorithms
+        /// RSA, ECDSA, or EdDSA private key in PEM format for asymmetric algorithms
         #[arg(long)]
         private_key: Option<PathBuf>,
 
