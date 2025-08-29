@@ -346,7 +346,7 @@ impl ServerHandler for JwtHackServer {
                 .build(),
             server_info: Implementation {
                 name: "jwt-hack".to_string(),
-                version: "2.2.0".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
             },
             instructions: Some("JWT-HACK MCP Server - Provides tools for JWT security testing including decode, encode, verify, crack, and payload generation.".to_string()),
         }
