@@ -56,8 +56,8 @@ docker pull hahwul/jwt-hack:v2.1.0
 
 | Mode    | Description                  | Support                                                      |
 |---------|------------------------------|--------------------------------------------------------------|
-| Encode  | JWT Encoder                  | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression |
-| Decode  | JWT Decoder                  | Algorithm, Issued At Check, DEFLATE Compression              |
+| Encode  | JWT/JWE Encoder              | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression / JWE |
+| Decode  | JWT/JWE Decoder              | Algorithm, Issued At Check, DEFLATE Compression, JWE Structure |
 | Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
@@ -71,6 +71,17 @@ You can decode both regular and DEFLATE-compressed JWTs. The tool will automatic
 ```bash
 jwt-hack decode eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.CHANGED
 jwt-hack decode COMPRESSED_JWT_TOKEN
+```
+
+### Decode a JWE
+
+Decode JWE (JSON Web Encryption) tokens to analyze their structure. The tool automatically detects JWE format (5 parts) and displays the encryption details.
+
+```bash
+# Decode JWE token structure
+jwt-hack decode eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJ0ZXN0IjoiandlIn0.ZHVtbXlfdGFn
+
+# Shows JWE header, encrypted key, IV, ciphertext, and authentication tag
 ```
 
 ### Encode a JWT
@@ -90,6 +101,18 @@ jwt-hack encode '{"sub":"1234"}' --secret=your-secret --compress
 # With Private Key
 ssh-keygen -t rsa -b 4096 -E SHA256 -m PEM -P "" -f RS256.key
 jwt-hack encode '{"a":"z"}' --private-key RS256.key --algorithm=RS256
+```
+
+### Encode a JWE
+
+Create JWE (JSON Web Encryption) tokens for testing encrypted JWT scenarios.
+
+```bash
+# Basic JWE encoding
+jwt-hack encode '{"sub":"1234", "data":"encrypted"}' --jwe --secret=your-secret
+
+# JWE tokens are encrypted and can only be decrypted with the proper key
+jwt-hack encode '{"sensitive":"data"}' --jwe
 ```
 
 ### Verify a JWT

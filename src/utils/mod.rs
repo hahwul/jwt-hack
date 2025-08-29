@@ -97,6 +97,21 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     format!("{hours}h {remain_minutes}m {remain_seconds}s")
 }
 
+/// Formats a base64 encoded string for display with preview (shows first/last chars with length)
+pub fn format_base64_preview(base64_str: &str) -> String {
+    const PREVIEW_LEN: usize = 8;
+
+    if base64_str.len() <= PREVIEW_LEN * 2 {
+        return base64_str.to_string();
+    }
+
+    let start = &base64_str[..PREVIEW_LEN];
+    let end = &base64_str[base64_str.len() - PREVIEW_LEN..];
+    let length = base64_str.len();
+
+    format!("{}...{} ({} chars)", start, end, length)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
