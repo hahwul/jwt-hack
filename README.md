@@ -123,7 +123,7 @@ Checks if a JWT's signature is valid using the provided secret or key.
 # With Secret (HMAC algorithms like HS256, HS384, HS512)
 jwt-hack verify YOUR_JWT_TOKEN_HERE --secret=your-256-bit-secret
 
-# With Private Key (for asymmetric algorithms like RS256, ES256)
+# With Private Key (for asymmetric algorithms like RS256, ES256, EdDSA)
 jwt-hack verify YOUR_JWT_TOKEN_HERE --private-key path/to/your/RS256_private.key
 ```
 
