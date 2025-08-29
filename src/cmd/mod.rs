@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod crack;
 mod decode;
 mod encode;
+mod mcp;
 mod payload;
 mod verify;
 mod version;
@@ -143,6 +144,9 @@ pub enum Commands {
 
     /// Displays version information and project details
     Version,
+
+    /// Runs jwt-hack as an MCP (Model Context Protocol) server
+    Mcp,
 }
 
 /// Parses command-line arguments and executes the appropriate command
@@ -225,6 +229,9 @@ pub fn execute() {
         }
         Some(Commands::Version) => {
             version::execute();
+        }
+        Some(Commands::Mcp) => {
+            mcp::execute();
         }
         None => {
             error!("No command specified. Use --help for usage information.");

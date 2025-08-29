@@ -29,6 +29,7 @@ tempfile = "3.20.0"
 flate2 = "1.0"
 josekit = "0.10.3"
 openssl = { version = "0.10", features = ["vendored"] }
+rmcp = { version = "0.6.0", features = ["server", "transport-io"] }
 
 [profile.release]
 opt-level = 3
