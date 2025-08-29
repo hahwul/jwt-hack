@@ -19,12 +19,29 @@ pub fn execute(token: &str) {
 }
 
 fn decode_token(token: &str) -> Result<()> {
+    // Detect token type first
+    let token_type = jwt::detect_token_type(token);
+
+    match token_type {
+        jwt::TokenType::Jwt => decode_jwt_token(token),
+        jwt::TokenType::Jwe => decode_jwe_token(token),
+        jwt::TokenType::Unknown => {
+            let parts: Vec<&str> = token.split('.').collect();
+            Err(anyhow::anyhow!(
+                "Unknown token format: expected 3 parts (JWT) or 5 parts (JWE), got {} parts",
+                parts.len()
+            ))
+        }
+    }
+}
+
+fn decode_jwt_token(token: &str) -> Result<()> {
     // Decode JWT token into its components
     let decoded = jwt::decode(token)?;
-    utils::log_success("Token decoded successfully");
+    utils::log_success("JWT token decoded successfully");
 
     // Display formatted header section
-    println!("\n{}", "━━━ Header ━━━".bright_cyan().bold());
+    println!("\n{}", "━━━ JWT Header ━━━".bright_cyan().bold());
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
     println!("{}", header_json.bright_blue());
 
@@ -34,7 +51,7 @@ fn decode_token(token: &str) -> Result<()> {
     ));
 
     // Display payload section with human-readable timestamp formatting
-    println!("\n{}", "━━━ Payload ━━━".bright_magenta().bold());
+    println!("\n{}", "━━━ JWT Payload ━━━".bright_magenta().bold());
 
     let mut claims_map: Value = decoded.claims.clone();
 
@@ -97,6 +114,69 @@ fn decode_token(token: &str) -> Result<()> {
 
     // Display claims as properly formatted JSON with added time information
     println!("\n{}", serde_json::to_string_pretty(&claims_map)?);
+
+    Ok(())
+}
+
+fn decode_jwe_token(token: &str) -> Result<()> {
+    // Decode JWE token structure
+    let decoded = jwt::decode_jwe(token)?;
+    utils::log_success("JWE token decoded successfully");
+
+    // Display formatted header section
+    println!("\n{}", "━━━ JWE Header ━━━".bright_cyan().bold());
+    let header_json = serde_json::to_string_pretty(&decoded.header)?;
+    println!("{}", header_json.bright_blue());
+
+    utils::log_info(format!(
+        "Key Management Algorithm: {}",
+        decoded.algorithm.bright_green()
+    ));
+    utils::log_info(format!(
+        "Content Encryption Algorithm: {}",
+        decoded.encryption.bright_green()
+    ));
+
+    // Display JWE structure
+    println!("\n{}", "━━━ JWE Structure ━━━".bright_magenta().bold());
+
+    println!("\n{}", "Encrypted Key:".bright_yellow());
+    println!(
+        "{}",
+        if decoded.encrypted_key.is_empty() {
+            "(empty)".dimmed()
+        } else {
+            utils::format_base64_preview(&decoded.encrypted_key).bright_blue()
+        }
+    );
+
+    println!("\n{}", "Initialization Vector:".bright_yellow());
+    println!(
+        "{}",
+        if decoded.iv.is_empty() {
+            "(empty)".dimmed()
+        } else {
+            utils::format_base64_preview(&decoded.iv).bright_blue()
+        }
+    );
+
+    println!("\n{}", "Ciphertext:".bright_yellow());
+    println!(
+        "{}",
+        utils::format_base64_preview(&decoded.ciphertext).bright_blue()
+    );
+
+    println!("\n{}", "Authentication Tag:".bright_yellow());
+    println!(
+        "{}",
+        if decoded.tag.is_empty() {
+            "(empty)".dimmed()
+        } else {
+            utils::format_base64_preview(&decoded.tag).bright_blue()
+        }
+    );
+
+    utils::log_info("JWE payload is encrypted and cannot be decoded without the appropriate key");
 
     Ok(())
 }
@@ -181,6 +261,30 @@ mod tests {
         assert!(
             result.is_ok(),
             "decode_token failed for valid token without timestamps"
+        );
+    }
+
+    #[test]
+    fn test_decode_jwe_token() {
+        // Test JWE token decoding
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+
+        let result = decode_token(jwe_token);
+        assert!(
+            result.is_ok(),
+            "decode_token should succeed for valid JWE token"
+        );
+    }
+
+    #[test]
+    fn test_decode_unknown_token_format() {
+        // Test token with invalid number of parts
+        let invalid_token = "invalid.token.with.too.many.parts.here";
+
+        let result = decode_token(invalid_token);
+        assert!(
+            result.is_err(),
+            "decode_token should fail for invalid token format"
         );
     }
 }

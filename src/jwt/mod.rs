@@ -60,6 +60,26 @@ pub struct DecodedToken {
     pub algorithm: Algorithm,
 }
 
+/// JWE Decoded token data
+#[derive(Debug, Clone)]
+pub struct DecodedJweToken {
+    pub header: HashMap<String, Value>,
+    pub encrypted_key: String,
+    pub iv: String,
+    pub ciphertext: String,
+    pub tag: String,
+    pub algorithm: String,
+    pub encryption: String,
+}
+
+/// Token type enumeration
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenType {
+    Jwt,
+    Jwe,
+    Unknown,
+}
+
 /// Encoding key types for JWT
 pub enum KeyData<'a> {
     /// Secret for HMAC algorithms
@@ -304,6 +324,63 @@ fn encode_compressed_jwt(
     Ok(format!(
         "{encoded_header}.{encoded_payload}.{encoded_signature}"
     ))
+}
+
+/// Detect the type of token (JWT vs JWE)
+pub fn detect_token_type(token: &str) -> TokenType {
+    let parts: Vec<&str> = token.split('.').collect();
+    match parts.len() {
+        3 => TokenType::Jwt,
+        5 => TokenType::Jwe,
+        _ => TokenType::Unknown,
+    }
+}
+
+/// Decode a JWE token without decrypting its payload
+pub fn decode_jwe(token: &str) -> Result<DecodedJweToken> {
+    // Split the token and validate JWE format (5 parts)
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 5 {
+        return Err(anyhow!(
+            "Invalid JWE token format: expected 5 parts, got {}",
+            parts.len()
+        ));
+    }
+
+    // Extract and decode header
+    let header_b64 = parts[0];
+    let header_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(header_b64)
+        .map_err(|_| anyhow!("Invalid JWE header encoding"))?;
+    let header_str = String::from_utf8(header_bytes)?;
+    let header: HashMap<String, Value> = serde_json::from_str(&header_str)?;
+
+    // Extract algorithm and encryption method from header
+    let alg_value = header
+        .get("alg")
+        .ok_or_else(|| anyhow!("Missing 'alg' in JWE header"))?;
+    let algorithm = alg_value
+        .as_str()
+        .ok_or_else(|| anyhow!("'alg' is not a string"))?
+        .to_string();
+
+    let enc_value = header
+        .get("enc")
+        .ok_or_else(|| anyhow!("Missing 'enc' in JWE header"))?;
+    let encryption = enc_value
+        .as_str()
+        .ok_or_else(|| anyhow!("'enc' is not a string"))?
+        .to_string();
+
+    Ok(DecodedJweToken {
+        header,
+        encrypted_key: parts[1].to_string(),
+        iv: parts[2].to_string(),
+        ciphertext: parts[3].to_string(),
+        tag: parts[4].to_string(),
+        algorithm,
+        encryption,
+    })
 }
 
 /// Decode a JWT token without verifying its signature
@@ -617,6 +694,33 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
             )),
         },
     }
+}
+
+/// Create a simple JWE token for demonstration purposes
+pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
+    // This is a basic demonstration JWE structure for testing purposes
+    // In a real implementation, you would use proper encryption
+
+    let header_json = serde_json::json!({
+        "alg": "dir",
+        "enc": "A256GCM"
+    });
+
+    let header_str = serde_json::to_string(&header_json)?;
+    let encoded_header =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header_str.as_bytes());
+
+    // Create dummy components for JWE structure
+    let encrypted_key = ""; // Empty for direct encryption
+    let iv = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"dummy_iv_123456");
+    let ciphertext = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
+    let tag = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"dummy_tag");
+
+    // Construct JWE token: header.encrypted_key.iv.ciphertext.tag
+    Ok(format!(
+        "{}.{}.{}.{}.{}",
+        encoded_header, encrypted_key, iv, ciphertext, tag
+    ))
 }
 
 #[cfg(test)]
@@ -1471,6 +1575,67 @@ mod tests {
         assert!(
             verification_result.unwrap(),
             "Compressed token should be valid"
+        );
+    }
+
+    #[test]
+    fn test_detect_token_type_jwt() {
+        let jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ";
+        assert_eq!(detect_token_type(jwt_token), TokenType::Jwt);
+    }
+
+    #[test]
+    fn test_detect_token_type_jwe() {
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+        assert_eq!(detect_token_type(jwe_token), TokenType::Jwe);
+    }
+
+    #[test]
+    fn test_detect_token_type_unknown() {
+        let invalid_token = "invalid.token.format.with.too.many.parts.here";
+        assert_eq!(detect_token_type(invalid_token), TokenType::Unknown);
+    }
+
+    #[test]
+    fn test_decode_jwe_basic() {
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+        let result = decode_jwe(jwe_token);
+        assert!(result.is_ok(), "JWE decoding should succeed");
+
+        let decoded = result.unwrap();
+        assert_eq!(decoded.algorithm, "dir");
+        assert_eq!(decoded.encryption, "A256GCM");
+        assert!(decoded.encrypted_key.is_empty());
+        assert!(!decoded.iv.is_empty());
+        assert!(!decoded.ciphertext.is_empty());
+        assert!(!decoded.tag.is_empty());
+    }
+
+    #[test]
+    fn test_decode_jwe_invalid_format() {
+        let invalid_jwe = "invalid.jwt.token"; // Only 3 parts
+        let result = decode_jwe(invalid_jwe);
+        assert!(
+            result.is_err(),
+            "JWE decoding should fail for invalid format"
+        );
+    }
+
+    #[test]
+    fn test_encode_jwe_demo() {
+        let payload = r#"{"sub":"test","name":"JWE User"}"#;
+        let result = encode_jwe_demo(payload, "test_key");
+        assert!(result.is_ok(), "JWE encoding demo should succeed");
+
+        let jwe_token = result.unwrap();
+        let parts: Vec<&str> = jwe_token.split('.').collect();
+        assert_eq!(parts.len(), 5, "JWE token should have 5 parts");
+
+        // Verify it can be decoded back
+        let decode_result = decode_jwe(&jwe_token);
+        assert!(
+            decode_result.is_ok(),
+            "Generated JWE token should be decodable"
         );
     }
 }

@@ -61,6 +61,10 @@ pub enum Commands {
         /// Compress payload using DEFLATE compression (adds "zip":"DEF" header)
         #[arg(long)]
         compress: bool,
+
+        /// Create JWE (JSON Web Encryption) token instead of JWT
+        #[arg(long)]
+        jwe: bool,
     },
 
     /// Verifies a JWT token's signature and optionally validates its expiration claim
@@ -157,6 +161,7 @@ pub fn execute() {
             no_signature,
             header,
             compress,
+            jwe,
         }) => {
             encode::execute(
                 json,
@@ -166,6 +171,7 @@ pub fn execute() {
                 *no_signature,
                 header.clone(),
                 *compress,
+                *jwe,
             );
         }
         Some(Commands::Verify {

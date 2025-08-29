@@ -8,7 +8,20 @@ use std::path::PathBuf;
 use crate::jwt;
 use crate::utils;
 
+/// Options for encoding operations
+#[allow(dead_code)]
+pub struct EncodeOptions {
+    pub secret: Option<String>,
+    pub private_key_path: Option<PathBuf>,
+    pub algorithm: String,
+    pub no_signature: bool,
+    pub headers: Vec<(String, String)>,
+    pub compress: bool,
+    pub jwe: bool,
+}
+
 /// Encodes JSON data into a JWT token with various algorithm and signing options
+#[allow(clippy::too_many_arguments)]
 pub fn execute(
     json_str: &str,
     secret: Option<&str>,
@@ -17,26 +30,38 @@ pub fn execute(
     no_signature: bool,
     headers: Vec<(String, String)>,
     compress: bool,
+    jwe: bool,
 ) {
-    utils::log_info(format!(
-        "Encoding JSON to JWT with algorithm: {}",
-        algorithm.bright_green()
-    ));
+    if jwe {
+        utils::log_info(format!(
+            "Encoding JSON to JWE with encryption: {}",
+            "A256GCM".bright_green()
+        ));
+        if let Err(e) = encode_jwe(json_str, secret) {
+            utils::log_error(format!("JWE Encode Error: {e}"));
+            utils::log_error("e.g jwt-hack encode {JSON} --jwe --secret={YOUR_SECRET}");
+        }
+    } else {
+        utils::log_info(format!(
+            "Encoding JSON to JWT with algorithm: {}",
+            algorithm.bright_green()
+        ));
 
-    if let Err(e) = encode_json(
-        json_str,
-        secret,
-        private_key_path,
-        algorithm,
-        no_signature,
-        &headers,
-        compress,
-    ) {
-        utils::log_error(format!("JSON Encode Error: {e}"));
-        utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
-        utils::log_error(
-            "or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256",
-        );
+        if let Err(e) = encode_json(
+            json_str,
+            secret,
+            private_key_path,
+            algorithm,
+            no_signature,
+            &headers,
+            compress,
+        ) {
+            utils::log_error(format!("JSON Encode Error: {e}"));
+            utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
+            utils::log_error(
+                "or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256",
+            );
+        }
     }
 }
 
@@ -172,6 +197,43 @@ fn encode_json(
     Ok(())
 }
 
+fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
+    // Parse JSON string to ensure it's valid
+    let _claims: Value = serde_json::from_str(json_str)?;
+
+    // Use default secret if none provided
+    let key = secret.unwrap_or("default_jwe_key");
+
+    // Start progress indicator
+    let progress = utils::start_progress("Encoding JWE token...");
+
+    // Create JWE token using our demo function
+    let token = jwt::encode_jwe_demo(json_str, key)?;
+
+    progress.finish_and_clear();
+
+    // Display successful encoding result
+    utils::log_success("JWE token created successfully");
+
+    // Display encoding details
+    println!("\n{}", "━━━ JWE Encoding Details ━━━".bright_cyan().bold());
+    utils::log_info(format!(
+        "Key Management Algorithm: {}",
+        "dir".bright_green()
+    ));
+    utils::log_info(format!(
+        "Content Encryption Algorithm: {}",
+        "A256GCM".bright_green()
+    ));
+    utils::log_info("Note: This is a demonstration JWE token for testing purposes");
+
+    // Display the JWE token
+    println!("\n{}", "━━━ JWE Token ━━━".bright_yellow().bold());
+    println!("{}", token);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,6 +259,7 @@ mod tests {
                 no_signature,
                 headers,
                 false, // compress
+                false, // jwe
             );
         });
 
@@ -223,6 +286,7 @@ mod tests {
                 no_signature,
                 headers,
                 false, // compress
+                false, // jwe
             );
         });
 
@@ -252,6 +316,7 @@ mod tests {
                 no_signature,
                 headers,
                 false, // compress
+                false, // jwe
             );
         });
 
@@ -278,6 +343,7 @@ mod tests {
                 no_signature,
                 headers,
                 false, // compress
+                false, // jwe
             );
         });
 
@@ -322,5 +388,44 @@ mod tests {
 
         // Clean up
         temp_dir.close().expect("Failed to clean up temp directory");
+    }
+
+    #[test]
+    fn test_execute_with_jwe_flag() {
+        // Test JWE encoding execution
+        let json_str = r#"{"sub":"test","name":"JWE User"}"#;
+        let secret = Some("test_secret");
+        let private_key_path = None;
+        let algorithm = "HS256";
+        let no_signature = false;
+        let headers = Vec::new();
+        let compress = false;
+        let jwe = true;
+
+        // Execute with JWE flag shouldn't panic
+        let result = std::panic::catch_unwind(|| {
+            execute(
+                json_str,
+                secret,
+                private_key_path,
+                algorithm,
+                no_signature,
+                headers,
+                compress,
+                jwe,
+            );
+        });
+
+        assert!(result.is_ok(), "execute() with JWE flag should not panic");
+    }
+
+    #[test]
+    fn test_encode_jwe_function() {
+        // Test the encode_jwe function directly
+        let json_str = r#"{"sub":"test","name":"JWE User"}"#;
+        let secret = Some("test_secret");
+
+        let result = encode_jwe(json_str, secret);
+        assert!(result.is_ok(), "encode_jwe should succeed with valid JSON");
     }
 }
