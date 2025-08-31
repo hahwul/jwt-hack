@@ -1,21 +1,16 @@
 ---
 name: Release
-
 on:
   release:
     types: [published]
-
 env:
   CARGO_TERM_COLOR: always
-
 jobs:
   build-and-upload:
     name: Build and upload
     runs-on: ${{ matrix.os }}
-
     permissions:
-      contents: write # Required to upload release assets
-
+      contents: write  # Required to upload release assets
     strategy:
       matrix:
         include:
@@ -27,7 +22,7 @@ jobs:
           - build: linux-aarch64
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            use_cross: true # Cross-compilation needed for ARM64
+            use_cross: true  # Cross-compilation needed for ARM64
           # macOS targets
           - build: macos-x86_64
             os: macos-latest
@@ -36,32 +31,27 @@ jobs:
           - build: macos-aarch64
             os: macos-latest
             target: aarch64-apple-darwin
-            use_cross: false # Apple Silicon Macs can build for both architectures natively
+            use_cross: false  # Apple Silicon Macs can build for both architectures natively
           # Windows targets
           - build: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             use_cross: false
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Get the release version from the tag
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
       - name: Install cross-compilation tools
         if: matrix.use_cross == true
         uses: taiki-e/install-action@v2
         with:
           tool: cross
-
       - name: Build
         shell: bash
         run: |
@@ -70,7 +60,6 @@ jobs:
           else
             cargo build --verbose --release --target ${{ matrix.target }}
           fi
-
       - name: Build archive
         shell: bash
         run: |
@@ -93,7 +82,6 @@ jobs:
             tar -czf "$dirname.tar.gz" "$dirname"
             echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
           fi
-
       - name: Generate checksums
         shell: bash
         run: |
@@ -102,10 +90,9 @@ jobs:
           else
             shasum -a 256 "$ASSET" > "$ASSET.sha256"
           fi
-
       - name: Upload release archive
         uses: softprops/action-gh-release@v2
         with:
-          files: |
+          files: |-
             ${{ env.ASSET }}
             ${{ env.ASSET }}.sha256
