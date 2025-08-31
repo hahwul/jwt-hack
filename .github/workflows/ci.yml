@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
     paths: ["**/*.rs", Cargo.toml, Dockerfile]
+  workflow_dispatch:
 env:
   CARGO_TERM_COLOR: always
 jobs:
