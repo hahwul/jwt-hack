@@ -10,7 +10,7 @@ jobs:
     name: Build and upload
     runs-on: ${{ matrix.os }}
     permissions:
-      contents: write  # Required to upload release assets
+      contents: write # Required to upload release assets
     strategy:
       matrix:
         include:
@@ -20,9 +20,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
             use_cross: false
           - build: linux-aarch64
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            use_cross: true  # Cross-compilation needed for ARM64
+            use_cross: false
           # macOS targets
           - build: macos-x86_64
             os: macos-latest
@@ -31,7 +31,7 @@ jobs:
           - build: macos-aarch64
             os: macos-latest
             target: aarch64-apple-darwin
-            use_cross: false  # Apple Silicon Macs can build for both architectures natively
+            use_cross: false # Apple Silicon Macs can build for both architectures natively
           # Windows targets
           - build: windows-x86_64
             os: windows-latest
