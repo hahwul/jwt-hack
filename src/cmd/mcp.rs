@@ -1,6 +1,6 @@
 use anyhow::Result;
 use rmcp::{
-    handler::server::{router::tool::ToolRouter, tool::Parameters},
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     schemars,
     service::RequestContext,
@@ -199,7 +199,7 @@ impl JwtHackServer {
         let options = crate::jwt::EncodeOptions {
             algorithm: &args.algorithm,
             key_data,
-            header_params: None,
+            header_params: None::<std::collections::HashMap<&str, &str>>,
             compress_payload: false,
         };
 
