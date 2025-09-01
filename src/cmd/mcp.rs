@@ -8,6 +8,7 @@ use rmcp::{
     transport::stdio,
     ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
 };
+#[allow(unused_imports)]
 use std::future::Future;
 
 /// Helper function to generate combinations for brute force
@@ -188,7 +189,7 @@ impl JwtHackServer {
         let key_data = if args.no_signature {
             crate::jwt::KeyData::None
         } else if let Some(ref secret) = args.secret {
-            crate::jwt::KeyData::Secret(secret)
+            crate::jwt::KeyData::Secret(secret.as_str())
         } else {
             return Ok(CallToolResult::error(vec![Content::text(
                 "No secret provided for signed token".to_string(),
