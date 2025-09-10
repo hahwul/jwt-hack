@@ -77,6 +77,9 @@ pub struct CrackArgs {
     /// Character list for bruteforce attack
     #[serde(default = "default_chars")]
     pub chars: String,
+    /// Character set preset: az, AZ, aZ, 19, aZ19, ascii
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
     /// Max length for bruteforce attack
     #[serde(default = "default_max_length")]
     pub max: usize,
@@ -269,9 +272,24 @@ impl JwtHackServer {
                 "✗ Dictionary attack failed. Secret not found in built-in wordlist.".to_string(),
             )]))
         } else if args.mode == "brute" {
+            // Resolve character set from preset or use provided chars
+            let chars_to_use = if let Some(preset) = &args.preset {
+                match crate::cmd::crack::get_preset_chars(preset) {
+                    Some(preset_chars) => preset_chars,
+                    None => {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Unknown preset: '{}'. Available presets: az, AZ, aZ, 19, aZ19, ascii",
+                            preset
+                        ))]));
+                    }
+                }
+            } else {
+                args.chars.clone()
+            };
+
             // For brute force, only try very short combinations due to performance constraints
             let max_len = std::cmp::min(args.max, 3); // Limit to 3 characters max for MCP
-            let chars: Vec<char> = args.chars.chars().take(10).collect(); // Limit charset
+            let chars: Vec<char> = chars_to_use.chars().take(10).collect(); // Limit charset
 
             for len in 1..=max_len {
                 // Generate combinations for this length
@@ -448,6 +466,7 @@ mod tests {
             token: test_token,
             mode: "dict".to_string(),
             chars: "abc".to_string(),
+            preset: None, // preset
             max: 2,
             concurrency: 1,
         };

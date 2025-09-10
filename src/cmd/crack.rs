@@ -13,12 +13,28 @@ use crate::crack;
 use crate::jwt;
 use crate::utils;
 
+/// Maps preset names to their corresponding character sets
+pub fn get_preset_chars(preset: &str) -> Option<String> {
+    match preset {
+        "az" => Some("abcdefghijklmnopqrstuvwxyz".to_string()),
+        "AZ" => Some("ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string()),
+        "aZ" => Some("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string()),
+        "19" => Some("0123456789".to_string()),
+        "aZ19" => Some("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".to_string()),
+        "ascii" => Some(
+            " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".to_string()
+        ),
+        _ => None,
+    }
+}
+
 /// Options for the crack command
 pub struct CrackOptions<'a> {
     pub token: &'a str,
     pub mode: &'a str,
     pub wordlist: &'a Option<PathBuf>,
     pub chars: &'a str,
+    pub preset: &'a Option<String>,
     pub concurrency: usize,
     pub max: usize,
     pub power: bool,
@@ -32,6 +48,7 @@ pub fn execute(
     mode: &str,
     wordlist: &Option<PathBuf>,
     chars: &str,
+    preset: &Option<String>,
     concurrency: usize,
     max: usize,
     power: bool,
@@ -42,6 +59,7 @@ pub fn execute(
         mode,
         wordlist,
         chars,
+        preset,
         concurrency,
         max,
         power,
@@ -74,9 +92,26 @@ fn execute_with_options(options: &CrackOptions) {
             utils::log_error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}");
         }
     } else if options.mode == "brute" {
+        // Resolve the character set to use - preset takes priority over chars
+        let chars_to_use = if let Some(preset) = options.preset {
+            match get_preset_chars(preset) {
+                Some(preset_chars) => {
+                    utils::log_info(format!("Using preset '{}': {}", preset, preset_chars));
+                    preset_chars
+                }
+                None => {
+                    utils::log_error(format!("Unknown preset: '{}'", preset));
+                    utils::log_error("Available presets: az, AZ, aZ, 19, aZ19, ascii");
+                    return;
+                }
+            }
+        } else {
+            options.chars.to_string()
+        };
+
         if let Err(e) = crack_bruteforce(
             options.token,
-            options.chars,
+            &chars_to_use,
             options.max,
             options.concurrency,
             options.power,
@@ -587,6 +622,7 @@ mod tests {
                 "dict",
                 &None,
                 "abcdefghijklmnopqrstuvwxyz",
+                &None, // preset
                 10,
                 4,
                 false,
@@ -611,6 +647,7 @@ mod tests {
             mode: "dict",
             wordlist: &None,
             chars: "abcdefghijklmnopqrstuvwxyz",
+            preset: &None, // preset
             concurrency: 10,
             max: 4,
             power: false,
@@ -639,6 +676,7 @@ mod tests {
             mode: "invalid_mode",
             wordlist: &None,
             chars: "abcdefghijklmnopqrstuvwxyz",
+            preset: &None, // preset
             concurrency: 10,
             max: 4,
             power: false,
@@ -741,6 +779,124 @@ mod tests {
         assert!(
             result.is_ok(),
             "crack_bruteforce should not fail when no match is found"
+        );
+    }
+
+    #[test]
+    fn test_get_preset_chars() {
+        // Test valid presets
+        assert_eq!(
+            get_preset_chars("az"),
+            Some("abcdefghijklmnopqrstuvwxyz".to_string())
+        );
+        assert_eq!(
+            get_preset_chars("AZ"),
+            Some("ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string())
+        );
+        assert_eq!(
+            get_preset_chars("aZ"),
+            Some("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string())
+        );
+        assert_eq!(get_preset_chars("19"), Some("0123456789".to_string()));
+        assert_eq!(
+            get_preset_chars("aZ19"),
+            Some("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".to_string())
+        );
+
+        // Test ascii preset contains expected characters
+        let ascii_chars = get_preset_chars("ascii").unwrap();
+        assert!(ascii_chars.contains(" "));
+        assert!(ascii_chars.contains("!"));
+        assert!(ascii_chars.contains("~"));
+        assert!(ascii_chars.contains("0"));
+        assert!(ascii_chars.contains("A"));
+        assert!(ascii_chars.contains("a"));
+
+        // Test invalid preset
+        assert_eq!(get_preset_chars("invalid"), None);
+        assert_eq!(get_preset_chars(""), None);
+    }
+
+    #[test]
+    fn test_execute_with_preset() {
+        let token = create_test_token("ab");
+
+        // Test with 'az' preset - should find the secret "ab"
+        let preset = Some("az".to_string());
+        let options = CrackOptions {
+            token: &token,
+            mode: "brute",
+            wordlist: &None,
+            chars: "default_not_used", // Should be overridden by preset
+            preset: &preset,
+            concurrency: 2,
+            max: 2,
+            power: false,
+            verbose: false,
+        };
+
+        // This should execute without panicking
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        assert!(
+            result.is_ok(),
+            "execute_with_options should work with valid preset"
+        );
+    }
+
+    #[test]
+    fn test_execute_with_invalid_preset() {
+        let token = create_test_token("secret");
+
+        // Test with invalid preset
+        let preset = Some("invalid_preset".to_string());
+        let options = CrackOptions {
+            token: &token,
+            mode: "brute",
+            wordlist: &None,
+            chars: "abc",
+            preset: &preset,
+            concurrency: 2,
+            max: 2,
+            power: false,
+            verbose: false,
+        };
+
+        // This should execute without panicking (but will print error)
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        assert!(
+            result.is_ok(),
+            "execute_with_options should handle invalid preset gracefully"
+        );
+    }
+
+    #[test]
+    fn test_execute_without_preset() {
+        let token = create_test_token("ab");
+
+        // Test without preset - should use chars
+        let options = CrackOptions {
+            token: &token,
+            mode: "brute",
+            wordlist: &None,
+            chars: "abc", // Should be used since no preset
+            preset: &None,
+            concurrency: 2,
+            max: 2,
+            power: false,
+            verbose: false,
+        };
+
+        // This should execute without panicking
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        assert!(
+            result.is_ok(),
+            "execute_with_options should work without preset"
         );
     }
 }
