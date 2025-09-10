@@ -103,6 +103,10 @@ pub enum Commands {
         #[arg(long, default_value = "abcdefghijklmnopqrstuvwxyz0123456789")]
         chars: String,
 
+        /// Character set preset (for bruteforce attack): az, AZ, aZ, 19, aZ19, ascii
+        #[arg(long)]
+        preset: Option<String>,
+
         /// Concurrency level
         #[arg(short, long, default_value = "20")]
         concurrency: usize,
@@ -196,6 +200,7 @@ pub fn execute() {
             mode,
             wordlist,
             chars,
+            preset,
             concurrency,
             max,
             power,
@@ -206,6 +211,7 @@ pub fn execute() {
                 mode,
                 wordlist,
                 chars,
+                preset,
                 *concurrency,
                 *max,
                 *power,
