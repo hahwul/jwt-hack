@@ -49,7 +49,7 @@ docker pull ghcr.io/hahwul/jwt-hack:latest
 
 #### Docker Hub
 ```bash
-docker pull hahwul/jwt-hack:v2.2.0
+docker pull hahwul/jwt-hack:v2.3.0
 ```
 
 ## Features
