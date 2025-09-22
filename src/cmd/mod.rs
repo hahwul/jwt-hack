@@ -22,6 +22,10 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
+    /// Path to configuration file
+    #[arg(long, global = true)]
+    config: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -156,6 +160,15 @@ pub enum Commands {
 /// Parses command-line arguments and executes the appropriate command
 pub fn execute() {
     let cli = Cli::parse();
+
+    // Load configuration
+    let _config = match crate::config::Config::load(cli.config.as_deref()) {
+        Ok(config) => config,
+        Err(e) => {
+            error!("Failed to load configuration: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     match &cli.command {
         Some(Commands::Decode { token }) => {
