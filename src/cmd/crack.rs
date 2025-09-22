@@ -159,7 +159,7 @@ fn crack_dictionary(
     let mut words: HashSet<String> = HashSet::new();
     for word in reader.lines().map_while(Result::ok) {
         words.insert(word);
-        if words.len() % 10000 == 0 {
+        if words.len().is_multiple_of(10000) {
             loading_pb.set_message(format!("Reading wordlist... ({} words)", words.len()));
         }
     }
