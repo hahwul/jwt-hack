@@ -1,9 +1,10 @@
-mod cmd;
-mod crack;
-mod jwt;
-mod payload;
-mod printing;
-mod utils;
+pub mod cmd;
+pub mod config;
+pub mod crack;
+pub mod jwt;
+pub mod payload;
+pub mod printing;
+pub mod utils;
 
 fn main() {
     // Set up the logging system for the application
