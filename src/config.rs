@@ -31,9 +31,7 @@ impl Config {
         // Check XDG_CONFIG_HOME environment variable first
         if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
             let path = PathBuf::from(xdg_config_home).join("jwt-hack");
-            if !path.to_string_lossy().is_empty() {
-                return Some(path);
-            }
+            return Some(path);
         }
 
         // Fall back to platform-specific config directory
