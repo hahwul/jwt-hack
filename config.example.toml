@@ -1,0 +1,15 @@
+# JWT-HACK Configuration File
+# This is an example configuration file for jwt-hack
+# Save this file as config.toml in your configuration directory
+
+# Default secret key for HMAC algorithms (HS256, HS384, HS512)
+default_secret = "your_default_secret_key"
+
+# Default algorithm to use when encoding JWTs
+default_algorithm = "HS256"
+
+# Default wordlist file path for dictionary attacks
+default_wordlist = "/path/to/your/wordlist.txt"
+
+# Default private key file path for asymmetric algorithms (RS256, ES256, etc.)
+default_private_key = "/path/to/your/private.pem"

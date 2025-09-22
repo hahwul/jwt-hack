@@ -21,7 +21,7 @@ impl Config {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
-        
+
         toml::from_str(&content)
             .with_context(|| format!("Failed to parse config file: {}", path.as_ref().display()))
     }
@@ -70,8 +70,12 @@ impl Config {
     pub fn ensure_config_dir() -> Result<Option<PathBuf>> {
         if let Some(config_dir) = Self::default_config_dir() {
             if !config_dir.exists() {
-                fs::create_dir_all(&config_dir)
-                    .with_context(|| format!("Failed to create config directory: {}", config_dir.display()))?;
+                fs::create_dir_all(&config_dir).with_context(|| {
+                    format!(
+                        "Failed to create config directory: {}",
+                        config_dir.display()
+                    )
+                })?;
             }
             Ok(Some(config_dir))
         } else {
@@ -81,8 +85,7 @@ impl Config {
 
     /// Save configuration to a file
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize config to TOML")?;
+        let content = toml::to_string_pretty(self).context("Failed to serialize config to TOML")?;
 
         // Ensure parent directory exists
         if let Some(parent) = path.as_ref().parent() {
@@ -146,8 +149,14 @@ default_private_key = "/path/to/private.pem"
         let config = Config::from_file(&config_file).unwrap();
         assert_eq!(config.default_secret, Some("my_secret".to_string()));
         assert_eq!(config.default_algorithm, Some("HS512".to_string()));
-        assert_eq!(config.default_wordlist, Some(PathBuf::from("/path/to/wordlist.txt")));
-        assert_eq!(config.default_private_key, Some(PathBuf::from("/path/to/private.pem")));
+        assert_eq!(
+            config.default_wordlist,
+            Some(PathBuf::from("/path/to/wordlist.txt"))
+        );
+        assert_eq!(
+            config.default_private_key,
+            Some(PathBuf::from("/path/to/private.pem"))
+        );
     }
 
     #[test]
