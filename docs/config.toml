@@ -19,6 +19,7 @@ highlight_theme = "ayu-mirage"
 
 [extra]
 logo_text = "JWT-HACK"
+badge = "v2.3.1"
 logo_image_path = "images/logo.png"
 default_thumbnail = "images/preview.jpg"
 footer_html = "Powered by <a href='https://www.getzola.org'>Zola</a> and <a href='https://github.com/hahwul/goyo'>Goyo</a>"
