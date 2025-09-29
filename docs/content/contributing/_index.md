@@ -1,7 +1,7 @@
----
-title: "Contributing"
-weight: 10
----
++++
+title = "Contributing"
+weight = 10
++++
 
 Thank you for your interest in contributing to JWT-HACK! This project welcomes contributions from the community.
 
