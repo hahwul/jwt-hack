@@ -4,6 +4,14 @@ use std::sync::{
     Arc, Mutex,
 };
 
+/// Calculates optimal chunk size based on workload and available cores
+pub fn calculate_optimal_chunk_size(total_combinations: usize, num_threads: usize) -> usize {
+    // Aim for at least 4 chunks per thread for good load balancing
+    let target_chunks = num_threads * 4;
+    let chunk_size = (total_combinations / target_chunks).max(100).min(10000);
+    chunk_size
+}
+
 /// Generates combinations of characters efficiently in chunks to support parallel processing
 pub fn generate_combinations_chunked(
     chars: &str,
@@ -90,7 +98,6 @@ pub fn generate_bruteforce_payloads(
     max_length: usize,
     progress: Option<Arc<Mutex<f64>>>,
 ) -> Vec<String> {
-    const CHUNK_SIZE: usize = 10000; // Chunk size optimized for memory usage and parallelism
     let result = Arc::new(Mutex::new(Vec::new()));
 
     // Calculate total number of combinations for accurate progress reporting
@@ -99,6 +106,10 @@ pub fn generate_bruteforce_payloads(
         .sum();
 
     let completed = Arc::new(AtomicUsize::new(0));
+    
+    // Calculate optimal chunk size based on workload
+    let num_threads = rayon::current_num_threads();
+    let chunk_size = calculate_optimal_chunk_size(total_combinations, num_threads);
 
     // Process combinations of each length in parallel for better performance
     (1..=max_length).into_par_iter().for_each(|length| {
@@ -108,7 +119,7 @@ pub fn generate_bruteforce_payloads(
         let mut combinations = Vec::new();
 
         // Generate and process combinations in manageable chunks
-        for chunk in generate_combinations_chunked(chars, length, CHUNK_SIZE) {
+        for chunk in generate_combinations_chunked(chars, length, chunk_size) {
             combinations.extend(chunk.clone());
 
             // Update progress tracker with current completion percentage
@@ -174,6 +185,21 @@ pub fn format_time(seconds: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_calculate_optimal_chunk_size() {
+        // Small workload
+        assert_eq!(calculate_optimal_chunk_size(1000, 4), 100);
+        
+        // Medium workload
+        assert_eq!(calculate_optimal_chunk_size(100000, 8), 3125);
+        
+        // Large workload
+        assert_eq!(calculate_optimal_chunk_size(1000000, 16), 10000); // Capped at max
+        
+        // Very small workload
+        assert_eq!(calculate_optimal_chunk_size(10, 4), 100); // Min is 100
+    }
 
     #[test]
     fn test_generate_combinations_chunked_simple() {

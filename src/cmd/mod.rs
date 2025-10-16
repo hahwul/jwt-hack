@@ -95,7 +95,7 @@ pub enum Commands {
         /// JWT token to crack
         token: String,
 
-        /// Cracking mode, you can use 'dict' or 'brute'
+        /// Cracking mode, you can use 'dict', 'brute', or 'field'
         #[arg(short, long, default_value = "dict")]
         mode: String,
 
@@ -126,6 +126,18 @@ pub enum Commands {
         /// Show testing log
         #[arg(long)]
         verbose: bool,
+
+        /// Target field for field-specific cracking (e.g., 'kid', 'jti', 'sub')
+        #[arg(long)]
+        field: Option<String>,
+
+        /// Field location: 'header' or 'payload' (for field mode)
+        #[arg(long, default_value = "header")]
+        field_location: String,
+
+        /// Expected pattern for field value (for field mode)
+        #[arg(long)]
+        pattern: Option<String>,
     },
 
     /// Generates various JWT attack payloads for security testing
@@ -218,6 +230,9 @@ pub fn execute() {
             max,
             power,
             verbose,
+            field,
+            field_location,
+            pattern,
         }) => {
             crack::execute(
                 token,
@@ -229,6 +244,9 @@ pub fn execute() {
                 *max,
                 *power,
                 *verbose,
+                field.as_deref(),
+                field_location,
+                pattern.as_deref(),
             );
         }
         Some(Commands::Payload {

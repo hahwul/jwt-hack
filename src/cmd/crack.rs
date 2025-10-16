@@ -39,6 +39,9 @@ pub struct CrackOptions<'a> {
     pub max: usize,
     pub power: bool,
     pub verbose: bool,
+    pub field: Option<&'a str>,
+    pub field_location: &'a str,
+    pub pattern: Option<&'a str>,
 }
 
 /// Execute the crack command
@@ -53,6 +56,9 @@ pub fn execute(
     max: usize,
     power: bool,
     verbose: bool,
+    field: Option<&str>,
+    field_location: &str,
+    pattern: Option<&str>,
 ) {
     let options = CrackOptions {
         token,
@@ -64,6 +70,9 @@ pub fn execute(
         max,
         power,
         verbose,
+        field,
+        field_location,
+        pattern,
     };
     execute_with_options(&options);
 }
@@ -119,9 +128,40 @@ fn execute_with_options(options: &CrackOptions) {
         ) {
             utils::log_error(format!("Bruteforce cracking failed: {e}"));
         }
+    } else if options.mode == "field" {
+        // Field-specific cracking mode
+        if let Some(field_name) = options.field {
+            let chars_to_use = if let Some(preset) = options.preset {
+                match get_preset_chars(preset) {
+                    Some(preset_chars) => preset_chars,
+                    None => {
+                        utils::log_error(format!("Unknown preset: '{}'", preset));
+                        utils::log_error("Available presets: az, AZ, aZ, 19, aZ19, ascii");
+                        return;
+                    }
+                }
+            } else {
+                options.chars.to_string()
+            };
+
+            if let Err(e) = crack_field(
+                options.token,
+                field_name,
+                options.field_location,
+                &chars_to_use,
+                options.max,
+                options.pattern,
+                options.verbose,
+            ) {
+                utils::log_error(format!("Field cracking failed: {e}"));
+            }
+        } else {
+            utils::log_error("Field name is required for field mode");
+            utils::log_error("e.g jwt-hack crack {JWT_CODE} --mode field --field kid");
+        }
     } else {
         utils::log_error(format!("Invalid mode: {}", options.mode));
-        utils::log_error("Supported modes: 'dict' or 'brute'");
+        utils::log_error("Supported modes: 'dict', 'brute', or 'field'");
     }
 }
 
@@ -248,12 +288,12 @@ fn crack_dictionary(
         None
     };
 
-    // Use chunk size for better cache locality and reduced lock contention
-    const CHUNK_SIZE: usize = 1000;
+    // Use adaptive chunk size for better performance and cache locality
+    let chunk_size = crack::brute::calculate_optimal_chunk_size(words_vec.len(), pool_size);
 
     // Process words in parallel using the local pool with chunking
     pool.install(|| {
-        words_vec.par_chunks(CHUNK_SIZE).for_each(|chunk| {
+        words_vec.par_chunks(chunk_size).for_each(|chunk| {
             let mut local_found = false;
 
             // Process each chunk locally first
@@ -477,13 +517,13 @@ fn crack_bruteforce(
         None
     };
 
-    // Use chunk size for better cache locality
-    const CHUNK_SIZE: usize = 1000;
+    // Use adaptive chunk size for better performance
+    let chunk_size = crack::brute::calculate_optimal_chunk_size(payloads.len(), pool_size);
     let start = Instant::now();
 
     // Process payloads in parallel using the local pool with chunking
     pool.install(|| {
-        payloads.par_chunks(CHUNK_SIZE).for_each(|chunk| {
+        payloads.par_chunks(chunk_size).for_each(|chunk| {
             let mut local_found = false;
 
             // Process each chunk locally first
@@ -571,6 +611,136 @@ fn crack_bruteforce(
     Ok(())
 }
 
+fn crack_field(
+    token: &str,
+    field_name: &str,
+    field_location: &str,
+    chars: &str,
+    max_length: usize,
+    pattern: Option<&str>,
+    verbose: bool,
+) -> anyhow::Result<()> {
+    use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
+    use std::time::Instant;
+
+    let start_time = Instant::now();
+
+    utils::log_info(format!(
+        "Starting field-specific cracking for field '{}' in {}",
+        field_name.bright_cyan(),
+        field_location.bright_yellow()
+    ));
+
+    if let Some(pattern_str) = pattern {
+        utils::log_info(format!(
+            "Using pattern hint: {}",
+            pattern_str.bright_green()
+        ));
+    }
+
+    // Determine field target
+    let field_target = match field_location {
+        "header" => crack::field::FieldTarget::Header(field_name.to_string()),
+        "payload" => crack::field::FieldTarget::Payload(field_name.to_string()),
+        _ => {
+            utils::log_error("Field location must be 'header' or 'payload'");
+            return Err(anyhow::anyhow!("Invalid field location"));
+        }
+    };
+
+    // Create options
+    let options = crack::field::FieldCrackOptions {
+        token,
+        field_target,
+        charset: chars,
+        max_length,
+        expected_pattern: pattern,
+    };
+
+    // Generate candidates
+    let total_candidates =
+        crack::field::generate_field_candidates(chars, max_length, pattern).len();
+    utils::log_info(format!(
+        "Will try {} candidate values for field '{}'",
+        total_candidates.to_string().bright_yellow(),
+        field_name.bright_cyan()
+    ));
+
+    // Create progress bar
+    let pb = if !verbose {
+        let progress = ProgressBar::new(total_candidates as u64);
+        progress.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.red} [{elapsed_precise}] Cracking field.. [{bar:40.cyan/blue}] {pos}/{len} ({percent}%)")
+                .unwrap()
+                .progress_chars("#>-")
+        );
+        Some(progress)
+    } else {
+        None
+    };
+
+    // Progress callback
+    let pb_clone = pb.clone();
+    let progress_callback = Arc::new(move |current: usize, _total: usize| {
+        if let Some(ref progress) = pb_clone {
+            progress.set_position(current as u64);
+        }
+    });
+
+    // Perform field cracking
+    let result = crack::field::crack_field(&options, Some(progress_callback))?;
+
+    // Clean up progress bar
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
+
+    let elapsed = start_time.elapsed();
+
+    // Report results
+    if let Some(crack_result) = result {
+        utils::log_success(format!(
+            "Found valid value for field '{}': {}",
+            field_name.bright_cyan(),
+            crack_result.cracked_value.bright_yellow().bold()
+        ));
+        utils::log_success(format!(
+            "Cracking completed in {} ({} attempts)",
+            HumanDuration(elapsed).to_string().bright_cyan(),
+            crack_result.attempts.to_string().bright_green()
+        ));
+
+        println!("\n{}", "━━━ Field Crack Results ━━━".bright_green().bold());
+        println!("Token:          {}", utils::format_jwt_token(token));
+        println!(
+            "Field:          {} ({})",
+            field_name.bright_cyan(),
+            crack_result.field_location.bright_yellow()
+        );
+        println!(
+            "Original Value: {}",
+            crack_result.original_value.bright_red()
+        );
+        println!(
+            "Cracked Value:  {}",
+            crack_result.cracked_value.bright_green().bold()
+        );
+        println!("Attempts:       {}", crack_result.attempts);
+        println!();
+    } else {
+        utils::log_error(format!(
+            "Could not crack field '{}' after trying {} candidates in {}",
+            field_name.bright_cyan(),
+            total_candidates.to_string().bright_yellow(),
+            HumanDuration(elapsed).to_string().bright_cyan()
+        ));
+    }
+
+    utils::log_info("Finished field crack mode");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,6 +797,9 @@ mod tests {
                 4,
                 false,
                 false,
+                None,         // field
+                "header",     // field_location
+                None,         // pattern
             );
         });
 
@@ -652,6 +825,9 @@ mod tests {
             max: 4,
             power: false,
             verbose: false,
+            field: None,
+            field_location: "header",
+            pattern: None,
         };
 
         // Execute should handle the missing wordlist without panicking
@@ -681,6 +857,9 @@ mod tests {
             max: 4,
             power: false,
             verbose: false,
+            field: None,
+            field_location: "header",
+            pattern: None,
         };
 
         // Execute should handle the invalid mode without panicking
@@ -833,6 +1012,9 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            field: None,
+            field_location: "header",
+            pattern: None,
         };
 
         // This should execute without panicking
@@ -861,6 +1043,9 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            field: None,
+            field_location: "header",
+            pattern: None,
         };
 
         // This should execute without panicking (but will print error)
@@ -888,6 +1073,9 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            field: None,
+            field_location: "header",
+            pattern: None,
         };
 
         // This should execute without panicking
@@ -897,6 +1085,36 @@ mod tests {
         assert!(
             result.is_ok(),
             "execute_with_options should work without preset"
+        );
+    }
+
+    #[test]
+    fn test_execute_field_mode_no_field() {
+        let token = create_test_token("secret");
+
+        // Test field mode without field name
+        let options = CrackOptions {
+            token: &token,
+            mode: "field",
+            wordlist: &None,
+            chars: "abc",
+            preset: &None,
+            concurrency: 2,
+            max: 2,
+            power: false,
+            verbose: false,
+            field: None, // Missing field name
+            field_location: "header",
+            pattern: None,
+        };
+
+        // This should execute without panicking (but will print error)
+        let result = std::panic::catch_unwind(|| {
+            execute_with_options(&options);
+        });
+        assert!(
+            result.is_ok(),
+            "execute_with_options should handle missing field name gracefully"
         );
     }
 }
