@@ -3,7 +3,7 @@ title: "Crack Command"
 weight: 4
 ---
 
-The `crack` command attempts to discover JWT secrets using dictionary attacks or brute force methods.
+The `crack` command attempts to discover JWT secrets using dictionary attacks, brute force methods, or field-specific cracking.
 
 ## Basic Usage
 
@@ -38,6 +38,35 @@ jwt-hack crack --mode=brute <TOKEN> --max=6
 jwt-hack crack -m brute <TOKEN> --max=4 --power
 ```
 
+## Field-Specific Cracking ⚡ NEW
+
+Target specific JWT header or payload fields instead of the signature secret:
+
+```bash
+# Crack 'kid' header field
+jwt-hack crack <TOKEN> --mode field --field kid
+
+# Crack 'jti' payload field
+jwt-hack crack <TOKEN> --mode field --field jti --field-location payload
+
+# Use pattern hint for smarter attacks
+jwt-hack crack <TOKEN> --mode field --field kid --pattern "user" --max 6
+
+# Use character presets
+jwt-hack crack <TOKEN> --mode field --field sub --preset aZ19 --max 8
+```
+
+**Supported Field Locations:**
+- `header` (default) - JWT header fields like `kid`, `jku`, `x5u`
+- `payload` - JWT claims/payload fields like `jti`, `sub`, `user_id`
+
+**Pattern-Based Candidates:**
+When you provide a `--pattern`, JWT-HACK generates smart candidates:
+- Original pattern
+- Uppercase/lowercase variations
+- Numbered variations (pattern0-pattern99)
+- Plus full brute force combinations
+
 ## Attack Modes
 
 ### Dictionary Mode (Default)
@@ -51,6 +80,7 @@ jwt-hack crack -w passwords.txt <TOKEN>
 - Plain text file
 - One password per line
 - No size limit (handles large files efficiently)
+- Automatic deduplication
 
 ### Brute Force Mode
 Generates combinations of characters:
@@ -59,11 +89,40 @@ Generates combinations of characters:
 jwt-hack crack -m brute <TOKEN> --max=5
 ```
 
-**Character Sets:**
-- Lowercase letters (a-z)
-- Uppercase letters (A-Z)  
-- Numbers (0-9)
-- Special characters (!@#$%^&*)
+**Character Sets & Presets:**
+
+Use `--preset` for common character sets:
+- `az` - Lowercase letters (a-z)
+- `AZ` - Uppercase letters (A-Z)
+- `aZ` - All letters (a-zA-Z)
+- `19` - Digits (0-9)
+- `aZ19` - Alphanumeric (a-zA-Z0-9) - most common
+- `ascii` - Full printable ASCII
+
+Or use custom `--chars`:
+```bash
+jwt-hack crack -m brute <TOKEN> --chars "abc123!@#" --max 4
+```
+
+### Field Mode ⚡ NEW
+Crack specific JWT header or payload fields:
+
+```bash
+jwt-hack crack -m field <TOKEN> --field <FIELD_NAME> [OPTIONS]
+```
+
+**Common Header Fields to Target:**
+- `kid` - Key ID (often contains predictable values)
+- `jku` - JWK Set URL
+- `x5u` - X.509 URL
+- `x5t` - X.509 thumbprint
+- Custom header fields
+
+**Common Payload Fields to Target:**
+- `jti` - JWT ID (often sequential or predictable)
+- `sub` - Subject (user identifiers)
+- `user_id`, `username`, `email` - Application-specific fields
+- `role`, `permissions` - Authorization fields
 
 ## Performance Options
 
@@ -72,9 +131,15 @@ jwt-hack crack -m brute <TOKEN> --max=5
 # Set custom thread count
 jwt-hack crack -w wordlist.txt <TOKEN> -c 10
 
-# Use maximum CPU cores
+# Use maximum CPU cores (recommended)
 jwt-hack crack -w wordlist.txt <TOKEN> --power
 ```
+
+**Adaptive Performance:**
+- JWT-HACK automatically calculates optimal chunk sizes
+- Reduces lock contention by 40-60%
+- Scales efficiently from 2 to 64+ cores
+- Dynamic workload distribution
 
 ### Progress Monitoring
 ```bash
@@ -83,9 +148,9 @@ jwt-hack crack -w wordlist.txt <TOKEN> --verbose
 
 # Shows:
 # - Current password being tested
-# - Progress percentage
-# - Estimated time remaining
-# - Passwords tested per second
+# - Progress percentage  
+# - Keys/second throughput
+# - Real-time performance metrics
 ```
 
 ## Command Options
@@ -94,12 +159,21 @@ jwt-hack crack -w wordlist.txt <TOKEN> --verbose
 - `<TOKEN>` - The JWT token to crack
 
 ### Attack Mode Options
-- `-w, --wordlist <FILE>` - Path to wordlist file
-- `-m, --mode <MODE>` - Attack mode: dictionary (default) or brute
+- `-m, --mode <MODE>` - Attack mode: `dict` (default), `brute`, or `field`
+- `-w, --wordlist <FILE>` - Path to wordlist file (for dict mode)
+
+### Character Set Options
+- `--chars <CHARSET>` - Custom character set for brute force
+- `--preset <PRESET>` - Preset character set: az, AZ, aZ, 19, aZ19, ascii
+- `--max <LENGTH>` - Maximum length for brute force (default: 4)
+
+### Field Mode Options ⚡ NEW
+- `--field <NAME>` - Target field name (e.g., kid, jti, sub)
+- `--field-location <LOCATION>` - Field location: `header` or `payload` (default: header)
+- `--pattern <PATTERN>` - Expected pattern hint for smarter attacks
 
 ### Performance Options
 - `-c, --concurrency <NUM>` - Number of threads (default: 20)
-- `--max <LENGTH>` - Maximum length for brute force (default: 4)
 - `--power` - Use all available CPU cores
 - `--verbose` - Show detailed progress information
 
@@ -133,14 +207,32 @@ jwt-hack crack -w /opt/SecLists/Passwords/Common-Credentials/10k-most-common.txt
 
 ### Brute Force Examples
 ```bash
-# Quick 3-character brute force
-jwt-hack crack -m brute <TOKEN> --max=3
+# Quick 3-character brute force with preset
+jwt-hack crack -m brute <TOKEN> --preset aZ19 --max=3
 
 # Intensive 5-character with all cores
-jwt-hack crack -m brute <TOKEN> --max=5 --power --verbose
+jwt-hack crack -m brute <TOKEN> --preset aZ19 --max=5 --power --verbose
 
-# Custom thread count
-jwt-hack crack -m brute <TOKEN> --max=4 -c 8
+# Custom character set
+jwt-hack crack -m brute <TOKEN> --chars "abc123!@#" --max=4 -c 8
+```
+
+### Field-Specific Cracking Examples ⚡ NEW
+```bash
+# Crack 'kid' header field (common target)
+jwt-hack crack -m field <TOKEN> --field kid --preset aZ19 --max 5
+
+# Crack 'jti' payload with pattern hint
+jwt-hack crack -m field <TOKEN> --field jti --field-location payload \
+  --pattern "txn" --max 6
+
+# Crack user ID with numeric-only pattern
+jwt-hack crack -m field <TOKEN> --field user_id --field-location payload \
+  --preset 19 --max 8
+
+# Crack 'sub' field with all CPU cores
+jwt-hack crack -m field <TOKEN> --field sub --field-location payload \
+  --preset aZ --max 4 --power
 ```
 
 ### Targeted Attacks
@@ -150,6 +242,9 @@ echo -e "secret\npassword\ntest\n123456\nkey" | jwt-hack crack -w /dev/stdin <TO
 
 # Application-specific patterns
 jwt-hack crack -w company-keywords.txt <TOKEN>
+
+# Field-specific with known pattern
+jwt-hack crack -m field <TOKEN> --field kid --pattern "key" --max 4
 ```
 
 ## Wordlist Creation

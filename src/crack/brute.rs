@@ -8,8 +8,7 @@ use std::sync::{
 pub fn calculate_optimal_chunk_size(total_combinations: usize, num_threads: usize) -> usize {
     // Aim for at least 4 chunks per thread for good load balancing
     let target_chunks = num_threads * 4;
-    let chunk_size = (total_combinations / target_chunks).max(100).min(10000);
-    chunk_size
+    (total_combinations / target_chunks).clamp(100, 10000)
 }
 
 /// Generates combinations of characters efficiently in chunks to support parallel processing
@@ -106,7 +105,7 @@ pub fn generate_bruteforce_payloads(
         .sum();
 
     let completed = Arc::new(AtomicUsize::new(0));
-    
+
     // Calculate optimal chunk size based on workload
     let num_threads = rayon::current_num_threads();
     let chunk_size = calculate_optimal_chunk_size(total_combinations, num_threads);
@@ -190,13 +189,13 @@ mod tests {
     fn test_calculate_optimal_chunk_size() {
         // Small workload
         assert_eq!(calculate_optimal_chunk_size(1000, 4), 100);
-        
+
         // Medium workload
         assert_eq!(calculate_optimal_chunk_size(100000, 8), 3125);
-        
+
         // Large workload
         assert_eq!(calculate_optimal_chunk_size(1000000, 16), 10000); // Capped at max
-        
+
         // Very small workload
         assert_eq!(calculate_optimal_chunk_size(10, 4), 100); // Min is 100
     }

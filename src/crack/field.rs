@@ -164,7 +164,7 @@ pub fn crack_field(
     // Return result if found
     let total_attempts = attempts.load(Ordering::Relaxed);
     let cracked_value = found.lock().unwrap().clone();
-    
+
     if let Some(cracked) = cracked_value {
         Ok(Some(FieldCrackResult {
             field_name,
@@ -183,7 +183,9 @@ pub fn crack_field(
 fn validate_field_value(candidate: &str, _original: &str) -> bool {
     // Simple validation: check if candidate is alphanumeric and within length limits
     // In a real scenario, this might involve API calls, database checks, etc.
-    candidate.len() > 0 && candidate.len() <= 100 && candidate.chars().all(|c| c.is_alphanumeric())
+    !candidate.is_empty()
+        && candidate.len() <= 100
+        && candidate.chars().all(|c| c.is_alphanumeric())
 }
 
 #[cfg(test)]
@@ -193,13 +195,13 @@ mod tests {
     #[test]
     fn test_generate_field_candidates_with_pattern() {
         let candidates = generate_field_candidates("ab", 2, Some("user"));
-        
+
         // Should include pattern variations
         assert!(candidates.contains(&"user".to_string()));
         assert!(candidates.contains(&"USER".to_string()));
         assert!(candidates.contains(&"user0".to_string()));
         assert!(candidates.contains(&"user1".to_string()));
-        
+
         // Should also include brute force combinations
         assert!(candidates.contains(&"a".to_string()));
         assert!(candidates.contains(&"b".to_string()));
@@ -209,12 +211,12 @@ mod tests {
     #[test]
     fn test_generate_field_candidates_no_pattern() {
         let candidates = generate_field_candidates("abc", 2, None);
-        
+
         // Should only include brute force combinations up to length 2
         assert!(candidates.contains(&"a".to_string()));
         assert!(candidates.contains(&"ab".to_string()));
         assert!(candidates.contains(&"ba".to_string()));
-        
+
         // Total should be: 3 (length 1) + 9 (length 2) = 12
         assert_eq!(candidates.len(), 12);
     }
@@ -224,7 +226,7 @@ mod tests {
         assert!(validate_field_value("abc123", "original"));
         assert!(validate_field_value("user", "test"));
         assert!(!validate_field_value("", "test"));
-        
+
         // Very long string should fail
         let long_string = "a".repeat(101);
         assert!(!validate_field_value(&long_string, "test"));
@@ -234,7 +236,7 @@ mod tests {
     fn test_field_target_types() {
         let header_target = FieldTarget::Header("kid".to_string());
         let payload_target = FieldTarget::Payload("jti".to_string());
-        
+
         assert_eq!(header_target, FieldTarget::Header("kid".to_string()));
         assert_eq!(payload_target, FieldTarget::Payload("jti".to_string()));
         assert_ne!(header_target, payload_target);
@@ -249,7 +251,7 @@ mod tests {
             max_length: 2,
             expected_pattern: None,
         };
-        
+
         let result = crack_field(&options, None);
         assert!(result.is_err());
     }

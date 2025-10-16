@@ -797,9 +797,9 @@ mod tests {
                 4,
                 false,
                 false,
-                None,         // field
-                "header",     // field_location
-                None,         // pattern
+                None,     // field
+                "header", // field_location
+                None,     // pattern
             );
         });
 
