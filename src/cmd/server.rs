@@ -190,11 +190,7 @@ impl From<anyhow::Error> for ApiError {
 async fn handle_decode(Json(req): Json<DecodeRequest>) -> Result<Json<DecodeResponse>, ApiError> {
     match jwt::decode(&req.token) {
         Ok(decoded) => {
-            let header_map: serde_json::Map<String, Value> = decoded
-                .header
-                .into_iter()
-                .map(|(k, v)| (k, v))
-                .collect();
+            let header_map: serde_json::Map<String, Value> = decoded.header.into_iter().collect();
 
             Ok(Json(DecodeResponse {
                 success: true,
@@ -279,16 +275,16 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
 fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
-    
+
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file);
-    
+
     for word in reader.lines().map_while(Result::ok) {
         if let Ok(true) = jwt::verify(token, &word) {
             return Ok(Some(word));
         }
     }
-    
+
     Ok(None)
 }
 
@@ -296,20 +292,20 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
 fn crack_brute(token: &str, chars: &str, max_length: usize) -> anyhow::Result<Option<String>> {
     // Generate all combinations up to max_length
     let payloads = crack::generate_bruteforce_payloads(chars, max_length);
-    
+
     for word in payloads {
         if let Ok(true) = jwt::verify(token, &word) {
             return Ok(Some(word));
         }
     }
-    
+
     Ok(None)
 }
 
 /// Crack endpoint handler
 async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackResponse>, ApiError> {
     let mode = req.mode.to_lowercase();
-    
+
     // For API, we need to handle cracking without blocking too long
     let result = match mode.as_str() {
         "dict" => {
@@ -373,7 +369,7 @@ async fn handle_payload(
     Json(req): Json<PayloadRequest>,
 ) -> Result<Json<PayloadResponse>, ApiError> {
     let target = req.target.as_deref();
-    
+
     match payload::generate_all_payloads(
         &req.token,
         req.jwk_trust.as_deref(),
@@ -485,16 +481,16 @@ fn build_router() -> Router {
 
 /// Execute the server command
 pub async fn execute(host: &str, port: u16) {
-    utils::log_info(format!("Starting JWT-HACK REST API server"));
+    utils::log_info("Starting JWT-HACK REST API server".to_string());
     utils::log_info(format!("Listening on http://{}:{}", host, port));
-    utils::log_info(format!("Available endpoints:"));
-    utils::log_info(format!("  POST /health      - Health check"));
-    utils::log_info(format!("  POST /decode      - Decode JWT token"));
-    utils::log_info(format!("  POST /encode      - Encode JWT token"));
-    utils::log_info(format!("  POST /verify      - Verify JWT token"));
-    utils::log_info(format!("  POST /crack       - Crack JWT secret"));
-    utils::log_info(format!("  POST /payload     - Generate attack payloads"));
-    utils::log_info(format!("  POST /scan        - Scan JWT for vulnerabilities"));
+    utils::log_info("Available endpoints:".to_string());
+    utils::log_info("  POST /health      - Health check".to_string());
+    utils::log_info("  POST /decode      - Decode JWT token".to_string());
+    utils::log_info("  POST /encode      - Encode JWT token".to_string());
+    utils::log_info("  POST /verify      - Verify JWT token".to_string());
+    utils::log_info("  POST /crack       - Crack JWT secret".to_string());
+    utils::log_info("  POST /payload     - Generate attack payloads".to_string());
+    utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
 
     let app = build_router();
     let addr = format!("{}:{}", host, port);
@@ -595,12 +591,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_verify_correct_secret() {
         // First encode a token
-        let token = jwt::encode(
-            &serde_json::json!({"sub": "test"}),
-            "test_secret",
-            "HS256",
-        )
-        .unwrap();
+        let token =
+            jwt::encode(&serde_json::json!({"sub": "test"}), "test_secret", "HS256").unwrap();
 
         let req = VerifyRequest {
             token,
