@@ -229,6 +229,7 @@ fn check_weak_secret(
         "",
         "secret",
         "password",
+        "1234",
         "123456",
         "admin",
         "test",
