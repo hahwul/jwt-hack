@@ -61,6 +61,7 @@ docker pull hahwul/jwt-hack:v2.3.1
 | Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
+| Scan    | Vulnerability Scanner        | Automated security checks for common JWT vulnerabilities     |
 | MCP     | Model Context Protocol Server | AI model integration via standardized protocol               |
 
 ## Basic Usage
@@ -147,6 +148,36 @@ jwt-hack crack -m brute COMPRESSED_JWT_TOKEN --max=4
 ```bash
 jwt-hack payload JWT_TOKEN --jwk-attack evil.com --jwk-trust trusted.com
 ```
+
+### Scan for vulnerabilities
+
+Automatically scan JWT tokens for common security issues and vulnerabilities.
+
+```bash
+# Full scan including weak secret detection and payload generation
+jwt-hack scan JWT_TOKEN
+
+# Skip secret cracking for faster results
+jwt-hack scan JWT_TOKEN --skip-crack
+
+# Skip payload generation
+jwt-hack scan JWT_TOKEN --skip-payloads
+
+# Use custom wordlist for weak secret detection
+jwt-hack scan JWT_TOKEN -w custom_wordlist.txt
+
+# Limit secret testing attempts
+jwt-hack scan JWT_TOKEN --max-crack-attempts 50
+```
+
+The scan command checks for:
+- **None algorithm vulnerability**: Detects if the token accepts unsigned tokens
+- **Weak secrets**: Tests against common passwords (customizable with wordlist)
+- **Algorithm confusion**: Identifies tokens vulnerable to RS256->HS256 attacks
+- **Token expiration issues**: Checks for missing or improper expiration claims
+- **Missing security claims**: Verifies presence of recommended JWT claims
+- **Kid header injection**: Detects potential SQL/path injection vulnerabilities
+- **JKU/X5U header attacks**: Identifies URL spoofing attack vectors
 
 ### MCP (Model Context Protocol) Server Mode
 
