@@ -7,6 +7,7 @@ mod decode;
 mod encode;
 mod mcp;
 mod payload;
+mod scan;
 mod verify;
 mod version;
 
@@ -150,6 +151,28 @@ pub enum Commands {
         target: Option<String>,
     },
 
+    /// Scans a JWT token for common vulnerabilities and security issues
+    Scan {
+        /// JWT token to scan
+        token: String,
+
+        /// Skip dictionary-based secret cracking
+        #[arg(long)]
+        skip_crack: bool,
+
+        /// Skip generating attack payloads
+        #[arg(long)]
+        skip_payloads: bool,
+
+        /// Wordlist file for checking weak secrets (default: common passwords)
+        #[arg(short, long)]
+        wordlist: Option<PathBuf>,
+
+        /// Maximum number of secrets to test during weak secret check
+        #[arg(long, default_value = "100")]
+        max_crack_attempts: usize,
+    },
+
     /// Displays version information and project details
     Version,
 
@@ -244,6 +267,21 @@ pub fn execute() {
                 jwk_attack.as_deref(),
                 jwk_protocol,
                 target.as_deref(),
+            );
+        }
+        Some(Commands::Scan {
+            token,
+            skip_crack,
+            skip_payloads,
+            wordlist,
+            max_crack_attempts,
+        }) => {
+            scan::execute(
+                token,
+                *skip_crack,
+                *skip_payloads,
+                wordlist.clone(),
+                *max_crack_attempts,
             );
         }
         Some(Commands::Version) => {
