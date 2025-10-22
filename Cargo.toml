@@ -32,6 +32,9 @@ openssl = { version = "0.10", features = ["vendored"] }
 rmcp = { version = "0.6.0", features = ["server", "transport-io"] }
 dirs = "5.0"
 toml = "0.8"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
 
 [profile.release]
 opt-level = 3
