@@ -8,6 +8,7 @@ mod encode;
 mod mcp;
 mod payload;
 mod scan;
+mod server;
 mod verify;
 mod version;
 
@@ -178,6 +179,17 @@ pub enum Commands {
 
     /// Runs jwt-hack as an MCP (Model Context Protocol) server
     Mcp,
+
+    /// Starts a REST API server for JWT operations
+    Server {
+        /// Host address to bind to
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+
+        /// Port number to listen on
+        #[arg(long, default_value = "3000")]
+        port: u16,
+    },
 }
 
 /// Parses command-line arguments and executes the appropriate command
@@ -289,6 +301,10 @@ pub fn execute() {
         }
         Some(Commands::Mcp) => {
             mcp::execute();
+        }
+        Some(Commands::Server { host, port }) => {
+            let runtime = tokio::runtime::Runtime::new().unwrap();
+            runtime.block_on(server::execute(host, *port));
         }
         None => {
             error!("No command specified. Use --help for usage information.");
