@@ -54,6 +54,9 @@ docker pull hahwul/jwt-hack:v2.3.1
 
 ## Features
 
+> Note: The Scan and Server commands are introduced in v2.4.0 and are not yet released. They are unavailable in current binaries. To try them early, build from the main branch.
+
+
 | Mode    | Description                  | Support                                                      |
 |---------|------------------------------|--------------------------------------------------------------|
 | Encode  | JWT/JWE Encoder              | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression / JWE |
@@ -65,6 +68,9 @@ docker pull hahwul/jwt-hack:v2.3.1
 | MCP     | Model Context Protocol Server | AI model integration via standardized protocol               |
 
 ## Basic Usage
+
+> Note: The Scan and Server commands are introduced in v2.4.0 and are not yet released. They are unavailable in current binaries. To try them early, build from the main branch.
+
 
 ### Decode a JWT
 
