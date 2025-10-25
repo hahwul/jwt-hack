@@ -1,6 +1,7 @@
 use axum::{
-    extract::Json,
+    extract::{Json, State},
     http::StatusCode,
+    middleware::from_fn_with_state,
     response::{IntoResponse, Response},
     routing::post,
     Router,
@@ -460,15 +461,37 @@ async fn handle_health() -> Json<serde_json::Value> {
     }))
 }
 
+/// Middleware to enforce optional API key header
+async fn api_key_middleware(
+    State(expected_key): State<Option<String>>,
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Response {
+    if let Some(expected) = expected_key.as_deref() {
+        let provided = req.headers().get("X-API-KEY").and_then(|v| v.to_str().ok());
+        if provided != Some(expected) {
+            return (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({
+                    "success": false,
+                    "error": "Unauthorized"
+                })),
+            )
+                .into_response();
+        }
+    }
+    next.run(req).await
+}
+
 /// Build and configure the router
-fn build_router() -> Router {
+fn build_router(api_key: Option<String>) -> Router {
     // Configure CORS to allow requests from any origin
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    Router::new()
+    let router = Router::new()
         .route("/health", post(handle_health).get(handle_health))
         .route("/decode", post(handle_decode))
         .route("/encode", post(handle_encode))
@@ -476,7 +499,10 @@ fn build_router() -> Router {
         .route("/crack", post(handle_crack))
         .route("/payload", post(handle_payload))
         .route("/scan", post(handle_scan))
-        .layer(cors)
+        .layer(cors);
+
+    // Attach API key authentication middleware (no-op if api_key is None)
+    router.layer(from_fn_with_state(api_key, api_key_middleware))
 }
 
 /// Execute the server command
@@ -492,7 +518,33 @@ pub async fn execute(host: &str, port: u16) {
     utils::log_info("  POST /payload     - Generate attack payloads".to_string());
     utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
 
-    let app = build_router();
+    let app = build_router(None);
+    let addr = format!("{}:{}", host, port);
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("Failed to bind to address");
+
+    utils::log_success(format!("Server started successfully on {}", addr));
+
+    axum::serve(listener, app)
+        .await
+        .expect("Server failed to start");
+}
+
+pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
+    utils::log_info("Starting JWT-HACK REST API server".to_string());
+    utils::log_info(format!("Listening on http://{}:{}", host, port));
+    utils::log_info("Available endpoints:".to_string());
+    utils::log_info("  POST /health      - Health check".to_string());
+    utils::log_info("  POST /decode      - Decode JWT token".to_string());
+    utils::log_info("  POST /encode      - Encode JWT token".to_string());
+    utils::log_info("  POST /verify      - Verify JWT token".to_string());
+    utils::log_info("  POST /crack       - Crack JWT secret".to_string());
+    utils::log_info("  POST /payload     - Generate attack payloads".to_string());
+    utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
+    utils::log_info("API key protection enabled (header: X-API-KEY)".to_string());
+
+    let app = build_router(Some(api_key.to_string()));
     let addr = format!("{}:{}", host, port);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
