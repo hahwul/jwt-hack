@@ -189,6 +189,10 @@ pub enum Commands {
         /// Port number to listen on
         #[arg(long, default_value = "3000")]
         port: u16,
+
+        /// API key to secure the REST API (validated against X-API-KEY header)
+        #[arg(long)]
+        api_key: Option<String>,
     },
 }
 
@@ -302,9 +306,17 @@ pub fn execute() {
         Some(Commands::Mcp) => {
             mcp::execute();
         }
-        Some(Commands::Server { host, port }) => {
+        Some(Commands::Server {
+            host,
+            port,
+            api_key,
+        }) => {
             let runtime = tokio::runtime::Runtime::new().unwrap();
-            runtime.block_on(server::execute(host, *port));
+            if let Some(key) = api_key.as_deref() {
+                runtime.block_on(server::execute_with_api_key(host, *port, key));
+            } else {
+                runtime.block_on(server::execute(host, *port));
+            }
         }
         None => {
             error!("No command specified. Use --help for usage information.");
