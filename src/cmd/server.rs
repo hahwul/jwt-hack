@@ -666,4 +666,40 @@ mod tests {
         assert_eq!(json["status"], "ok");
         assert!(json["version"].is_string());
     }
+
+    #[tokio::test]
+    async fn test_api_key_middleware_unauthorized() {
+        use axum::{body::Body, http::Request};
+        use tower::Service;
+
+        let mut app = build_router(Some("testkey".to_string()));
+
+        let req = Request::builder()
+            .method("GET")
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let res = Service::call(&mut app, req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_api_key_middleware_authorized() {
+        use axum::{body::Body, http::Request};
+        use tower::Service;
+
+        let mut app = build_router(Some("testkey".to_string()));
+
+        let mut req = Request::builder()
+            .method("GET")
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+        req.headers_mut()
+            .insert("X-API-KEY", "testkey".parse().unwrap());
+
+        let res = Service::call(&mut app, req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
 }
