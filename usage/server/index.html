@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+        
+    
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        @font-face {
+            font-family: "Pretendard-Regular";
+            src: url('https://jwt-hack.hahwul.com/fonts/Pretendard-Regular.woff') format("woff");
+            font-weight: 400;
+            font-style: normal;
+        }
+        body {
+            font-family: "Pretendard-Regular", sans-serif;
+        }
+    </style>
+
+    
+        
+            <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+        
+    
+
+    <title>Server Command | JWT-HACK</title>
+
+    
+    
+
+      <!-- SEO: Open Graph / Twitter Card -->
+      <meta property="og:title" content="Server Command | JWT-HACK" />
+      <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      <meta property="og:url" content="https://jwt-hack.hahwul.com" />
+      <meta property="og:type" content="website" />
+      
+      <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Server Command" />
+      <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      
+      <meta name="twitter:site" content="@hahwul" />
+      
+      
+      <meta name="twitter:creator" content="@hahwul" />
+      
+      
+      <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <!-- CSS -->
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/main.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/katex.min.css">
+
+    <script src="https://jwt-hack.hahwul.com/js/mermaid.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/katex.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_code.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_heading_link.js"></script>
+
+    
+    
+</head>
+<body>
+    
+
+<!-- Search Modal -->
+<input type="checkbox" id="search-modal" class="modal-toggle" />
+<div class="modal modal-top sm:modal-middle">
+    <div class="modal-box relative">
+        <label for="search-modal" class="btn btn-sm btn-ghost absolute right-2 top-2">✕</label>
+        <div class="search-container py-4 h-96">
+            <input id="search" type="search" placeholder="Search.." class="input input-bordered w-full bg-transparent focus:outline-none">
+            <div class="search-results overflow-y-auto h-full no-scrollbar">
+                <div class="search-results__header my-2 text-xs"></div>
+                <ul class="search-results__items menu p-2"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+    <div class="drawer lg:drawer-open">
+        <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col pt-16">
+            
+<div class="navbar opacity-95 fixed top-0 left-0 right-0 z-50 h-16 border-b border-gray-500/15 backdrop-blur-3xl">
+    <!-- Mobile hamburger -->
+    <div class="flex-none lg:hidden">
+        <label for="my-drawer-2" class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </label>
+    </div>
+    <!-- Logo -->
+    <div class="flex-1">
+        <a href="/" class="btn btn-ghost hover:animate-pulse hover:bg-transparent hover:border-transparent normal-case text-xl" style="background: linear-gradient(135deg, #9ca3af, #6b7280); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold; font-size: 1.5rem;">
+            
+                <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="JWT-HACK" class="h-18 w-auto" style="padding: 10px;"/>
+            
+        </a>
+    </div>
+    <!-- Desktop Menu -->
+    <div class="flex-none hidden lg:flex">
+        <ul class="menu menu-horizontal px-1 items-center">
+            
+            
+            
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="/get_started/installation">
+                                <i class="fa-solid fa-book"></i>
+                                Documents
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="https://github.com/hahwul/jwt-hack">
+                                <i class="fa-brands fa-github"></i>
+                                GitHub
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li class="dropdown dropdown-end">
+                            <div tabindex="0" role="button" class="btn btn-ghost">
+                                <i class="fa-solid fa-link"></i>
+                                Links
+                                <svg class="inline w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <ul tabindex="0" class="dropdown-content menu bg-base-100 border border-gray-500/15 rounded-box z-1 p-2 shadow-sm">
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://crates.io/crates/jwt-hack">
+                                            <i class="fa-solid fa-box"></i>
+                                            Crates
+                                        </a>
+                                    </li>
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://www.hahwul.com">
+                                            <i class="fa-solid fa-fire-flame-curved"></i>
+                                            Creator Blog
+                                        </a>
+                                    </li>
+                                
+                            </ul>
+                        </li>
+                    
+                
+            
+            
+
+            
+            <li>
+                <label class="swap swap-rotate btn btn-ghost">
+                  <input type="checkbox" class="theme-controller" value="night" aria-labelledby="swap color"/>
+                  <svg class="swap-off h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z" /></svg>
+                  <svg class="swap-on h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" /></svg>
+                </label>
+            </li>
+            
+
+        </ul>
+    </div>
+</div>
+
+
+            
+            
+            <div class="p-8 w-full max-w-7xl mx-auto lg:grid lg:grid-cols-[1fr_250px] lg:gap-8">
+                <main class="prose w-full max-w-7xl mx-auto">
+            
+                    
+    <div class="mb-12 pb-4 border-b border-gray-500/15">
+        <h1>Server Command</h1>
+        <p class="text-gray-500"></p>
+    </div>
+    <blockquote>
+<p>Availability: The <code>server</code> command is introduced in v2.4.0 and is not yet released. It is unavailable in current binaries (Cargo/Homebrew/Snap/Docker). To try it early, build from the main branch:</p>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">git</span><span> clone https://github.com/hahwul/jwt-hack
+</span><span style="color:#f28779;">cd</span><span> jwt-hack
+</span><span style="color:#ffd580;">cargo</span><span> install</span><span style="color:#ffcc66;"> --path</span><span> .
+</span></code></pre>
+<p>Note: Pre-release code may change before the official v2.4.0 release.</p>
+</blockquote>
+<h1 id="server-command">Server Command</h1>
+<p>The <code>server</code> command starts a local REST API that exposes JWT-HACK features over HTTP. It’s useful for automation, integrations, and UI frontends.</p>
+<ul>
+<li>Default bind: http://127.0.0.1:3000</li>
+<li>CORS: Allowed from any origin</li>
+<li>Content type: All endpoints expect and return application/json</li>
+</ul>
+<h2 id="usage">Usage</h2>
+<pre data-lang="/dev/null/help.txt#L1-20" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/help.txt#L1-20 "><code class="language-/dev/null/help.txt#L1-20" data-lang="/dev/null/help.txt#L1-20"><span>Starts a REST API server for JWT operations
+</span><span>
+</span><span>Usage: jwt-hack server [OPTIONS]
+</span><span>
+</span><span>Global options (available to all subcommands):
+</span><span>      --config &lt;CONFIG&gt;  Path to configuration file
+</span><span>
+</span><span>Server options:
+</span><span>      --host &lt;HOST&gt;      Host address to bind to [default: 127.0.0.1]
+</span><span>      --port &lt;PORT&gt;      Port number to listen on [default: 3000]
+</span><span>      --api-key &lt;API_KEY&gt;  API key to secure the REST API (validated via X-API-KEY header)
+</span><span>  -h, --help             Print help
+</span><span>
+</span><span>Examples:
+</span><span>  # start on default 127.0.0.1:3000
+</span><span>  ./target/debug/jwt-hack server
+</span><span>
+</span><span>  # start on all interfaces on port 8080
+</span><span>  ./target/debug/jwt-hack server --host 0.0.0.0 --port 8080
+</span><span>
+</span><span>  # protect with API key (clients must send -H &#39;X-API-KEY: &lt;KEY&gt;&#39;)
+</span><span>  ./target/debug/jwt-hack server --api-key your-api-key
+</span><span>
+</span><span>  # with a config file (global option)
+</span><span>  ./target/debug/jwt-hack --config ./jwt-hack.toml server
+</span></code></pre>
+<p>Note on configuration: the <code>--config</code> option is global. The server loads configuration at startup, but most REST behaviors described here do not require a config file.</p>
+<h2 id="endpoints">Endpoints</h2>
+<ul>
+<li>GET/POST <code>/health</code> — Health check with version info</li>
+<li>POST <code>/decode</code> — Decode a JWT</li>
+<li>POST <code>/encode</code> — Create a JWT</li>
+<li>POST <code>/verify</code> — Verify a JWT signature</li>
+<li>POST <code>/crack</code> — Attempt to find a weak secret (dictionary or brute force)</li>
+<li>POST <code>/payload</code> — Generate attack payload tokens (for testing)</li>
+<li>POST <code>/scan</code> — Basic vulnerability scan and weak secret check</li>
+</ul>
+<p>All endpoints return JSON. Most errors are reported as HTTP 200 with <code>success:false</code> and an <code>error</code> string. In rare internal failures, HTTP 500 may be returned with the same JSON shape via <code>{ success:false, error:"..." }</code>.</p>
+<hr />
+<h2 id="schemas">Schemas</h2>
+<p>The following request and response shapes are supported.</p>
+<h3 id="health">Health</h3>
+<ul>
+<li>Request: none</li>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/health-response.json#L1-5" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/health-response.json#L1-5 "><code class="language-/dev/null/health-response.json#L1-5" data-lang="/dev/null/health-response.json#L1-5"><span>{
+</span><span>  &quot;status&quot;: &quot;ok&quot;,
+</span><span>  &quot;version&quot;: &quot;2.3.1&quot;
+</span><span>}
+</span></code></pre>
+<h3 id="decode">Decode</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/decode-request.json#L1-3" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/decode-request.json#L1-3 "><code class="language-/dev/null/decode-request.json#L1-3" data-lang="/dev/null/decode-request.json#L1-3"><span>{
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...&quot;
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/decode-response.json#L1-16" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/decode-response.json#L1-16 "><code class="language-/dev/null/decode-response.json#L1-16" data-lang="/dev/null/decode-response.json#L1-16"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  &quot;header&quot;: {
+</span><span>    &quot;alg&quot;: &quot;HS256&quot;,
+</span><span>    &quot;typ&quot;: &quot;JWT&quot;
+</span><span>  },
+</span><span>  &quot;payload&quot;: {
+</span><span>    &quot;sub&quot;: &quot;1234567890&quot;,
+</span><span>    &quot;name&quot;: &quot;John Doe&quot;,
+</span><span>    &quot;iat&quot;: 1516239022
+</span><span>  },
+</span><span>  &quot;algorithm&quot;: &quot;HS256&quot;,
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<h3 id="encode">Encode</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/encode-request.json#L1-20" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/encode-request.json#L1-20 "><code class="language-/dev/null/encode-request.json#L1-20" data-lang="/dev/null/encode-request.json#L1-20"><span>{
+</span><span>  &quot;payload&quot;: { &quot;sub&quot;: &quot;1234567890&quot;, &quot;name&quot;: &quot;John Doe&quot;, &quot;iat&quot;: 1516239022 },
+</span><span>
+</span><span>  // Optional. Used when signing with HMAC (HS256/HS384/HS512).
+</span><span>  // If &quot;no_signature&quot;: true, this is ignored.
+</span><span>  &quot;secret&quot;: &quot;secret&quot;,
+</span><span>
+</span><span>  // Optional. Defaults to &quot;HS256&quot;.
+</span><span>  // Combined with &quot;no_signature&quot;: true, you can produce &quot;none&quot; algorithm tokens.
+</span><span>  &quot;algorithm&quot;: &quot;HS256&quot;,
+</span><span>
+</span><span>  // Optional. When true, produces an unsigned token (&quot;alg&quot;:&quot;none&quot;).
+</span><span>  &quot;no_signature&quot;: false,
+</span><span>
+</span><span>  // Optional. Additional header parameters as an array of 2-tuples.
+</span><span>  // Example below adds {&quot;kid&quot;:&quot;abc123&quot;, &quot;cty&quot;:&quot;JWT&quot;} to the header.
+</span><span>  &quot;headers&quot;: [[&quot;kid&quot;,&quot;abc123&quot;], [&quot;cty&quot;,&quot;JWT&quot;]],
+</span><span>
+</span><span>  // Optional. DEFLATE compression for payload; adds {&quot;zip&quot;:&quot;DEF&quot;} to headers.
+</span><span>  &quot;compress&quot;: false
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/encode-response.json#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/encode-response.json#L1-6 "><code class="language-/dev/null/encode-response.json#L1-6" data-lang="/dev/null/encode-response.json#L1-6"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...signature&quot;,
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>The server-side encode API currently supports HMAC secrets and "none" algorithm. Asymmetric keys for encoding are not exposed over this REST API.</li>
+</ul>
+<h3 id="verify">Verify</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/verify-request.json#L1-10" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/verify-request.json#L1-10 "><code class="language-/dev/null/verify-request.json#L1-10" data-lang="/dev/null/verify-request.json#L1-10"><span>{
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+</span><span>  // Optional HMAC secret; defaults to empty string when omitted.
+</span><span>  &quot;secret&quot;: &quot;secret&quot;,
+</span><span>  // Optional. When true, validates &quot;exp&quot; claim; when false, ignores it.
+</span><span>  &quot;validate_exp&quot;: true
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/verify-response.json#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/verify-response.json#L1-6 "><code class="language-/dev/null/verify-response.json#L1-6" data-lang="/dev/null/verify-response.json#L1-6"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  &quot;valid&quot;: true,
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>The server-side verify API uses HMAC secrets. If the token was signed with RSA/ECDSA/EdDSA, this endpoint will not validate it successfully.</li>
+</ul>
+<h3 id="crack">Crack</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/crack-request.json#L1-18" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/crack-request.json#L1-18 "><code class="language-/dev/null/crack-request.json#L1-18" data-lang="/dev/null/crack-request.json#L1-18"><span>{
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+</span><span>  // &quot;dict&quot; (default) or &quot;brute&quot;
+</span><span>  &quot;mode&quot;: &quot;dict&quot;,
+</span><span>
+</span><span>  // Required when mode=&quot;dict&quot;: file path accessible to the server process
+</span><span>  // (e.g., &quot;samples/wordlist.txt&quot;)
+</span><span>  &quot;wordlist&quot;: &quot;samples/wordlist.txt&quot;,
+</span><span>
+</span><span>  // Used when mode=&quot;brute&quot;:
+</span><span>  // Either specify &quot;preset&quot; or provide a custom &quot;chars&quot; and &quot;max&quot;.
+</span><span>  // Presets: &quot;az&quot;, &quot;AZ&quot;, &quot;aZ&quot;, &quot;19&quot;, &quot;aZ19&quot;, &quot;ascii&quot;
+</span><span>  &quot;preset&quot;: &quot;aZ19&quot;,
+</span><span>  &quot;chars&quot;: &quot;abcdefghijklmnopqrstuvwxyz0123456789&quot;,
+</span><span>  &quot;concurrency&quot;: 20,  // accepted but not leveraged by the current API code
+</span><span>  &quot;max&quot;: 4
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/crack-response.json#L1-10" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/crack-response.json#L1-10 "><code class="language-/dev/null/crack-response.json#L1-10" data-lang="/dev/null/crack-response.json#L1-10"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  // The discovered secret (if any)
+</span><span>  &quot;secret&quot;: &quot;secret&quot;,
+</span><span>  // When no secret is found, API returns:
+</span><span>  // { &quot;success&quot;: true, &quot;secret&quot;: null, &quot;error&quot;: &quot;Secret not found&quot; }
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>Dictionary mode requires a file path on the server host. The API does not upload wordlists.</li>
+<li>Brute-force tries all combinations up to <code>max</code> using <code>chars</code> or a <code>preset</code>.</li>
+<li>This endpoint executes synchronously and can be CPU-intensive; prefer small search spaces or offload heavy jobs to batch workers.</li>
+</ul>
+<h3 id="payload">Payload</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/payload-request.json#L1-12" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/payload-request.json#L1-12 "><code class="language-/dev/null/payload-request.json#L1-12" data-lang="/dev/null/payload-request.json#L1-12"><span>{
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+</span><span>  // Optional trusted domain for jku/x5u scenarios
+</span><span>  &quot;jwk_trust&quot;: &quot;example.com&quot;,
+</span><span>  // Optional attacker-controlled domain for jku/x5u scenarios
+</span><span>  &quot;jwk_attack&quot;: &quot;attacker.tld&quot;,
+</span><span>  // http/https; defaults to &quot;https&quot;
+</span><span>  &quot;jwk_protocol&quot;: &quot;https&quot;,
+</span><span>  // Optional. Same values as CLI: &quot;all,none,jku,x5u,alg_confusion,kid_sql,x5c,cty&quot;
+</span><span>  &quot;target&quot;: &quot;all&quot;
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/payload-response.json#L1-18" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/payload-response.json#L1-18 "><code class="language-/dev/null/payload-response.json#L1-18" data-lang="/dev/null/payload-response.json#L1-18"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  &quot;payloads&quot;: [
+</span><span>    {
+</span><span>      &quot;name&quot;: &quot;Payload #1&quot;,
+</span><span>      &quot;token&quot;: &quot;eyJhbGciOi...payload1...&quot;
+</span><span>    },
+</span><span>    {
+</span><span>      &quot;name&quot;: &quot;Payload #2&quot;,
+</span><span>      &quot;token&quot;: &quot;eyJhbGciOi...payload2...&quot;
+</span><span>    }
+</span><span>  ],
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>The API returns a list of generated attack tokens labeled as <code>Payload #N</code>.</li>
+<li>Use these only in safe, controlled environments for security testing.</li>
+</ul>
+<h3 id="scan">Scan</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre data-lang="/dev/null/scan-request.json#L1-12" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/scan-request.json#L1-12 "><code class="language-/dev/null/scan-request.json#L1-12" data-lang="/dev/null/scan-request.json#L1-12"><span>{
+</span><span>  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+</span><span>  // If true, skip dictionary-based weak secret check
+</span><span>  &quot;skip_crack&quot;: false,
+</span><span>  // Accepted but not used by current server-side implementation
+</span><span>  &quot;skip_payloads&quot;: false,
+</span><span>  // Optional path for wordlist (used if skip_crack=false)
+</span><span>  &quot;wordlist&quot;: &quot;samples/wordlist.txt&quot;,
+</span><span>  // Accepted but not enforced by current implementation
+</span><span>  &quot;max_crack_attempts&quot;: 100
+</span><span>}
+</span></code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre data-lang="/dev/null/scan-response.json#L1-14" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/scan-response.json#L1-14 "><code class="language-/dev/null/scan-response.json#L1-14" data-lang="/dev/null/scan-response.json#L1-14"><span>{
+</span><span>  &quot;success&quot;: true,
+</span><span>  &quot;vulnerabilities&quot;: [
+</span><span>    &quot;Uses &#39;none&#39; algorithm (unsigned token)&quot;,
+</span><span>    &quot;Token is expired&quot;,
+</span><span>    &quot;Weak secret found: secret&quot;,
+</span><span>    &quot;Invalid token format&quot;
+</span><span>  ],
+</span><span>  // Present only if a weak secret was found via wordlist
+</span><span>  &quot;secret&quot;: &quot;secret&quot;,
+</span><span>  &quot;error&quot;: null
+</span><span>}
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>The scan performs:
+<ul>
+<li>Basic header check for <code>alg:"none"</code>.</li>
+<li>Expiration check on <code>exp</code> if present.</li>
+<li>Optional weak secret discovery via dictionary if <code>wordlist</code> is provided and <code>skip_crack</code> is false.</li>
+</ul>
+</li>
+<li>It does not currently generate payloads despite accepting <code>skip_payloads</code> (reserved for future behavior).</li>
+</ul>
+<hr />
+<h2 id="curl-examples">cURL Examples</h2>
+<p>Replace host/port as needed. If the server was started with --api-key, include -H 'X-API-KEY: &lt;API_KEY&gt;' in each request.</p>
+<h3 id="health-1">Health</h3>
+<pre data-lang="/dev/null/curl-health.sh#L1-3" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-health.sh#L1-3 "><code class="language-/dev/null/curl-health.sh#L1-3" data-lang="/dev/null/curl-health.sh#L1-3"><span>curl -s http://127.0.0.1:3000/health
+</span><span>curl -s -X POST http://127.0.0.1:3000/health
+</span></code></pre>
+<h3 id="decode-1">Decode</h3>
+<pre data-lang="/dev/null/curl-decode.sh#L1-4" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-decode.sh#L1-4 "><code class="language-/dev/null/curl-decode.sh#L1-4" data-lang="/dev/null/curl-decode.sh#L1-4"><span>curl -s http://127.0.0.1:3000/decode \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{&quot;token&quot;:&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6InQifQ.f8oE7B4G3RzYQ0kQ1kSsm1oQ2wKT1L9WZbnzv2mC1pI&quot;}&#39;
+</span></code></pre>
+<h3 id="encode-hs256">Encode (HS256)</h3>
+<pre data-lang="/dev/null/curl-encode-hs256.sh#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-encode-hs256.sh#L1-6 "><code class="language-/dev/null/curl-encode-hs256.sh#L1-6" data-lang="/dev/null/curl-encode-hs256.sh#L1-6"><span>curl -s http://127.0.0.1:3000/encode \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;payload&quot;:{&quot;sub&quot;:&quot;1234567890&quot;,&quot;name&quot;:&quot;John Doe&quot;,&quot;iat&quot;:1516239022},
+</span><span>        &quot;secret&quot;:&quot;secret&quot;,&quot;algorithm&quot;:&quot;HS256&quot;,&quot;headers&quot;:[[&quot;kid&quot;,&quot;abc123&quot;]]
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="encode-none">Encode (none)</h3>
+<pre data-lang="/dev/null/curl-encode-none.sh#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-encode-none.sh#L1-6 "><code class="language-/dev/null/curl-encode-none.sh#L1-6" data-lang="/dev/null/curl-encode-none.sh#L1-6"><span>curl -s http://127.0.0.1:3000/encode \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;payload&quot;:{&quot;sub&quot;:&quot;123&quot;},
+</span><span>        &quot;no_signature&quot;:true
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="verify-1">Verify</h3>
+<pre data-lang="/dev/null/curl-verify.sh#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-verify.sh#L1-6 "><code class="language-/dev/null/curl-verify.sh#L1-6" data-lang="/dev/null/curl-verify.sh#L1-6"><span>curl -s http://127.0.0.1:3000/verify \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+</span><span>        &quot;secret&quot;:&quot;secret&quot;, &quot;validate_exp&quot;:true
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="crack-dictionary">Crack (dictionary)</h3>
+<pre data-lang="/dev/null/curl-crack-dict.sh#L1-5" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-crack-dict.sh#L1-5 "><code class="language-/dev/null/curl-crack-dict.sh#L1-5" data-lang="/dev/null/curl-crack-dict.sh#L1-5"><span>curl -s http://127.0.0.1:3000/crack \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;, &quot;mode&quot;:&quot;dict&quot;, &quot;wordlist&quot;:&quot;samples/wordlist.txt&quot;
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="crack-brute-force">Crack (brute force)</h3>
+<pre data-lang="/dev/null/curl-crack-brute.sh#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-crack-brute.sh#L1-6 "><code class="language-/dev/null/curl-crack-brute.sh#L1-6" data-lang="/dev/null/curl-crack-brute.sh#L1-6"><span>curl -s http://127.0.0.1:3000/crack \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;, &quot;mode&quot;:&quot;brute&quot;,
+</span><span>        &quot;preset&quot;:&quot;aZ19&quot;, &quot;max&quot;:3
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="payload-generation">Payload generation</h3>
+<pre data-lang="/dev/null/curl-payload.sh#L1-7" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-payload.sh#L1-7 "><code class="language-/dev/null/curl-payload.sh#L1-7" data-lang="/dev/null/curl-payload.sh#L1-7"><span>curl -s http://127.0.0.1:3000/payload \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+</span><span>        &quot;jwk_trust&quot;:&quot;example.com&quot;,&quot;jwk_attack&quot;:&quot;attacker.tld&quot;,
+</span><span>        &quot;jwk_protocol&quot;:&quot;https&quot;,&quot;target&quot;:&quot;all&quot;
+</span><span>      }&#39;
+</span></code></pre>
+<h3 id="scan-1">Scan</h3>
+<pre data-lang="/dev/null/curl-scan.sh#L1-6" style="background-color:#212733;color:#ccc9c2;" class="language-/dev/null/curl-scan.sh#L1-6 "><code class="language-/dev/null/curl-scan.sh#L1-6" data-lang="/dev/null/curl-scan.sh#L1-6"><span>curl -s http://127.0.0.1:3000/scan \
+</span><span>  -H &#39;Content-Type: application/json&#39; \
+</span><span>  -d &#39;{
+</span><span>        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+</span><span>        &quot;skip_crack&quot;:false, &quot;wordlist&quot;:&quot;samples/wordlist.txt&quot;
+</span><span>      }&#39;
+</span></code></pre>
+<hr />
+<h2 id="operational-notes">Operational Notes</h2>
+<ul>
+<li>Bind address: Use <code>--host 0.0.0.0</code> to accept remote connections.</li>
+<li>CORS: Open (any origin, any method, any header).</li>
+<li>Performance: <code>/crack</code> can be CPU-heavy and synchronous; keep search spaces small or run behind a job queue.</li>
+<li>Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).</li>
+<li>Errors: Most endpoints return HTTP 200 with <code>success:false</code> and <code>error</code>. Handle both the HTTP status and the <code>success</code> flag in clients.</li>
+</ul>
+
+
+
+                    
+
+
+
+                    <nav class="mt-12 pt-8 border-t border-gray-500/15">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="prev-nav-item">
+                                
+    
+        
+        <a class="nav-button nav-button-prev group" href="https://jwt-hack.hahwul.com/usage/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    <span class="nav-button-label">Back to</span>
+                </div>
+                <div class="nav-button-title">Usage</div>
+            </div>
+        </a>
+    
+
+                            </div>
+                            <div class="next-nav-item">
+                                
+    
+        
+        
+        
+            
+            
+            
+                
+            
+                
+            
+                
+            
+        
+            
+            
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+                    
+                
+            
+        
+            
+            
+                <a class="nav-button nav-button-next group" href="https://jwt-hack.hahwul.com/advanced/">
+                    <div class="nav-button-content">
+                        <div class="nav-button-direction">
+                            <span class="nav-button-label">Next</span>
+                            <svg class="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="nav-button-title">Advanced</div>
+                    </div>
+                </a>
+                
+            
+            
+                
+            
+                
+            
+                
+            
+        
+            
+            
+            
+        
+    
+
+                            </div>
+                        </div>
+                    </nav>
+                </main>
+
+                
+                    
+
+<div class="hidden lg:block">
+    <div class="sticky top-20 px-4 py-2 border-l border-gray-500/15">
+        <h4 class="text-lg font-bold mb-1">ON THIS PAGE</h4>
+            <ul class="menu menu-sm toc-menu">
+            
+                <li>
+                    
+                    <details class="toc-details">
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/server/#server-command" class="toc-link">Server Command</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/server/#usage" class="toc-link">Usage</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/server/#endpoints" class="toc-link">Endpoints</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/server/#schemas" class="toc-link">Schemas</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/server/#curl-examples" class="toc-link">cURL Examples</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/server/#operational-notes" class="toc-link">Operational Notes</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+            </ul>
+    </div>
+</div>
+
+
+                
+                
+            </div>
+
+            <script>
+              // Determine theme: localStorage > extra.default_colorset > goyo-dark
+              // Expose theme config for global use (e.g., goyo.js)
+              window.defaultColorset = "dark";
+              window.themeMap = { "dark": "goyo-dark", "light": "goyo-light" };
+              window.fallbackTheme = window.themeMap[window.defaultColorset] || "goyo-dark";
+              
+              // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+              var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+              var currentUserTheme = localStorage.getItem('theme') || window.fallbackTheme;
+              var actualTheme = themeMapping[currentUserTheme] || currentUserTheme;
+              
+              var mermaidTheme = "dark";
+              if(currentUserTheme == "goyo-light") {
+                mermaidTheme = "light";
+              }
+              mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+              document.addEventListener('DOMContentLoaded', async () => {
+                const mermaidElements = document.querySelectorAll('.mermaid');
+
+                if (mermaidElements.length > 0) {
+                    await mermaid.run({
+                        nodes: mermaidElements
+                    });
+                }
+              });
+            </script>
+
+        </div>
+
+        
+        
+        <div id="sidebar" class="drawer-side fixed top-0 pt-12 bottom-0 z-40 border-r border-gray-500/15">
+        
+            
+                
+
+
+
+    
+
+<label for="my-drawer-2" class="drawer-overlay"></label>
+<div class="mt-4 w-68 h-[calc(100vh-4rem)] bg-base-100 text-base-content flex flex-col overflow-auto">
+    
+    <div class="px-2 pt-4 pb-0 flex flex-col items-center gap-2">
+        <div class="w-full flex items-center gap-2">
+            <label for="search-modal" class="input w-full flex items-center justify-between text-left bg-base-100 cursor-pointer border-gray-500/15 hover:border-gray-500/55 hover:border-1 transition" aria-label="검색">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="text-gray-400"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span>
+            </label>
+        </div>
+    </div>
+    
+    <ul class="menu w-full flex-grow">
+        
+        
+        
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started">Get Started</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/installation">Installation</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/quickstart">Quick Start</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/features">Features Overview</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage">Usage</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/decode">Decode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/encode">Encode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/verify">Verify Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/crack">Crack Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/payload">Payload Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/mcp">MCP Server Mode</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/scan">Scan Command</a></li>
+                            
+                                <li class="rounded bg-gray-500/15"><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/server">Server Command</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced">Advanced</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/configuration">Configuration</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/performance">Performance Optimization</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/scripting">Scripting &amp; Automation</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                <a  href="https://jwt-hack.hahwul.com/contributing">Contributing</a>
+            </li>
+        
+    </ul>
+
+    
+<footer class="footer text-xs pt-4 px-4 text-base-content border-t border-gray-500/15">
+    <aside>
+        <p>
+            Powered by <a href='https://www.getzola.org'>Zola</a> and <a href='https://github.com/hahwul/goyo'>Goyo</a>
+        </p>
+    </aside>
+</footer>
+
+</div>
+
+            
+        </div>
+    </div>
+
+    
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/fuse.min.js"></script>
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/search_index.en.js"></script>
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/goyo.js"></script>
+    
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+        
+    
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        @font-face {
+            font-family: "Pretendard-Regular";
+            src: url('https://jwt-hack.hahwul.com/fonts/Pretendard-Regular.woff') format("woff");
+            font-weight: 400;
+            font-style: normal;
+        }
+        body {
+            font-family: "Pretendard-Regular", sans-serif;
+        }
+    </style>
+
+    
+        
+            <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+        
+    
+
+    <title>Scan Command | JWT-HACK</title>
+
+    
+    
+
+      <!-- SEO: Open Graph / Twitter Card -->
+      <meta property="og:title" content="Scan Command | JWT-HACK" />
+      <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      <meta property="og:url" content="https://jwt-hack.hahwul.com" />
+      <meta property="og:type" content="website" />
+      
+      <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Scan Command" />
+      <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      
+      <meta name="twitter:site" content="@hahwul" />
+      
+      
+      <meta name="twitter:creator" content="@hahwul" />
+      
+      
+      <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <!-- CSS -->
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/main.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/katex.min.css">
+
+    <script src="https://jwt-hack.hahwul.com/js/mermaid.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/katex.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_code.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_heading_link.js"></script>
+
+    
+    
+</head>
+<body>
+    
+
+<!-- Search Modal -->
+<input type="checkbox" id="search-modal" class="modal-toggle" />
+<div class="modal modal-top sm:modal-middle">
+    <div class="modal-box relative">
+        <label for="search-modal" class="btn btn-sm btn-ghost absolute right-2 top-2">✕</label>
+        <div class="search-container py-4 h-96">
+            <input id="search" type="search" placeholder="Search.." class="input input-bordered w-full bg-transparent focus:outline-none">
+            <div class="search-results overflow-y-auto h-full no-scrollbar">
+                <div class="search-results__header my-2 text-xs"></div>
+                <ul class="search-results__items menu p-2"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+    <div class="drawer lg:drawer-open">
+        <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col pt-16">
+            
+<div class="navbar opacity-95 fixed top-0 left-0 right-0 z-50 h-16 border-b border-gray-500/15 backdrop-blur-3xl">
+    <!-- Mobile hamburger -->
+    <div class="flex-none lg:hidden">
+        <label for="my-drawer-2" class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </label>
+    </div>
+    <!-- Logo -->
+    <div class="flex-1">
+        <a href="/" class="btn btn-ghost hover:animate-pulse hover:bg-transparent hover:border-transparent normal-case text-xl" style="background: linear-gradient(135deg, #9ca3af, #6b7280); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold; font-size: 1.5rem;">
+            
+                <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="JWT-HACK" class="h-18 w-auto" style="padding: 10px;"/>
+            
+        </a>
+    </div>
+    <!-- Desktop Menu -->
+    <div class="flex-none hidden lg:flex">
+        <ul class="menu menu-horizontal px-1 items-center">
+            
+            
+            
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="/get_started/installation">
+                                <i class="fa-solid fa-book"></i>
+                                Documents
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="https://github.com/hahwul/jwt-hack">
+                                <i class="fa-brands fa-github"></i>
+                                GitHub
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li class="dropdown dropdown-end">
+                            <div tabindex="0" role="button" class="btn btn-ghost">
+                                <i class="fa-solid fa-link"></i>
+                                Links
+                                <svg class="inline w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <ul tabindex="0" class="dropdown-content menu bg-base-100 border border-gray-500/15 rounded-box z-1 p-2 shadow-sm">
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://crates.io/crates/jwt-hack">
+                                            <i class="fa-solid fa-box"></i>
+                                            Crates
+                                        </a>
+                                    </li>
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://www.hahwul.com">
+                                            <i class="fa-solid fa-fire-flame-curved"></i>
+                                            Creator Blog
+                                        </a>
+                                    </li>
+                                
+                            </ul>
+                        </li>
+                    
+                
+            
+            
+
+            
+            <li>
+                <label class="swap swap-rotate btn btn-ghost">
+                  <input type="checkbox" class="theme-controller" value="night" aria-labelledby="swap color"/>
+                  <svg class="swap-off h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z" /></svg>
+                  <svg class="swap-on h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" /></svg>
+                </label>
+            </li>
+            
+
+        </ul>
+    </div>
+</div>
+
+
+            
+            
+            <div class="p-8 w-full max-w-7xl mx-auto lg:grid lg:grid-cols-[1fr_250px] lg:gap-8">
+                <main class="prose w-full max-w-7xl mx-auto">
+            
+                    
+    <div class="mb-12 pb-4 border-b border-gray-500/15">
+        <h1>Scan Command</h1>
+        <p class="text-gray-500"></p>
+    </div>
+    <blockquote>
+<p>Availability: The <code>scan</code> command is introduced in v2.4.0 and is not yet released. It is unavailable in current binaries (Cargo/Homebrew/Snap/Docker). To try it early, build from the main branch:</p>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">git</span><span> clone https://github.com/hahwul/jwt-hack
+</span><span style="color:#f28779;">cd</span><span> jwt-hack
+</span><span style="color:#ffd580;">cargo</span><span> install</span><span style="color:#ffcc66;"> --path</span><span> .
+</span></code></pre>
+<p>Note: Pre-release code may change before the official v2.4.0 release.</p>
+</blockquote>
+<p>The <code>scan</code> command runs a fast, heuristic assessment of a JWT. It decodes the token, performs common weakness checks, optionally tries weak secrets for HS* tokens, and can print example attack payloads for follow‑up testing.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ffa759;">[</span><span>OPTIONS</span><span style="color:#ffa759;">]
+</span></code></pre>
+<h2 id="what-the-scanner-checks">What the Scanner Checks</h2>
+<p>The current scanner performs the following checks:</p>
+<ul>
+<li>Token information
+<ul>
+<li>Displays algorithm and <code>typ</code> from the header.</li>
+</ul>
+</li>
+<li>Timestamp checks
+<ul>
+<li>Presence of <code>exp</code> and whether it is expired.</li>
+<li>Presence of <code>iat</code> and <code>nbf</code> (no ordering validation between <code>iat</code>, <code>nbf</code>, <code>exp</code>).</li>
+</ul>
+</li>
+<li>“none” algorithm usage
+<ul>
+<li>Flags if the token actually uses the <code>none</code> algorithm.</li>
+</ul>
+</li>
+<li>Weak/guessable secret (HS* only)
+<ul>
+<li>For HMAC tokens (HS256/384/512), tries a limited secret list (built‑in or provided wordlist).</li>
+</ul>
+</li>
+<li>Algorithm confusion indicator
+<ul>
+<li>Flags asymmetric algorithms (RS/ES/PS/EdDSA) as “needs testing” for alg-confusion risks.</li>
+</ul>
+</li>
+<li>Header misuse indicators
+<ul>
+<li><code>kid</code> presence (possible SQL/path injection surfaces).</li>
+<li><code>jku</code> / <code>x5u</code> presence (possible URL spoofing / remote JWKS risks).</li>
+</ul>
+</li>
+<li>Attack payload suggestions (optional)
+<ul>
+<li>Prints example payloads for detected issues: <code>none</code>, <code>alg_confusion</code>, <code>kid_sql</code>.</li>
+</ul>
+</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>JWE (5-part) tokens are not supported by <code>scan</code>.</li>
+<li>Compressed JWT payloads (<code>zip: "DEF"</code>) are decoded but not separately highlighted as a finding.</li>
+</ul>
+<h2 id="options">Options</h2>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;"># Skip cracking and payload generation
+</span><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>-skip-crack</span><span style="color:#ffcc66;"> --skip-payloads
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Provide a wordlist for weak-secret checks (HS* only)
+</span><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>w /path/to/wordlist.txt
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Limit secret attempts (useful for CI or quick runs)
+</span><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>-max-crack-attempts 100
+</span></code></pre>
+<ul>
+<li><code>--skip-crack</code> — Skip dictionary-based weak-secret checks (only affects HS*).</li>
+<li><code>--skip-payloads</code> — Skip the payload suggestion/generation section.</li>
+<li><code>-w, --wordlist &lt;FILE&gt;</code> — Wordlist for weak-secret detection. If not provided or cannot be opened, a small built‑in list is used.</li>
+<li><code>--max-crack-attempts &lt;N&gt;</code> — Limit tested secrets (default: 100).</li>
+</ul>
+<p>Tip: Large wordlists can significantly increase scan time. Use <code>--max-crack-attempts</code> to cap work during triage or CI.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="quick-full-scan">Quick Full Scan</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.PAYLOAD.SIGN
+</span></code></pre>
+<h3 id="scan-with-wordlist">Scan With Wordlist</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>w samples/wordlist.txt
+</span></code></pre>
+<h3 id="fast-heuristics-only-no-cracking-no-payloads">Fast Heuristics Only (no cracking, no payloads)</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>-skip-crack</span><span style="color:#ffcc66;"> --skip-payloads
+</span></code></pre>
+<h3 id="ci-friendly-scan-limit-attempts">CI-Friendly Scan (limit attempts)</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>w rockyou.txt</span><span style="color:#ffcc66;"> --max-crack-attempts</span><span> 200
+</span></code></pre>
+<h2 id="typical-output">Typical Output</h2>
+<pre data-lang="text" style="background-color:#212733;color:#ccc9c2;" class="language-text "><code class="language-text" data-lang="text"><span>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+</span><span>  JWT VULNERABILITY SCANNER
+</span><span>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+</span><span>
+</span><span>━━━ Token Information ━━━
+</span><span>Algorithm: HS256
+</span><span>Type: JWT
+</span><span>
+</span><span>━━━ Scan Results ━━━
+</span><span>
+</span><span>✓ None Algorithm [INFO]
+</span><span>  Token does not use &#39;none&#39; algorithm
+</span><span>
+</span><span>✗ Weak Secret [CRITICAL]
+</span><span>  Token uses weak/common secret: &#39;secret&#39;
+</span><span>
+</span><span>✓ Algorithm Confusion [INFO]
+</span><span>  Token uses symmetric algorithm, not vulnerable to typical alg confusion
+</span><span>
+</span><span>✗ Token Expiration [MEDIUM]
+</span><span>  Missing &#39;nbf&#39; (not before) claim; Missing &#39;iat&#39; (issued at) claim
+</span><span>
+</span><span>✗ Missing Claims [LOW]
+</span><span>  Missing recommended claims: aud, iss, jti
+</span><span>
+</span><span>✓ Kid Header Injection [INFO]
+</span><span>  No &#39;kid&#39; header present
+</span><span>
+</span><span>✓ JKU/X5U Header [INFO]
+</span><span>  No JKU/X5U headers present
+</span><span>
+</span><span>━━━ Summary ━━━
+</span><span>Total Vulnerabilities Found: 3
+</span><span>  1 Critical
+</span><span>  1 Medium
+</span><span>  1 Low
+</span><span>
+</span><span>⚠️  Review the vulnerabilities above and consider generating attack payloads.
+</span><span>
+</span><span>━━━ Generating Attack Payloads ━━━
+</span><span>... (example payloads for &#39;none&#39;, &#39;alg_confusion&#39;, &#39;kid_sql&#39;)
+</span></code></pre>
+<p>If the scan finds no significant issues, you’ll see:</p>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>✓ No major vulnerabilities detected in this scan.
+</span></code></pre>
+<h2 id="behavior-details-and-limitations">Behavior Details and Limitations</h2>
+<ul>
+<li>HS* only for weak-secret checks
+<ul>
+<li>Secret cracking runs only when the algorithm is HMAC (HS256/384/512). For non‑HS* tokens, this check is skipped as “Not applicable”.</li>
+</ul>
+</li>
+<li>Algorithm confusion is heuristic
+<ul>
+<li>Asymmetric algorithms are flagged as “needs testing” (High) to prompt follow‑up validation; it is not a confirmed vulnerability by itself.</li>
+</ul>
+</li>
+<li>JKU/X5U payloads
+<ul>
+<li>The scanner flags the presence of these headers, but the current payload generation prints examples for <code>none</code>, <code>alg_confusion</code>, and <code>kid_sql</code>. It does not print <code>jku/x5u</code> payload examples in this command’s output.</li>
+</ul>
+</li>
+</ul>
+<h2 id="recommended-workflow">Recommended Workflow</h2>
+<ol>
+<li>Run a quick scan to triage:<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> scan </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt;
+</span></code></pre>
+</li>
+<li>If a weak secret is suspected (HS*):<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> crack</span><span style="color:#ffcc66;"> -w </span><span style="color:#f29e74;">&lt;</span><span>WORDLIST</span><span style="color:#f29e74;">&gt; &lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt;
+</span></code></pre>
+</li>
+<li>If payloads are suggested:<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> payload </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>-target=all
+</span></code></pre>
+</li>
+<li>Verify any hypotheses:<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#ffd580;">jwt-hack</span><span> verify </span><span style="color:#f29e74;">&lt;</span><span>TOKEN</span><span style="color:#f29e74;">&gt; </span><span style="color:#ccc9c2cc;">-</span><span>-secret=</span><span style="color:#f29e74;">&lt;</span><span>KEY or PUBLIC_KEY</span><span style="color:#f29e74;">&gt;
+</span></code></pre>
+</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<ul>
+<li>JWE input: <code>scan</code> expects a JWT (3 parts). 5‑part JWE tokens are not supported.</li>
+<li>If the scan terminates early, ensure the token uses the standard <code>&lt;header&gt;.&lt;payload&gt;.&lt;signature&gt;</code> format.</li>
+<li>For faster results, use <code>--skip-crack</code> or set <code>--max-crack-attempts</code> to a small number.</li>
+<li>Wordlist path errors: provide an absolute path or a path relative to your project root.</li>
+<li>Usage hint (shown on errors):<pre style="background-color:#212733;color:#ccc9c2;"><code><span>e.g jwt-hack scan {JWT_CODE} [--skip-crack] [--skip-payloads] [-w wordlist.txt]
+</span></code></pre>
+</li>
+</ul>
+<h2 id="security-notes">Security Notes</h2>
+<ul>
+<li>Only scan tokens you own or have permission to test.</li>
+<li>Treat discovered secrets as sensitive; handle and store them securely.</li>
+<li>Use findings to harden your systems (strong secrets, enforce <code>exp</code>, avoid risky headers, validate key sources).</li>
+</ul>
+
+
+
+                    
+
+
+
+                    <nav class="mt-12 pt-8 border-t border-gray-500/15">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="prev-nav-item">
+                                
+    
+        
+        <a class="nav-button nav-button-prev group" href="https://jwt-hack.hahwul.com/usage/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    <span class="nav-button-label">Back to</span>
+                </div>
+                <div class="nav-button-title">Usage</div>
+            </div>
+        </a>
+    
+
+                            </div>
+                            <div class="next-nav-item">
+                                
+    
+        <a class="nav-button nav-button-next group" href="https://jwt-hack.hahwul.com/usage/server/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <span class="nav-button-label">Next</span>
+                    <svg class="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="nav-button-title">Server Command</div>
+            </div>
+        </a>
+    
+
+                            </div>
+                        </div>
+                    </nav>
+                </main>
+
+                
+                    
+
+<div class="hidden lg:block">
+    <div class="sticky top-20 px-4 py-2 border-l border-gray-500/15">
+        <h4 class="text-lg font-bold mb-1">ON THIS PAGE</h4>
+            <ul class="menu menu-sm toc-menu">
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#basic-usage" class="toc-link">Basic Usage</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#what-the-scanner-checks" class="toc-link">What the Scanner Checks</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#options" class="toc-link">Options</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details">
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/scan/#examples" class="toc-link">Examples</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/scan/#quick-full-scan" class="toc-link">Quick Full Scan</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/scan/#scan-with-wordlist" class="toc-link">Scan With Wordlist</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/scan/#fast-heuristics-only-no-cracking-no-payloads" class="toc-link">Fast Heuristics Only (no cracking, no payloads)</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/scan/#ci-friendly-scan-limit-attempts" class="toc-link">CI-Friendly Scan (limit attempts)</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#typical-output" class="toc-link">Typical Output</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#behavior-details-and-limitations" class="toc-link">Behavior Details and Limitations</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#recommended-workflow" class="toc-link">Recommended Workflow</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#troubleshooting" class="toc-link">Troubleshooting</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/scan/#security-notes" class="toc-link">Security Notes</a>
+                    
+                </li>
+            
+            </ul>
+    </div>
+</div>
+
+
+                
+                
+            </div>
+
+            <script>
+              // Determine theme: localStorage > extra.default_colorset > goyo-dark
+              // Expose theme config for global use (e.g., goyo.js)
+              window.defaultColorset = "dark";
+              window.themeMap = { "dark": "goyo-dark", "light": "goyo-light" };
+              window.fallbackTheme = window.themeMap[window.defaultColorset] || "goyo-dark";
+              
+              // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+              var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+              var currentUserTheme = localStorage.getItem('theme') || window.fallbackTheme;
+              var actualTheme = themeMapping[currentUserTheme] || currentUserTheme;
+              
+              var mermaidTheme = "dark";
+              if(currentUserTheme == "goyo-light") {
+                mermaidTheme = "light";
+              }
+              mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+              document.addEventListener('DOMContentLoaded', async () => {
+                const mermaidElements = document.querySelectorAll('.mermaid');
+
+                if (mermaidElements.length > 0) {
+                    await mermaid.run({
+                        nodes: mermaidElements
+                    });
+                }
+              });
+            </script>
+
+        </div>
+
+        
+        
+        <div id="sidebar" class="drawer-side fixed top-0 pt-12 bottom-0 z-40 border-r border-gray-500/15">
+        
+            
+                
+
+
+
+    
+
+<label for="my-drawer-2" class="drawer-overlay"></label>
+<div class="mt-4 w-68 h-[calc(100vh-4rem)] bg-base-100 text-base-content flex flex-col overflow-auto">
+    
+    <div class="px-2 pt-4 pb-0 flex flex-col items-center gap-2">
+        <div class="w-full flex items-center gap-2">
+            <label for="search-modal" class="input w-full flex items-center justify-between text-left bg-base-100 cursor-pointer border-gray-500/15 hover:border-gray-500/55 hover:border-1 transition" aria-label="검색">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="text-gray-400"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span>
+            </label>
+        </div>
+    </div>
+    
+    <ul class="menu w-full flex-grow">
+        
+        
+        
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started">Get Started</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/installation">Installation</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/quickstart">Quick Start</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/features">Features Overview</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage">Usage</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/decode">Decode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/encode">Encode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/verify">Verify Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/crack">Crack Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/payload">Payload Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/mcp">MCP Server Mode</a></li>
+                            
+                                <li class="rounded bg-gray-500/15"><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/scan">Scan Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/server">Server Command</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced">Advanced</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/configuration">Configuration</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/performance">Performance Optimization</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/scripting">Scripting &amp; Automation</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                <a  href="https://jwt-hack.hahwul.com/contributing">Contributing</a>
+            </li>
+        
+    </ul>
+
+    
+<footer class="footer text-xs pt-4 px-4 text-base-content border-t border-gray-500/15">
+    <aside>
+        <p>
+            Powered by <a href='https://www.getzola.org'>Zola</a> and <a href='https://github.com/hahwul/goyo'>Goyo</a>
+        </p>
+    </aside>
+</footer>
+
+</div>
+
+            
+        </div>
+    </div>
+
+    
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/fuse.min.js"></script>
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/search_index.en.js"></script>
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/goyo.js"></script>
+    
+</body>
+</html>
