@@ -55,6 +55,8 @@ docker pull hahwul/jwt-hack:v2.3.1
 ## Features
 
 > Note: The Scan and Server commands are introduced in v2.4.0 and are not yet released. They are unavailable in current binaries. To try them early, build from the main branch.
+>
+> The Server can be secured with `--api-key`, which requires clients to include the `X-API-KEY` header on all requests.
 
 
 | Mode    | Description                  | Support                                                      |
@@ -184,6 +186,18 @@ The scan command checks for:
 - **Missing security claims**: Verifies presence of recommended JWT claims
 - **Kid header injection**: Detects potential SQL/path injection vulnerabilities
 - **JKU/X5U header attacks**: Identifies URL spoofing attack vectors
+
+### Server (REST API)
+
+Start a local REST API for automation and integrations. To require authentication, use `--api-key` and include `X-API-KEY` in requests.
+
+```bash
+# Start on localhost:3000 with API key protection
+jwt-hack server --api-key your-api-key
+
+# Example request (must include X-API-KEY when --api-key is set)
+curl -s http://127.0.0.1:3000/health -H 'X-API-KEY: your-api-key'
+```
 
 ### MCP (Model Context Protocol) Server Mode
 

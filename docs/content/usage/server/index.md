@@ -34,6 +34,7 @@ Global options (available to all subcommands):
 Server options:
       --host <HOST>      Host address to bind to [default: 127.0.0.1]
       --port <PORT>      Port number to listen on [default: 3000]
+      --api-key <API_KEY>  API key to secure the REST API (validated via X-API-KEY header)
   -h, --help             Print help
 
 Examples:
@@ -42,6 +43,9 @@ Examples:
 
   # start on all interfaces on port 8080
   ./target/debug/jwt-hack server --host 0.0.0.0 --port 8080
+
+  # protect with API key (clients must send -H 'X-API-KEY: <KEY>')
+  ./target/debug/jwt-hack server --api-key your-api-key
 
   # with a config file (global option)
   ./target/debug/jwt-hack --config ./jwt-hack.toml server
@@ -279,7 +283,7 @@ Notes:
 
 ## cURL Examples
 
-Replace host/port as needed.
+Replace host/port as needed. If the server was started with --api-key, include -H 'X-API-KEY: <API_KEY>' in each request.  
 
 ### Health
 ```/dev/null/curl-health.sh#L1-3
@@ -371,5 +375,5 @@ curl -s http://127.0.0.1:3000/scan \
 - Bind address: Use `--host 0.0.0.0` to accept remote connections.
 - CORS: Open (any origin, any method, any header).
 - Performance: `/crack` can be CPU-heavy and synchronous; keep search spaces small or run behind a job queue.
-- Security: This server is a testing tool. Do not expose it to untrusted networks without proper safeguards (authN/Z, rate limits, isolation).
+- Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).  
 - Errors: Most endpoints return HTTP 200 with `success:false` and `error`. Handle both the HTTP status and the `success` flag in clients.
