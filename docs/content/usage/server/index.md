@@ -77,7 +77,7 @@ The following request and response shapes are supported.
 ```/dev/null/health-response.json#L1-5
 {
   "status": "ok",
-  "version": "2.3.1"
+  "version": "2.4.0"
 }
 ```
 
@@ -283,7 +283,7 @@ Notes:
 
 ## cURL Examples
 
-Replace host/port as needed. If the server was started with --api-key, include -H 'X-API-KEY: <API_KEY>' in each request.  
+Replace host/port as needed. If the server was started with --api-key, include -H 'X-API-KEY: <API_KEY>' in each request.
 
 ### Health
 ```/dev/null/curl-health.sh#L1-3
@@ -375,5 +375,5 @@ curl -s http://127.0.0.1:3000/scan \
 - Bind address: Use `--host 0.0.0.0` to accept remote connections.
 - CORS: Open (any origin, any method, any header).
 - Performance: `/crack` can be CPU-heavy and synchronous; keep search spaces small or run behind a job queue.
-- Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).  
+- Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).
 - Errors: Most endpoints return HTTP 200 with `success:false` and `error`. Handle both the HTTP status and the `success` flag in clients.

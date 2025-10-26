@@ -19,7 +19,7 @@ highlight_theme = "ayu-mirage"
 
 [extra]
 logo_text = "JWT-HACK"
-badge = "v2.3.1"
+badge = "v2.4.0"
 logo_image_path = "images/logo.png"
 logo_image_padding = "10px"
 default_thumbnail = "images/preview.jpg"
