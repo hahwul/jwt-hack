@@ -3,7 +3,7 @@ template = "landing.html"
 
 [extra.hero]
 title = "Welcome to JWT-HACK!"
-badge = "v2.3.1"
+badge = "v2.4.0"
 description = "A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens"
 image = "/images/preview.jpg" # Background image
 cta_buttons = [

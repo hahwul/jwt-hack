@@ -1,6 +1,6 @@
 [package]
 name = "jwt-hack"
-version = "2.3.1"
+version = "2.4.0"
 edition = "2021"
 authors = ["hahwul"]
 description = "Hack the JWT (JSON Web Token) - A tool for JWT security testing and token manipulation"
