@@ -54,11 +54,6 @@ docker pull hahwul/jwt-hack:v2.4.0
 
 ## Features
 
-> Note: The Scan and Server commands are introduced in v2.4.0 and are not yet released. They are unavailable in current binaries. To try them early, build from the main branch.
->
-> The Server can be secured with `--api-key`, which requires clients to include the `X-API-KEY` header on all requests.
-
-
 | Mode    | Description                  | Support                                                      |
 |---------|------------------------------|--------------------------------------------------------------|
 | Encode  | JWT/JWE Encoder              | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression / JWE |
@@ -67,12 +62,10 @@ docker pull hahwul/jwt-hack:v2.4.0
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
 | Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
 | Scan    | Vulnerability Scanner        | Automated security checks for common JWT vulnerabilities     |
-| MCP     | Model Context Protocol Server | AI model integration via standardized protocol               |
+| Server  | API Server                    | Run API Server Mode (http://localhost:3000)                 |
+| MCP     | Model Context Protocol Server | AI model integration via standardized protocol              |
 
 ## Basic Usage
-
-> Note: The Scan and Server commands are introduced in v2.4.0 and are not yet released. They are unavailable in current binaries. To try them early, build from the main branch.
-
 
 ### Decode a JWT
 
