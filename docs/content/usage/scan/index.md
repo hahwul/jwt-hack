@@ -3,16 +3,6 @@ title: "Scan Command"
 weight: 7
 ---
 
-> Availability: The `scan` command is introduced in v2.4.0 and is not yet released. It is unavailable in current binaries (Cargo/Homebrew/Snap/Docker). To try it early, build from the main branch:
->
-> ```bash
-> git clone https://github.com/hahwul/jwt-hack
-> cd jwt-hack
-> cargo install --path .
-> ```
->
-> Note: Pre-release code may change before the official v2.4.0 release.
-
 The `scan` command runs a fast, heuristic assessment of a JWT. It decodes the token, performs common weakness checks, optionally tries weak secrets for HS* tokens, and can print example attack payloads for follow‑up testing.
 
 ## Basic Usage

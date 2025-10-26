@@ -3,18 +3,6 @@ title: "Server Command"
 weight: 8
 ---
 
-> Availability: The `server` command is introduced in v2.4.0 and is not yet released. It is unavailable in current binaries (Cargo/Homebrew/Snap/Docker). To try it early, build from the main branch:
->
-> ```bash
-> git clone https://github.com/hahwul/jwt-hack
-> cd jwt-hack
-> cargo install --path .
-> ```
->
-> Note: Pre-release code may change before the official v2.4.0 release.
->
-# Server Command
-
 The `server` command starts a local REST API that exposes JWT-HACK features over HTTP. It’s useful for automation, integrations, and UI frontends.
 
 - Default bind: http://127.0.0.1:3000
