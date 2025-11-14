@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color: #000000;">
+
+<head>
+    
+        
+    
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Initialize theme and brightness before CSS loads to prevent FOUC -->
+    <script>
+        (function() {
+            // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+            var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+            
+            // Get default values from config
+            var defaultColorset = "dark";
+            var defaultBrightness = "darker";
+            var themeMap = { "dark": "goyo-dark", "light": "goyo-light" };
+            var fallbackTheme = themeMap[defaultColorset] || "goyo-dark";
+            
+            // Get theme from localStorage or use fallback
+            var currentUserTheme = localStorage.getItem('theme') || fallbackTheme;
+            var actualTheme = themeMapping[currentUserTheme] || currentUserTheme;
+            
+            // Set theme and brightness attributes immediately
+            document.documentElement.setAttribute("data-theme", actualTheme);
+            document.documentElement.setAttribute("data-brightness", defaultBrightness);
+        })();
+    </script>
+
+    <style>
+        
+            
+            @font-face {
+                font-family: "Pretendard-Regular";
+                src: url('https://jwt-hack.hahwul.com/fonts/Pretendard-Regular.woff') format("woff");
+                font-weight: 400;
+                font-style: normal;
+            }
+            body {
+                font-family: "Pretendard-Regular", sans-serif;
+            }
+        
+    </style>
+
+    
+        
+            <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+        
+    
+
+    <title>Scripting &amp; Automation | JWT-HACK</title>
+
+    
+    
+
+      <!-- SEO: Open Graph / Twitter Card -->
+      <meta property="og:title" content="Scripting &amp; Automation | JWT-HACK" />
+      <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      <meta property="og:url" content="https://jwt-hack.hahwul.com" />
+      <meta property="og:type" content="website" />
+      
+      <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Scripting &amp; Automation" />
+      <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      
+      <meta name="twitter:site" content="@hahwul" />
+      
+      
+      <meta name="twitter:creator" content="@hahwul" />
+      
+      
+      <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <!-- Browser address bar color -->
+      <meta name="theme-color" content="#000000">
+
+      <!-- CSS -->
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/main.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/katex.min.css">
+
+    <script src="https://jwt-hack.hahwul.com/js/mermaid.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/katex.min.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_code.js"></script>
+    <script src="https://jwt-hack.hahwul.com/js/copy_heading_link.js"></script>
+
+    
+    
+</head>
+<body>
+    
+
+<!-- Search Modal -->
+<input type="checkbox" id="search-modal" class="modal-toggle" />
+<div class="modal modal-middle">
+    <div class="modal-box relative max-w-2xl p-0 bg-base-100 shadow-2xl">
+        <label for="search-modal" class="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10">✕</label>
+        <div class="search-container">
+            <!-- Search Input Container -->
+            <div class="search-input-container px-6 pt-6 pb-4 border-b border-base-300/30">
+                <div class="relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="search-icon absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input id="search" type="search" placeholder="Search documentation..." class="search-input w-full pl-12 pr-4 py-3 text-base bg-transparent border-0 focus:outline-none focus:ring-0 text-base-content placeholder:text-base-content/40">
+                </div>
+            </div>
+            <!-- Search Results Container -->
+            <div class="search-results-container px-2 py-2 h-96 overflow-y-auto">
+                <div class="search-results__header px-4 py-2 text-xs text-base-content/60"></div>
+                <ul class="search-results__items space-y-1"></ul>
+            </div>
+            <!-- Search Footer -->
+            <div class="search-footer px-6 py-3 border-t border-base-300/30 flex items-center justify-end gap-4 text-xs text-base-content/50">
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">↑</kbd>
+                    <kbd class="kbd kbd-xs">↓</kbd>
+                    <span>to navigate</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">↵</kbd>
+                    <span>to select</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">esc</kbd>
+                    <span>to close</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+    <div class="drawer lg:drawer-open">
+        <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col pt-16">
+            
+<div class="navbar opacity-95 fixed top-0 left-0 right-0 z-50 h-16 border-b border-gray-500/15 backdrop-blur-3xl">
+    <!-- Mobile hamburger -->
+    <div class="flex-none lg:hidden">
+        <label for="my-drawer-2" class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </label>
+    </div>
+    <!-- Logo -->
+    <div class="flex-1">
+        <a href="/" class="btn btn-ghost hover:animate-pulse hover:bg-transparent hover:border-transparent normal-case text-xl" style="background: linear-gradient(135deg, #9ca3af, #6b7280); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold; font-size: 1.5rem;">
+            
+                <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="JWT-HACK" class="h-18 w-auto" style="padding: 10px;"/>
+            
+        </a>
+    </div>
+    <!-- Desktop Menu -->
+    <div class="flex-none hidden lg:flex">
+        <ul class="menu menu-horizontal px-1 items-center">
+            
+            
+            
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="/get_started/installation">
+                                <i class="fa-solid fa-book"></i>
+                                Documents
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li>
+                            <a class="btn btn-ghost hover:no-underline" href="https://github.com/hahwul/jwt-hack">
+                                <i class="fa-brands fa-github"></i>
+                                GitHub
+                            </a>
+                        </li>
+                    
+                
+                    
+                        <li class="dropdown dropdown-end">
+                            <div tabindex="0" role="button" class="btn btn-ghost">
+                                <i class="fa-solid fa-link"></i>
+                                Links
+                                <svg class="inline w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <ul tabindex="0" class="dropdown-content menu bg-base-100 border border-gray-500/15 rounded-box z-1 p-2 shadow-sm">
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://crates.io/crates/jwt-hack">
+                                            <i class="fa-solid fa-box"></i>
+                                            Crates
+                                        </a>
+                                    </li>
+                                
+                                    <li>
+                                        <a class="btn btn-ghost hover:no-underline" href="https://www.hahwul.com">
+                                            <i class="fa-solid fa-fire-flame-curved"></i>
+                                            Creator Blog
+                                        </a>
+                                    </li>
+                                
+                            </ul>
+                        </li>
+                    
+                
+            
+            
+
+            
+            <li>
+                <label class="swap swap-rotate btn btn-ghost">
+                  <input type="checkbox" class="theme-controller" value="night" aria-labelledby="swap color"/>
+                  <svg class="swap-off h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z" /></svg>
+                  <svg class="swap-on h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" /></svg>
+                </label>
+            </li>
+            
+
+        </ul>
+    </div>
+</div>
+
+
+            
+            
+            <div class="p-8 w-full flex justify-center">
+                <div class="w-full max-w-7xl lg:grid lg:grid-cols-[1fr_250px] lg:gap-8">
+                    <main class="prose w-full">
+                        
+    <div class="mb-12 pb-4 border-b border-gray-500/15">
+        <h1>Scripting &amp; Automation</h1>
+        <p class="text-gray-500"></p>
+    </div>
+    <p>JWT-HACK is designed to work well in scripts and automated workflows.</p>
+<h2 id="exit-codes">Exit Codes</h2>
+<p>JWT-HACK uses standard exit codes for automation:</p>
+<ul>
+<li><strong>0</strong> - Success</li>
+<li><strong>1</strong> - General error</li>
+<li><strong>2</strong> - Invalid input/arguments</li>
+<li><strong>3</strong> - Authentication/verification failure</li>
+</ul>
+<h2 id="bash-scripting">Bash Scripting</h2>
+<h3 id="basic-token-validation">Basic Token Validation</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;">#!/bin/bash
+</span><span>
+</span><span style="color:#ffd580;">validate_token</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">local </span><span>token</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>1</span><span style="color:#bae67e;">&quot;
+</span><span>    </span><span style="color:#ffa759;">local </span><span>secret</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>2</span><span style="color:#bae67e;">&quot;
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">if </span><span style="color:#ffd580;">jwt-hack</span><span> verify </span><span style="color:#bae67e;">&quot;$</span><span>token</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;"> --secret</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>secret</span><span style="color:#bae67e;">&quot; </span><span style="color:#f29e74;">&gt;</span><span> /dev/null </span><span style="color:#ffcc66;">2</span><span style="color:#f29e74;">&gt;&amp;</span><span style="color:#ffcc66;">1</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Token is valid&quot;
+</span><span>        </span><span style="color:#ffa759;">return</span><span> 0
+</span><span>    </span><span style="color:#ffa759;">else
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Token is invalid&quot;
+</span><span>        </span><span style="color:#ffa759;">return</span><span> 1
+</span><span>    </span><span style="color:#ffa759;">fi
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Usage
+</span><span style="color:#ffa759;">if </span><span style="color:#ffd580;">validate_token </span><span style="color:#bae67e;">&quot;$</span><span>JWT_TOKEN</span><span style="color:#bae67e;">&quot; &quot;$</span><span>SECRET</span><span style="color:#bae67e;">&quot;</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>    </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Proceeding with authenticated request&quot;
+</span><span style="color:#ffa759;">else
+</span><span>    </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Authentication failed&quot;
+</span><span>    </span><span style="color:#f28779;">exit</span><span> 1
+</span><span style="color:#ffa759;">fi
+</span></code></pre>
+<h3 id="batch-token-processing">Batch Token Processing</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;">#!/bin/bash
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Process multiple tokens from file
+</span><span style="color:#ffa759;">while </span><span style="color:#ffd580;">IFS</span><span>= read</span><span style="color:#ffcc66;"> -r</span><span> token</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">do
+</span><span>    </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Processing token: $</span><span>{token</span><span style="color:#f29e74;">:</span><span style="color:#ffcc66;">0</span><span style="color:#f29e74;">:</span><span style="color:#ffcc66;">20</span><span>}</span><span style="color:#bae67e;">...&quot;
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">if </span><span style="color:#ffd580;">jwt-hack</span><span> decode </span><span style="color:#bae67e;">&quot;$</span><span>token</span><span style="color:#bae67e;">&quot; </span><span style="color:#f29e74;">&gt;</span><span> /dev/null </span><span style="color:#ffcc66;">2</span><span style="color:#f29e74;">&gt;&amp;</span><span style="color:#ffcc66;">1</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;✓ Valid format&quot;
+</span><span>        </span><span style="color:#ffd580;">jwt-hack</span><span> decode </span><span style="color:#bae67e;">&quot;$</span><span>token</span><span style="color:#bae67e;">&quot; </span><span style="color:#f29e74;">| </span><span style="color:#ffd580;">grep</span><span style="color:#ffcc66;"> -E </span><span style="color:#bae67e;">&quot;(exp|iat)&quot;
+</span><span>    </span><span style="color:#ffa759;">else
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;✗ Invalid format&quot;
+</span><span>    </span><span style="color:#ffa759;">fi
+</span><span>    </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;---&quot;
+</span><span style="color:#ffa759;">done </span><span style="color:#f29e74;">&lt;</span><span> tokens.txt
+</span></code></pre>
+<h3 id="automated-cracking">Automated Cracking</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;">#!/bin/bash
+</span><span>
+</span><span style="color:#ffd580;">crack_token</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">local </span><span>token</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>1</span><span style="color:#bae67e;">&quot;
+</span><span>    </span><span style="color:#ffa759;">local </span><span>wordlist</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>2</span><span style="color:#bae67e;">&quot;
+</span><span>    
+</span><span>    </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Attempting to crack token...&quot;
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">if </span><span>result</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">$</span><span>(</span><span style="color:#ffd580;">jwt-hack</span><span style="color:#bae67e;"> crack</span><span style="color:#ffcc66;"> -w </span><span style="color:#bae67e;">&quot;$</span><span>wordlist</span><span style="color:#bae67e;">&quot; &quot;$</span><span>token</span><span style="color:#bae67e;">&quot; </span><span style="color:#ffcc66;">2</span><span style="color:#f29e74;">&gt;&amp;</span><span style="color:#ffcc66;">1</span><span>)</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;SUCCESS: Secret found!&quot;
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;$</span><span>result</span><span style="color:#bae67e;">&quot; </span><span style="color:#f29e74;">| </span><span style="color:#ffd580;">grep </span><span style="color:#bae67e;">&quot;Secret:&quot;
+</span><span>        </span><span style="color:#ffa759;">return</span><span> 0
+</span><span>    </span><span style="color:#ffa759;">else
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;FAILED: Could not crack token&quot;
+</span><span>        </span><span style="color:#ffa759;">return</span><span> 1
+</span><span>    </span><span style="color:#ffa759;">fi
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Try multiple wordlists
+</span><span>wordlists</span><span style="color:#f29e74;">=</span><span>(</span><span style="color:#bae67e;">&quot;/usr/share/wordlists/rockyou.txt&quot; &quot;custom.txt&quot; &quot;common.txt&quot;</span><span>)
+</span><span>
+</span><span style="color:#ffa759;">for</span><span> wordlist </span><span style="color:#ffa759;">in </span><span style="color:#bae67e;">&quot;$</span><span>{wordlists[</span><span style="font-style:italic;color:#5ccfe6;">@</span><span>]}</span><span style="color:#bae67e;">&quot;</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">do
+</span><span>    </span><span style="color:#ffa759;">if </span><span style="color:#f28779;">[[ </span><span style="color:#ffcc66;">-f </span><span style="color:#bae67e;">&quot;$</span><span>wordlist</span><span style="color:#bae67e;">&quot; </span><span style="color:#f28779;">]]</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>        </span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Trying wordlist: $</span><span>wordlist</span><span style="color:#bae67e;">&quot;
+</span><span>        </span><span style="color:#ffa759;">if </span><span style="color:#ffd580;">crack_token </span><span style="color:#bae67e;">&quot;$</span><span>JWT_TOKEN</span><span style="color:#bae67e;">&quot; &quot;$</span><span>wordlist</span><span style="color:#bae67e;">&quot;</span><span style="color:#f29e74;">; </span><span style="color:#ffa759;">then
+</span><span>            </span><span style="color:#ffa759;">break
+</span><span>        </span><span style="color:#ffa759;">fi
+</span><span>    </span><span style="color:#ffa759;">fi
+</span><span style="color:#ffa759;">done
+</span></code></pre>
+<h2 id="python-integration">Python Integration</h2>
+<h3 id="using-subprocess">Using subprocess</h3>
+<pre data-lang="python" style="background-color:#212733;color:#ccc9c2;" class="language-python "><code class="language-python" data-lang="python"><span style="color:#ffa759;">import </span><span>subprocess
+</span><span style="color:#ffa759;">import </span><span>json
+</span><span style="color:#ffa759;">import </span><span>sys
+</span><span>
+</span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">decode_jwt</span><span>(</span><span style="color:#ffcc66;">token</span><span>):
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Decode JWT token using jwt-hack&quot;&quot;&quot;
+</span><span>    </span><span style="color:#ffa759;">try</span><span>:
+</span><span>        result </span><span style="color:#f29e74;">= </span><span>subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>            [</span><span style="color:#bae67e;">&#39;jwt-hack&#39;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;decode&#39;</span><span style="color:#ccc9c2cc;">, </span><span>token]</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#ffcc66;">text</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>        )
+</span><span>        </span><span style="color:#ffa759;">return </span><span>result</span><span style="color:#f29e74;">.</span><span>stdout
+</span><span>    </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>        </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">None
+</span><span>
+</span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">verify_jwt</span><span>(</span><span style="color:#ffcc66;">token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">secret</span><span>):
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Verify JWT token&quot;&quot;&quot;
+</span><span>    </span><span style="color:#ffa759;">try</span><span>:
+</span><span>        subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>            [</span><span style="color:#bae67e;">&#39;jwt-hack&#39;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;verify&#39;</span><span style="color:#ccc9c2cc;">, </span><span>token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;--secret&#39;</span><span style="color:#ccc9c2cc;">, </span><span>secret]</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>        )
+</span><span>        </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">True
+</span><span>    </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>        </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">False
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Usage
+</span><span>token </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+</span><span style="color:#ffa759;">if </span><span>decode_result </span><span style="color:#f29e74;">:= </span><span style="color:#ffd580;">decode_jwt</span><span>(token):
+</span><span>    </span><span style="color:#f28779;">print</span><span>(</span><span style="color:#bae67e;">&quot;Token decoded successfully&quot;</span><span>)
+</span><span>    </span><span style="color:#f28779;">print</span><span>(decode_result)
+</span><span style="color:#ffa759;">else</span><span>:
+</span><span>    </span><span style="color:#f28779;">print</span><span>(</span><span style="color:#bae67e;">&quot;Failed to decode token&quot;</span><span>)
+</span><span>    sys</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">exit</span><span>(</span><span style="color:#ffcc66;">1</span><span>)
+</span></code></pre>
+<h3 id="token-analysis-pipeline">Token Analysis Pipeline</h3>
+<pre data-lang="python" style="background-color:#212733;color:#ccc9c2;" class="language-python "><code class="language-python" data-lang="python"><span style="font-style:italic;color:#5c6773;">#!/usr/bin/env python3
+</span><span>
+</span><span style="color:#ffa759;">import </span><span>subprocess
+</span><span style="color:#ffa759;">import </span><span>json
+</span><span style="color:#ffa759;">import </span><span>re
+</span><span style="color:#ffa759;">from </span><span>pathlib </span><span style="color:#ffa759;">import </span><span>Path
+</span><span>
+</span><span style="color:#ffa759;">class </span><span style="color:#73d0ff;">JWTAnalyzer</span><span>:
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#f28779;">__init__</span><span>(</span><span style="color:#ffcc66;">self</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>jwt_hack </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;jwt-hack&quot;
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">decode</span><span>(</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">token</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Decode JWT and extract information&quot;&quot;&quot;
+</span><span>        </span><span style="color:#ffa759;">try</span><span>:
+</span><span>            result </span><span style="color:#f29e74;">= </span><span>subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>                [</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>jwt_hack</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;decode&#39;</span><span style="color:#ccc9c2cc;">, </span><span>token]</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">text</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>            )
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">_parse_decode_output</span><span>(result</span><span style="color:#f29e74;">.</span><span>stdout)
+</span><span>        </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">None
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">verify</span><span>(</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">secret</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Verify JWT signature&quot;&quot;&quot;
+</span><span>        </span><span style="color:#ffa759;">try</span><span>:
+</span><span>            subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>                [</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>jwt_hack</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;verify&#39;</span><span style="color:#ccc9c2cc;">, </span><span>token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;--secret&#39;</span><span style="color:#ccc9c2cc;">, </span><span>secret]</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>            )
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">True
+</span><span>        </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">False
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">crack</span><span>(</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">wordlist</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Attempt to crack JWT secret&quot;&quot;&quot;
+</span><span>        </span><span style="color:#ffa759;">try</span><span>:
+</span><span>            result </span><span style="color:#f29e74;">= </span><span>subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>                [</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>jwt_hack</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;crack&#39;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;-w&#39;</span><span style="color:#ccc9c2cc;">, </span><span>wordlist</span><span style="color:#ccc9c2cc;">, </span><span>token]</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">text</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>            )
+</span><span>            </span><span style="font-style:italic;color:#5c6773;"># Extract secret from output
+</span><span>            </span><span style="color:#ffa759;">if </span><span>match </span><span style="color:#f29e74;">:= </span><span>re</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">search</span><span>(</span><span style="color:#ffa759;">r</span><span style="color:#bae67e;">&#39;Secret: (</span><span style="color:#ffcc66;">.</span><span style="color:#f29e74;">+</span><span style="color:#bae67e;">)&#39;</span><span style="color:#ccc9c2cc;">, </span><span>result</span><span style="color:#f29e74;">.</span><span>stdout):
+</span><span>                </span><span style="color:#ffa759;">return </span><span>match</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">group</span><span>(</span><span style="color:#ffcc66;">1</span><span>)
+</span><span>        </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>            </span><span style="color:#ffa759;">pass
+</span><span>        </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">None
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">generate_payloads</span><span>(</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">target</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&#39;all&#39;</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Generate attack payloads&quot;&quot;&quot;
+</span><span>        </span><span style="color:#ffa759;">try</span><span>:
+</span><span>            result </span><span style="color:#f29e74;">= </span><span>subprocess</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">run</span><span>(
+</span><span>                [</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>jwt_hack</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;payload&#39;</span><span style="color:#ccc9c2cc;">, </span><span>token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&#39;--target&#39;</span><span style="color:#ccc9c2cc;">, </span><span>target]</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">capture_output</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">text</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#ffcc66;">check</span><span style="color:#f29e74;">=</span><span style="color:#ffcc66;">True
+</span><span>            )
+</span><span>            </span><span style="color:#ffa759;">return </span><span>result</span><span style="color:#f29e74;">.</span><span>stdout
+</span><span>        </span><span style="color:#ffa759;">except </span><span>subprocess.CalledProcessError:
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="color:#ffcc66;">None
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">def </span><span style="color:#ffd580;">_parse_decode_output</span><span>(</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">output</span><span>):
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">&quot;&quot;&quot;Parse decode output to extract structured data&quot;&quot;&quot;
+</span><span>        </span><span style="font-style:italic;color:#5c6773;"># This would parse the actual output format
+</span><span>        </span><span style="font-style:italic;color:#5c6773;"># Implementation depends on jwt-hack output format
+</span><span>        </span><span style="color:#ffa759;">return </span><span>{</span><span style="color:#bae67e;">&quot;raw_output&quot;</span><span style="color:#ccc9c2cc;">: </span><span>output}
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Usage example
+</span><span>analyzer </span><span style="color:#f29e74;">= </span><span style="color:#ffd580;">JWTAnalyzer</span><span>()
+</span><span>token </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Analyze token
+</span><span>info </span><span style="color:#f29e74;">= </span><span>analyzer</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">decode</span><span>(token)
+</span><span style="color:#ffa759;">if </span><span>info:
+</span><span>    </span><span style="color:#f28779;">print</span><span>(</span><span style="color:#bae67e;">&quot;Token analysis:&quot;</span><span style="color:#ccc9c2cc;">, </span><span>info)
+</span><span>    
+</span><span>    </span><span style="font-style:italic;color:#5c6773;"># Try to crack it
+</span><span>    secret </span><span style="color:#f29e74;">= </span><span>analyzer</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">crack</span><span>(token</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;wordlist.txt&quot;</span><span>)
+</span><span>    </span><span style="color:#ffa759;">if </span><span>secret:
+</span><span>        </span><span style="color:#f28779;">print</span><span>(</span><span style="color:#ffa759;">f</span><span style="color:#bae67e;">&quot;Secret found: </span><span>{secret}</span><span style="color:#bae67e;">&quot;</span><span>)
+</span><span>        
+</span><span>        </span><span style="font-style:italic;color:#5c6773;"># Verify with found secret
+</span><span>        </span><span style="color:#ffa759;">if </span><span>analyzer</span><span style="color:#f29e74;">.</span><span style="color:#ffd580;">verify</span><span>(token</span><span style="color:#ccc9c2cc;">, </span><span>secret):
+</span><span>            </span><span style="color:#f28779;">print</span><span>(</span><span style="color:#bae67e;">&quot;Secret verified!&quot;</span><span>)
+</span></code></pre>
+<h2 id="ci-cd-integration">CI/CD Integration</h2>
+<h3 id="github-actions">GitHub Actions</h3>
+<pre data-lang="yaml" style="background-color:#212733;color:#ccc9c2;" class="language-yaml "><code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">JWT Security Check
+</span><span>
+</span><span style="color:#ffcc66;">on</span><span style="color:#ccc9c2cc;">: </span><span>[</span><span style="color:#bae67e;">push</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">pull_request</span><span>]
+</span><span>
+</span><span style="color:#73d0ff;">jobs</span><span style="color:#ccc9c2cc;">:
+</span><span>  </span><span style="color:#73d0ff;">jwt-security</span><span style="color:#ccc9c2cc;">:
+</span><span>    </span><span style="color:#73d0ff;">runs-on</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">ubuntu-latest
+</span><span>    </span><span style="color:#73d0ff;">steps</span><span style="color:#ccc9c2cc;">:
+</span><span>    - </span><span style="color:#73d0ff;">uses</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">actions/checkout@v2
+</span><span>    
+</span><span>    - </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">Install JWT-HACK
+</span><span>      </span><span style="color:#73d0ff;">run</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">|
+</span><span style="color:#bae67e;">        cargo install jwt-hack
+</span><span style="color:#bae67e;">        
+</span><span>    - </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">Analyze JWT tokens in code
+</span><span>      </span><span style="color:#73d0ff;">run</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">|
+</span><span style="color:#bae67e;">        # Find JWT tokens in code (simple regex)
+</span><span style="color:#bae67e;">        grep -r &quot;eyJ[A-Za-z0-9_-]*\.&quot; . || true
+</span><span style="color:#bae67e;">        
+</span><span>    - </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">Test JWT security
+</span><span>      </span><span style="color:#73d0ff;">run</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">|
+</span><span style="color:#bae67e;">        # Test any hardcoded tokens
+</span><span style="color:#bae67e;">        if [ -f &quot;test-tokens.txt&quot; ]; then
+</span><span style="color:#bae67e;">          while read token; do
+</span><span style="color:#bae67e;">            echo &quot;Testing token: $token&quot;
+</span><span style="color:#bae67e;">            jwt-hack decode &quot;$token&quot;
+</span><span style="color:#bae67e;">            jwt-hack crack -w common-passwords.txt &quot;$token&quot; || true
+</span><span style="color:#bae67e;">          done &lt; test-tokens.txt
+</span><span style="color:#bae67e;">        fi
+</span></code></pre>
+<h3 id="docker-integration">Docker Integration</h3>
+<pre data-lang="dockerfile" style="background-color:#212733;color:#ccc9c2;" class="language-dockerfile "><code class="language-dockerfile" data-lang="dockerfile"><span style="color:#ffa759;">FROM</span><span> rust:</span><span style="color:#73d0ff;">1.75 </span><span style="color:#ffa759;">as </span><span>builder
+</span><span style="color:#ffa759;">RUN </span><span>cargo install jwt-hack
+</span><span>
+</span><span style="color:#ffa759;">FROM</span><span> debian:</span><span style="color:#73d0ff;">bookworm-slim
+</span><span style="color:#ffa759;">COPY</span><span> --from=builder /usr/local/cargo/bin/jwt-hack /usr/local/bin/
+</span><span style="color:#ffa759;">COPY</span><span> scripts/ /scripts/
+</span><span style="color:#f29e74;">ENTRYPOINT </span><span>[</span><span style="color:#bae67e;">&quot;/scripts/analyze.sh&quot;</span><span>]
+</span></code></pre>
+<h2 id="configuration-management">Configuration Management</h2>
+<h3 id="environment-based-configuration">Environment-Based Configuration</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;">#!/bin/bash
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Set defaults from environment
+</span><span>JWT_HACK_SECRET</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>{JWT_HACK_SECRET</span><span style="color:#f29e74;">:-</span><span style="color:#bae67e;">default-secret</span><span>}</span><span style="color:#bae67e;">&quot;
+</span><span>JWT_HACK_WORDLIST</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>{JWT_HACK_WORDLIST</span><span style="color:#f29e74;">:-</span><span style="color:#bae67e;">/usr/share/wordlists/rockyou.txt</span><span>}</span><span style="color:#bae67e;">&quot;
+</span><span>JWT_HACK_CONCURRENCY</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>{JWT_HACK_CONCURRENCY</span><span style="color:#f29e74;">:-</span><span style="color:#bae67e;">$</span><span>(</span><span style="color:#ffd580;">nproc</span><span>)}</span><span style="color:#bae67e;">&quot;
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Use in scripts
+</span><span style="color:#ffd580;">jwt-hack</span><span> verify </span><span style="color:#bae67e;">&quot;$</span><span>token</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;"> --secret</span><span style="color:#f29e74;">=</span><span style="color:#bae67e;">&quot;$</span><span>JWT_HACK_SECRET</span><span style="color:#bae67e;">&quot;
+</span><span style="color:#ffd580;">jwt-hack</span><span> crack</span><span style="color:#ffcc66;"> -w </span><span style="color:#bae67e;">&quot;$</span><span>JWT_HACK_WORDLIST</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;"> -c </span><span style="color:#bae67e;">&quot;$</span><span>JWT_HACK_CONCURRENCY</span><span style="color:#bae67e;">&quot; &quot;$</span><span>token</span><span style="color:#bae67e;">&quot;
+</span></code></pre>
+<h3 id="config-file-generation">Config File Generation</h3>
+<pre data-lang="bash" style="background-color:#212733;color:#ccc9c2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-style:italic;color:#5c6773;">#!/bin/bash
+</span><span>
+</span><span style="font-style:italic;color:#5c6773;"># Generate jwt-hack config
+</span><span style="color:#ffd580;">mkdir</span><span style="color:#ffcc66;"> -p </span><span style="font-style:italic;color:#5ccfe6;">~</span><span>/.config/jwt-hack
+</span><span>
+</span><span style="color:#ffd580;">cat </span><span style="color:#f29e74;">&gt; </span><span style="font-style:italic;color:#5ccfe6;">~</span><span>/.config/jwt-hack/config.toml </span><span style="color:#f29e74;">&lt;&lt; </span><span style="color:#ffa759;">EOF
+</span><span style="color:#bae67e;">default_secret = &quot;$</span><span>{DEFAULT_SECRET}</span><span style="color:#bae67e;">&quot;
+</span><span style="color:#bae67e;">default_algorithm = &quot;$</span><span>{DEFAULT_ALGORITHM</span><span style="color:#f29e74;">:-</span><span style="color:#bae67e;">HS256</span><span>}</span><span style="color:#bae67e;">&quot;
+</span><span style="color:#bae67e;">default_wordlist = &quot;$</span><span>{DEFAULT_WORDLIST}</span><span style="color:#bae67e;">&quot;
+</span><span style="color:#bae67e;">default_private_key = &quot;$</span><span>{DEFAULT_PRIVATE_KEY}</span><span style="color:#bae67e;">&quot;
+</span><span style="color:#ffa759;">EOF
+</span><span>
+</span><span style="color:#f28779;">echo </span><span style="color:#bae67e;">&quot;Configuration generated at ~/.config/jwt-hack/config.toml&quot;
+</span></code></pre>
+
+
+    
+
+
+                        
+
+
+
+                        <nav class="mt-12 pt-8 border-t border-gray-500/15">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="prev-nav-item">
+                                    
+    
+        
+        <a class="nav-button nav-button-prev group" href="https://jwt-hack.hahwul.com/advanced/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    <span class="nav-button-label">Back to</span>
+                </div>
+                <div class="nav-button-title">Advanced</div>
+            </div>
+        </a>
+    
+
+                                </div>
+                                <div class="next-nav-item">
+                                    
+    
+        
+        
+        
+            
+            
+            
+                
+            
+                
+            
+                
+            
+        
+            
+            
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+                
+            
+        
+            
+            
+            
+                
+            
+                
+            
+                
+                    
+                
+            
+        
+            
+            
+                <a class="nav-button nav-button-next group" href="https://jwt-hack.hahwul.com/contributing/">
+                    <div class="nav-button-content">
+                        <div class="nav-button-direction">
+                            <span class="nav-button-label">Next</span>
+                            <svg class="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="nav-button-title">Contributing</div>
+                    </div>
+                </a>
+                
+            
+            
+        
+    
+
+                                </div>
+                            </div>
+                        </nav>
+                    </main>
+
+                    
+                        
+
+<div class="hidden lg:block" >
+    <div class="sticky top-20 px-4 py-2 border-l border-gray-500/15">
+        <h4 class="text-lg font-bold mb-1">ON THIS PAGE</h4>
+            <ul class="menu menu-sm toc-menu">
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#exit-codes" class="toc-link">Exit Codes</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/advanced/scripting/#bash-scripting" class="toc-link">Bash Scripting</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#basic-token-validation" class="toc-link">Basic Token Validation</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#batch-token-processing" class="toc-link">Batch Token Processing</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#automated-cracking" class="toc-link">Automated Cracking</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/advanced/scripting/#python-integration" class="toc-link">Python Integration</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#using-subprocess" class="toc-link">Using subprocess</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#token-analysis-pipeline" class="toc-link">Token Analysis Pipeline</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/advanced/scripting/#ci-cd-integration" class="toc-link">CI&#x2F;CD Integration</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#github-actions" class="toc-link">GitHub Actions</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#docker-integration" class="toc-link">Docker Integration</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/advanced/scripting/#configuration-management" class="toc-link">Configuration Management</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#environment-based-configuration" class="toc-link">Environment-Based Configuration</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/advanced/scripting/#config-file-generation" class="toc-link">Config File Generation</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+            </ul>
+    </div>
+</div>
+
+
+                    
+                    
+                </div>
+            </div>
+            
+
+            <script>
+              // Determine theme: localStorage > extra.default_colorset > goyo-dark
+              // Expose theme config for global use (e.g., goyo.js)
+              window.defaultColorset = "dark";
+              window.defaultBrightness = "darker";
+              window.themeMap = { "dark": "goyo-dark", "light": "goyo-light" };
+              window.fallbackTheme = window.themeMap[window.defaultColorset] || "goyo-dark";
+
+              // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+              var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+              var currentUserTheme = localStorage.getItem('theme') || window.fallbackTheme;
+              var actualTheme = themeMapping[currentUserTheme] || currentUserTheme;
+
+              var mermaidTheme = "dark";
+              if(currentUserTheme == "goyo-light") {
+                mermaidTheme = "light";
+              }
+              mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+              document.addEventListener('DOMContentLoaded', async () => {
+                const mermaidElements = document.querySelectorAll('.mermaid');
+
+                if (mermaidElements.length > 0) {
+                    await mermaid.run({
+                        nodes: mermaidElements
+                    });
+                }
+              });
+            </script>
+
+        </div>
+
+        
+        
+        <div id="sidebar" class="drawer-side pt-16 border-r border-gray-500/15 overflow-hidden">
+        
+            
+                
+
+
+
+    
+
+<label for="my-drawer-2" class="drawer-overlay"></label>
+<div class="mt-4 w-68 h-[calc(100vh-4rem)] bg-base-100 text-base-content flex flex-col overflow-auto thin-scrollbar">
+    
+    <div class="px-2 pt-4 pb-0 flex flex-col items-center gap-2">
+        <div class="w-full flex items-center gap-2">
+            <label for="search-modal" class="input w-full flex items-center justify-between text-left bg-base-100 cursor-pointer border-gray-500/15 hover:border-gray-500/55 hover:border-1 transition" aria-label="검색">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="text-gray-400"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span>
+            </label>
+        </div>
+    </div>
+    
+    <ul class="menu w-full flex-grow">
+        
+        
+        
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started">Get Started</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/installation">Installation</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/quickstart">Quick Start</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/features">Features Overview</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage">Usage</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/decode">Decode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/encode">Encode Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/verify">Verify Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/crack">Crack Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/payload">Payload Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/mcp">MCP Server Mode</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/scan">Scan Command</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/server">Server Command</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced">Advanced</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/configuration">Configuration</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/performance">Performance Optimization</a></li>
+                            
+                                <li class="rounded bg-gray-500/15"><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/scripting">Scripting &amp; Automation</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                <a  href="https://jwt-hack.hahwul.com/contributing">Contributing</a>
+            </li>
+        
+    </ul>
+
+    
+<footer class="footer py-2 px-4 mt-2 border-t border-gray-500/50">
+    <div class="w-full">
+        <!-- Main footer content -->
+        <div class="flex flex-col items-center gap-4 mb-4">
+            <!-- Powered by section with better styling -->
+            <div class="text-center">
+                <p class="text-sm text-base-content/60 leading-relaxed">
+                    Powered by <a href='https://www.getzola.org'>Zola</a> and <a href='https://github.com/hahwul/goyo'>Goyo</a>
+                </p>
+            </div>
+        </div>
+
+
+    </div>
+</footer>
+
+</div>
+
+            
+        </div>
+    </div>
+
+    
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/fuse.min.js"></script>
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/search_index.en.js"></script>
+        
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/goyo.js"></script>
+    
+</body>
+</html>
