@@ -28,7 +28,7 @@ pub fn execute(
     private_key_path: Option<&PathBuf>,
     algorithm: &str,
     no_signature: bool,
-    headers: Vec<(String, String)>,
+    headers: &[(String, String)],
     compress: bool,
     jwe: bool,
 ) {
@@ -53,7 +53,7 @@ pub fn execute(
             private_key_path,
             algorithm,
             no_signature,
-            &headers,
+            headers,
             compress,
         ) {
             utils::log_error(format!("JSON Encode Error: {e}"));
@@ -245,7 +245,7 @@ mod tests {
                 private_key_path,
                 algorithm,
                 no_signature,
-                headers,
+                &headers,
                 false, // compress
                 false, // jwe
             );
@@ -272,7 +272,7 @@ mod tests {
                 private_key_path,
                 algorithm,
                 no_signature,
-                headers,
+                &headers,
                 false, // compress
                 false, // jwe
             );
@@ -302,7 +302,7 @@ mod tests {
                 private_key_path,
                 algorithm,
                 no_signature,
-                headers,
+                &headers,
                 false, // compress
                 false, // jwe
             );
@@ -329,7 +329,7 @@ mod tests {
                 private_key_path,
                 algorithm,
                 no_signature,
-                headers,
+                &headers,
                 false, // compress
                 false, // jwe
             );
@@ -398,7 +398,7 @@ mod tests {
                 private_key_path,
                 algorithm,
                 no_signature,
-                headers,
+                &headers,
                 compress,
                 jwe,
             );

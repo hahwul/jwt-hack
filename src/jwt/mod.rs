@@ -148,7 +148,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "PS512" => Algorithm::PS512,
         "EDDSA" => Algorithm::EdDSA,
         "NONE" => Algorithm::HS256, // Internally we'll use HS256 but with an empty signature
-        _ => return Err(anyhow!("Unsupported algorithm: {}", options.algorithm)),
+        _ => {
+            return Err(anyhow!(
+                "Unsupported algorithm '{}'. Supported algorithms: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, PS256, PS384, PS512, EdDSA, none",
+                options.algorithm
+            ))
+        }
     };
 
     // If compression is requested, we need to manually build the JWT
@@ -200,7 +205,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
                 EncodingKey::from_secret(secret.as_bytes())
             }
-            _ => return Err(anyhow!("HMAC algorithms require a secret key")),
+            _ => {
+                return Err(anyhow!(
+                    "Secret key provided but algorithm {:?} is not an HMAC algorithm. Use HS256, HS384, or HS512 for secret keys",
+                    algorithm
+                ))
+            }
         },
         KeyData::PrivateKeyPem(pem) => match algorithm {
             Algorithm::RS256
@@ -234,7 +244,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
                 ))
             }
         },
-        KeyData::None => return Err(anyhow!("No key provided for algorithm {:?}", algorithm)),
+        KeyData::None => {
+            return Err(anyhow!(
+                "No key or secret provided for algorithm {:?}. Please provide a secret (for HMAC) or private key (for RSA/ECDSA/EdDSA)",
+                algorithm
+            ))
+        }
     };
 
     // Encode JWT token
@@ -391,7 +406,10 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
     // Split the token and handle potential errors
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
-        return Err(anyhow!("Invalid token format"));
+        return Err(anyhow!(
+            "Invalid JWT token format: expected at least 2 parts (header.payload), found {} part(s)",
+            parts.len()
+        ));
     }
 
     // Extract header
@@ -600,7 +618,7 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                     Ok(result.is_ok())
                 }
                 _ => Err(anyhow!(
-                    "HMAC key provided but algorithm is {:?}",
+                    "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
                     decoded_token.algorithm
                 )),
             }
@@ -1143,7 +1161,8 @@ mod tests {
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
-            err.to_string().contains("Invalid token format"),
+            err.to_string().contains("Invalid JWT token format") 
+                && err.to_string().contains("expected at least 2 parts"),
             "Unexpected error message: {err}"
         );
 

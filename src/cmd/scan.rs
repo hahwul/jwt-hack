@@ -11,14 +11,14 @@ use crate::utils;
 
 /// Options for customizing the scan
 #[derive(Debug)]
-pub struct ScanOptions {
+pub struct ScanOptions<'a> {
     pub skip_crack: bool,
     pub skip_payloads: bool,
-    pub wordlist: Option<PathBuf>,
+    pub wordlist: Option<&'a PathBuf>,
     pub max_crack_attempts: usize,
 }
 
-impl Default for ScanOptions {
+impl<'a> Default for ScanOptions<'a> {
     fn default() -> Self {
         Self {
             skip_crack: false,
@@ -75,7 +75,7 @@ pub fn execute(
     token: &str,
     skip_crack: bool,
     skip_payloads: bool,
-    wordlist: Option<PathBuf>,
+    wordlist: Option<&PathBuf>,
     max_crack_attempts: usize,
 ) {
     let options = ScanOptions {
