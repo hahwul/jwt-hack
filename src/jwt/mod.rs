@@ -648,7 +648,12 @@ fn verify_with_public_key_pem(
         | Algorithm::PS512 => DecodingKey::from_rsa_pem(pem.as_bytes())?,
         Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_pem(pem.as_bytes())?,
         Algorithm::EdDSA => DecodingKey::from_ed_pem(pem.as_bytes())?,
-        _ => return Err(anyhow!("Public key provided but algorithm is {:?}", algorithm)),
+        _ => {
+            return Err(anyhow!(
+                "Public key provided but algorithm is {:?}",
+                algorithm
+            ))
+        }
     };
 
     let validation = create_validation(algorithm, options);
@@ -672,7 +677,12 @@ fn verify_with_public_key_der(
         | Algorithm::PS512 => DecodingKey::from_rsa_der(der),
         Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_der(der),
         Algorithm::EdDSA => DecodingKey::from_ed_der(der),
-        _ => return Err(anyhow!("Public key provided but algorithm is {:?}", algorithm)),
+        _ => {
+            return Err(anyhow!(
+                "Public key provided but algorithm is {:?}",
+                algorithm
+            ))
+        }
     };
 
     let validation = create_validation(algorithm, options);
@@ -1161,7 +1171,7 @@ mod tests {
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
-            err.to_string().contains("Invalid JWT token format") 
+            err.to_string().contains("Invalid JWT token format")
                 && err.to_string().contains("expected at least 2 parts"),
             "Unexpected error message: {err}"
         );
