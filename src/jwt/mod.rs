@@ -148,7 +148,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "PS512" => Algorithm::PS512,
         "EDDSA" => Algorithm::EdDSA,
         "NONE" => Algorithm::HS256, // Internally we'll use HS256 but with an empty signature
-        _ => return Err(anyhow!("Unsupported algorithm: {}", options.algorithm)),
+        _ => {
+            return Err(anyhow!(
+                "Unsupported algorithm '{}'. Supported algorithms: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, PS256, PS384, PS512, EdDSA, none",
+                options.algorithm
+            ))
+        }
     };
 
     // If compression is requested, we need to manually build the JWT
@@ -200,7 +205,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
                 EncodingKey::from_secret(secret.as_bytes())
             }
-            _ => return Err(anyhow!("HMAC algorithms require a secret key")),
+            _ => {
+                return Err(anyhow!(
+                    "Secret key provided but algorithm {:?} is not an HMAC algorithm. Use HS256, HS384, or HS512 for secret keys",
+                    algorithm
+                ))
+            }
         },
         KeyData::PrivateKeyPem(pem) => match algorithm {
             Algorithm::RS256
@@ -234,7 +244,12 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
                 ))
             }
         },
-        KeyData::None => return Err(anyhow!("No key provided for algorithm {:?}", algorithm)),
+        KeyData::None => {
+            return Err(anyhow!(
+                "No key or secret provided for algorithm {:?}. Please provide a secret (for HMAC) or private key (for RSA/ECDSA/EdDSA)",
+                algorithm
+            ))
+        }
     };
 
     // Encode JWT token
@@ -391,7 +406,10 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
     // Split the token and handle potential errors
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
-        return Err(anyhow!("Invalid token format"));
+        return Err(anyhow!(
+            "Invalid JWT token format: expected at least 2 parts (header.payload), found {} part(s)",
+            parts.len()
+        ));
     }
 
     // Extract header
@@ -504,15 +522,37 @@ pub fn verify(token: &str, secret: &str) -> Result<bool> {
     verify_with_options(token, &options)
 }
 
-/// Verify a JWT token with advanced options
-pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool> {
-    // Create validation
-    let mut validation = Validation::new(Algorithm::HS256);
-    validation.insecure_disable_signature_validation(); // We'll validate manually
+/// Helper function to create validation configuration
+fn create_validation(algorithm: Algorithm, options: &VerifyOptions) -> Validation {
+    let mut validation = Validation::new(algorithm);
     validation.validate_exp = options.validate_exp;
     validation.validate_nbf = options.validate_nbf;
     validation.leeway = options.leeway;
+    validation
+}
 
+/// Helper function to handle verification result with time-based error handling
+fn handle_verification_result(
+    result: std::result::Result<jsonwebtoken::TokenData<Value>, jsonwebtoken::errors::Error>,
+) -> Result<bool> {
+    match result {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            let jwt_error = JwtError::from(e.kind().clone());
+            if matches!(
+                jwt_error,
+                JwtError::ExpiredSignature | JwtError::ImmatureSignature
+            ) {
+                Err(anyhow::anyhow!(jwt_error))
+            } else {
+                Ok(false)
+            }
+        }
+    }
+}
+
+/// Verify a JWT token with advanced options
+pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool> {
     // Try to decode the token without validation
     let decoded_token = decode(token)?;
 
@@ -560,12 +600,7 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
 
                     // If signature is OK, and time validation is requested, perform it.
                     if options.validate_exp || options.validate_nbf {
-                        let mut validation = Validation::new(Algorithm::HS256);
-                        validation.validate_exp = options.validate_exp;
-                        validation.validate_nbf = options.validate_nbf;
-                        validation.leeway = options.leeway;
-                        // Use jsonwebtoken::decode to validate claims like exp, nbf
-                        // We need a DecodingKey for this.
+                        let validation = create_validation(Algorithm::HS256, options);
                         let decoding_key = DecodingKey::from_secret(secret.as_bytes());
                         match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
                             Ok(_) => Ok(true), // Token is valid and passed time checks
@@ -578,168 +613,81 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                 Algorithm::HS384 | Algorithm::HS512 => {
                     // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation
                     let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-                    let mut validation = Validation::new(decoded_token.algorithm);
-                    validation.validate_exp = options.validate_exp;
-                    validation.validate_nbf = options.validate_nbf;
-                    validation.leeway = options.leeway;
+                    let validation = create_validation(decoded_token.algorithm, options);
                     let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
                     Ok(result.is_ok())
                 }
                 _ => Err(anyhow!(
-                    "HMAC key provided but algorithm is {:?}",
+                    "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
                     decoded_token.algorithm
                 )),
             }
         }
-        VerifyKeyData::PublicKeyPem(pem) => match decoded_token.algorithm {
-            Algorithm::RS256
-            | Algorithm::RS384
-            | Algorithm::RS512
-            | Algorithm::PS256
-            | Algorithm::PS384
-            | Algorithm::PS512 => {
-                let decoding_key = DecodingKey::from_rsa_pem(pem.as_bytes())?;
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            Algorithm::ES256 | Algorithm::ES384 => {
-                let decoding_key = DecodingKey::from_ec_pem(pem.as_bytes())?;
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            Algorithm::EdDSA => {
-                let decoding_key = DecodingKey::from_ed_pem(pem.as_bytes())?;
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            _ => Err(anyhow!(
-                "Public key provided but algorithm is {:?}",
-                decoded_token.algorithm
-            )),
-        },
-        VerifyKeyData::PublicKeyDer(der) => match decoded_token.algorithm {
-            Algorithm::RS256
-            | Algorithm::RS384
-            | Algorithm::RS512
-            | Algorithm::PS256
-            | Algorithm::PS384
-            | Algorithm::PS512 => {
-                let decoding_key = DecodingKey::from_rsa_der(der);
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            Algorithm::ES256 | Algorithm::ES384 => {
-                let decoding_key = DecodingKey::from_ec_der(der);
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            Algorithm::EdDSA => {
-                let decoding_key = DecodingKey::from_ed_der(der);
-                let mut validation = Validation::new(decoded_token.algorithm);
-                validation.validate_exp = options.validate_exp;
-                validation.validate_nbf = options.validate_nbf;
-                validation.leeway = options.leeway;
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        let jwt_error = JwtError::from(e.kind().clone());
-                        if matches!(
-                            jwt_error,
-                            JwtError::ExpiredSignature | JwtError::ImmatureSignature
-                        ) {
-                            Err(anyhow::anyhow!(jwt_error))
-                        } else {
-                            Ok(false)
-                        }
-                    }
-                }
-            }
-            _ => Err(anyhow!(
-                "Public key provided but algorithm is {:?}",
-                decoded_token.algorithm
-            )),
-        },
+        VerifyKeyData::PublicKeyPem(pem) => {
+            verify_with_public_key_pem(token, pem, decoded_token.algorithm, options)
+        }
+        VerifyKeyData::PublicKeyDer(der) => {
+            verify_with_public_key_der(token, der, decoded_token.algorithm, options)
+        }
     }
+}
+
+/// Helper function to verify with PEM-encoded public key
+fn verify_with_public_key_pem(
+    token: &str,
+    pem: &str,
+    algorithm: Algorithm,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    let decoding_key = match algorithm {
+        Algorithm::RS256
+        | Algorithm::RS384
+        | Algorithm::RS512
+        | Algorithm::PS256
+        | Algorithm::PS384
+        | Algorithm::PS512 => DecodingKey::from_rsa_pem(pem.as_bytes())?,
+        Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_pem(pem.as_bytes())?,
+        Algorithm::EdDSA => DecodingKey::from_ed_pem(pem.as_bytes())?,
+        _ => {
+            return Err(anyhow!(
+                "Public key provided but algorithm is {:?}",
+                algorithm
+            ))
+        }
+    };
+
+    let validation = create_validation(algorithm, options);
+    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
+    handle_verification_result(result)
+}
+
+/// Helper function to verify with DER-encoded public key
+fn verify_with_public_key_der(
+    token: &str,
+    der: &[u8],
+    algorithm: Algorithm,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    let decoding_key = match algorithm {
+        Algorithm::RS256
+        | Algorithm::RS384
+        | Algorithm::RS512
+        | Algorithm::PS256
+        | Algorithm::PS384
+        | Algorithm::PS512 => DecodingKey::from_rsa_der(der),
+        Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_der(der),
+        Algorithm::EdDSA => DecodingKey::from_ed_der(der),
+        _ => {
+            return Err(anyhow!(
+                "Public key provided but algorithm is {:?}",
+                algorithm
+            ))
+        }
+    };
+
+    let validation = create_validation(algorithm, options);
+    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
+    handle_verification_result(result)
 }
 
 /// Create a simple JWE token for demonstration purposes
@@ -1223,7 +1171,8 @@ mod tests {
         assert!(decode_result.is_err());
         let err = decode_result.err().unwrap();
         assert!(
-            err.to_string().contains("Invalid token format"),
+            err.to_string().contains("Invalid JWT token format")
+                && err.to_string().contains("expected at least 2 parts"),
             "Unexpected error message: {err}"
         );
 

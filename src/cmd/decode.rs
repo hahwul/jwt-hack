@@ -6,6 +6,71 @@ use std::time::SystemTime;
 use crate::jwt;
 use crate::utils;
 
+/// Helper function to format Unix timestamp to human-readable format
+fn format_unix_timestamp(seconds: u64) -> String {
+    let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(seconds);
+    chrono::DateTime::<chrono::Utc>::from(time)
+        .format("%Y-%m-%d %H:%M:%S UTC")
+        .to_string()
+}
+
+/// Process and display issued-at claim with formatted timestamp
+fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
+    if let Some(iat) = claims.get("iat") {
+        if let Some(iat_val) = iat.as_f64() {
+            let iat_seconds = iat_val as u64;
+            let formatted_time = format_unix_timestamp(iat_seconds);
+
+            utils::log_info(format!(
+                "Issued At (iat): {} ({})",
+                iat_seconds.to_string().bright_yellow(),
+                formatted_time.bright_cyan()
+            ));
+
+            // Add human-readable time format to the JSON output
+            if let Some(obj) = claims_map.as_object_mut() {
+                obj.insert("iat_time".to_string(), Value::String(formatted_time));
+            }
+        }
+    }
+}
+
+/// Process and display expiration claim with status check
+fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
+    if let Some(exp) = claims.get("exp") {
+        if let Some(exp_val) = exp.as_f64() {
+            let exp_seconds = exp_val as u64;
+            let exp_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(exp_seconds);
+            let formatted_time = format_unix_timestamp(exp_seconds);
+
+            // Check if token is expired
+            let now = SystemTime::now();
+            let is_expired = now > exp_time;
+            let status = if is_expired {
+                "EXPIRED".bright_red().bold()
+            } else {
+                "VALID".bright_green().bold()
+            };
+
+            utils::log_info(format!(
+                "Expiration (exp): {} ({}) [{}]",
+                exp_seconds.to_string().bright_yellow(),
+                formatted_time.bright_cyan(),
+                status
+            ));
+
+            // Add human-readable time and expiration status to the JSON output
+            if let Some(obj) = claims_map.as_object_mut() {
+                obj.insert("exp_time".to_string(), Value::String(formatted_time));
+                obj.insert(
+                    "exp_status".to_string(),
+                    Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
+                );
+            }
+        }
+    }
+}
+
 /// Decodes and displays JWT token components with formatted output
 pub fn execute(token: &str) {
     utils::log_info(format!(
@@ -56,61 +121,8 @@ fn decode_jwt_token(token: &str) -> Result<()> {
     let mut claims_map: Value = decoded.claims.clone();
 
     // Convert Unix timestamps to human-readable dates
-    if let Some(iat) = decoded.claims.get("iat") {
-        if let Some(iat_val) = iat.as_f64() {
-            let iat_seconds = iat_val as u64;
-            let iat_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(iat_seconds);
-            let formatted_time = chrono::DateTime::<chrono::Utc>::from(iat_time)
-                .format("%Y-%m-%d %H:%M:%S UTC")
-                .to_string();
-
-            utils::log_info(format!(
-                "Issued At (iat): {} ({})",
-                iat_seconds.to_string().bright_yellow(),
-                formatted_time.bright_cyan()
-            ));
-
-            // Add human-readable time format to the JSON output
-            if let Some(obj) = claims_map.as_object_mut() {
-                obj.insert("iat_time".to_string(), Value::String(formatted_time));
-            }
-        }
-    }
-
-    if let Some(exp) = decoded.claims.get("exp") {
-        if let Some(exp_val) = exp.as_f64() {
-            let exp_seconds = exp_val as u64;
-            let exp_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(exp_seconds);
-            let formatted_time = chrono::DateTime::<chrono::Utc>::from(exp_time)
-                .format("%Y-%m-%d %H:%M:%S UTC")
-                .to_string();
-
-            // Check if token is expired
-            let now = SystemTime::now();
-            let is_expired = now > exp_time;
-            let status = if is_expired {
-                "EXPIRED".bright_red().bold()
-            } else {
-                "VALID".bright_green().bold()
-            };
-
-            utils::log_info(format!(
-                "Expiration (exp): {} ({}) [{}]",
-                exp_seconds.to_string().bright_yellow(),
-                formatted_time.bright_cyan(),
-                status
-            ));
-
-            // Add human-readable time and expiration status to the JSON output
-            if let Some(obj) = claims_map.as_object_mut() {
-                obj.insert("exp_time".to_string(), Value::String(formatted_time));
-                obj.insert(
-                    "exp_status".to_string(),
-                    Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
-                );
-            }
-        }
-    }
+    process_issued_at_claim(&decoded.claims, &mut claims_map);
+    process_expiration_claim(&decoded.claims, &mut claims_map);
 
     // Display claims as properly formatted JSON with added time information
     println!("\n{}", serde_json::to_string_pretty(&claims_map)?);

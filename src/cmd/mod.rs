@@ -229,7 +229,7 @@ pub fn execute() {
                 private_key.as_ref(),
                 algorithm,
                 *no_signature,
-                header.clone(),
+                header,
                 *compress,
                 *jwe,
             );
@@ -296,7 +296,7 @@ pub fn execute() {
                 token,
                 *skip_crack,
                 *skip_payloads,
-                wordlist.clone(),
+                wordlist.as_ref(),
                 *max_crack_attempts,
             );
         }
