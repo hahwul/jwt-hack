@@ -31,9 +31,10 @@ jobs:
 
           # Update submodule to latest
           git submodule update --remote docs/themes/goyo
+          git add docs/themes/goyo
 
           # Get new commit hash
-          NEW_COMMIT=$(git rev-parse HEAD:docs/themes/goyo)
+          NEW_COMMIT=$(git --git-dir=docs/themes/goyo/.git rev-parse HEAD)
 
           # Check if there are changes
           if [ "$OLD_COMMIT" != "$NEW_COMMIT" ]; then
