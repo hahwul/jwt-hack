@@ -11,6 +11,10 @@ cta_buttons = [
     { text = "View on GitHub", url = "https://github.com/hahwul/jwt-hack", style = "secondary" },
 ]
 
+[extra.features_section]
+title = "Essential Features"
+description = "Discover jwt-hack's essential features for comprehensive attack surface detection and analysis."
+
 [[extra.features]]
 title = "JWT/JWE Encoding & Decoding"
 desc = "Encode and decode JWT and JWE tokens with support for multiple algorithms, custom headers, and DEFLATE compression."
