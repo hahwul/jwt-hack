@@ -51,12 +51,6 @@ disable_toggle = false      # Hides dark/light mode toggle
 site = "@hahwul"
 creator = "@hahwul"
 
-# Theme Configuration (structured format)
-[extra.theme]
-colorset = "dark"
-brightness = "darker"
-disable_toggle = false
-
 # Sidebar Configuration (structured format)
 [extra.sidebar]
 expand_depth = 1
