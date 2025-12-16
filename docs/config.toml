@@ -22,13 +22,29 @@ badge = "v2.4.0"
 default_thumbnail = "images/preview.jpg"
 footer_html = "<div style='display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;'><a href='https://www.hahwul.com' target='_blank' rel='noopener noreferrer' style='display: inline-flex; align-items: center;'><img src='https://www.hahwul.com/images/logo-gray.png' alt='HAHWUL' style='height: 30px' /></a><span style='opacity: 0.6;'>•</span><span>Powered by <a href='https://www.getzola.org' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Zola</a> and <a href='https://github.com/hahwul/goyo' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Goyo</a></span></div>"
 
-# lang_aliases = { en = "English", ko = "한국어" }
+nav = [
+    { name = "Documents", url = "/get_started/installation", type = "url", icon = "fa-solid fa-book" },
+    { name = "GitHub", url = "https://github.com/hahwul/jwt-hack", type = "url", icon = "fa-brands fa-github" },
+    { name = "Links", type = "dropdown", icon = "fa-solid fa-link", members = [
+        { name = "Crates", url = "https://crates.io/crates/jwt-hack", type = "url", icon = "fa-solid fa-box" },
+        { name = "Creator Blog", url = "https://www.hahwul.com", type = "url", icon = "fa-solid fa-fire-flame-curved" },
+    ] },
+]
 
 # Logo Configuration (structured format)
 [extra.logo]
 text = "JWT-HACK"
-image_path = "images/logo.png"
+image_path = "images/jwt-hack-dark.png"
 image_padding = "10px"
+dark_image_path = "images/jwt-hack-dark.png"   # Logo for dark theme (optional)
+light_image_path = "images/jwt-hack-light.png" # Logo for light theme (optional)
+
+[extra.theme]
+colorset = "dark"           # Options: "dark" or "light"
+brightness = "normal"       # Common brightness: "darker", "normal", "lighter"
+dark_brightness = "darker"  # Override brightness for dark theme (optional)
+light_brightness = "normal" # Override brightness for light theme (optional)
+disable_toggle = false      # Hides dark/light mode toggle
 
 # Twitter Configuration (structured format)
 [extra.twitter]
@@ -45,15 +61,6 @@ disable_toggle = false
 [extra.sidebar]
 expand_depth = 1
 disable_root_hide = false
-
-nav = [
-    { name = "Documents", url = "/get_started/installation", type = "url", icon = "fa-solid fa-book" },
-    { name = "GitHub", url = "https://github.com/hahwul/jwt-hack", type = "url", icon = "fa-brands fa-github" },
-    { name = "Links", type = "dropdown", icon = "fa-solid fa-link", members = [
-        { name = "Crates", url = "https://crates.io/crates/jwt-hack", type = "url", icon = "fa-solid fa-box" },
-        { name = "Creator Blog", url = "https://www.hahwul.com", type = "url", icon = "fa-solid fa-fire-flame-curved" },
-    ] },
-]
 
 # nav_ko = [
 #     { name = "문서", url = "/ko/get_started/installation", type = "url", icon = "fa-solid fa-book" },

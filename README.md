@@ -1,7 +1,9 @@
 <div align="center">
-  <picture>
-    <img alt="JWT-HACK Logo" src="https://raw.githubusercontent.com/hahwul/jwt-hack/refs/heads/main/images/logo.png" width="260px;">
-  </picture>
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/jwt-hack-dark.png" width="500px;">
+        <source media="(prefers-color-scheme: light)" srcset="assets/jwt-hack-light.png" width="500px;">
+        <img alt="DevSecOps Logo" src="assets/jwt-hack-dark.png" width="500px;">
+    </picture>
   <p>JSON Web Token Hack Toolkit</p>
 </div>
 
