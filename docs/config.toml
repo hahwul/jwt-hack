@@ -53,7 +53,7 @@ creator = "@hahwul"
 
 # Sidebar Configuration (structured format)
 [extra.sidebar]
-expand_depth = 1
+# expand_depth = 1
 disable_root_hide = false
 
 # nav_ko = [
