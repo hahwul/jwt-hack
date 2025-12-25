@@ -1,6 +1,6 @@
 ---
 title: "Scripting & Automation"
-weight: 3
+weight: 2
 ---
 
 JWT-HACK is designed to work well in scripts and automated workflows.

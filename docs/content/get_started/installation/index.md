@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-weight: 1
+weight: 2
 ---
 
 JWT-HACK can be installed in several ways, depending on your preference and environment.

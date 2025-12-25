@@ -1,6 +1,6 @@
 +++
 title = "Contributing"
-weight = 10
+weight = 4
 +++
 
 Thank you for your interest in contributing to JWT-HACK! This project welcomes contributions from the community.

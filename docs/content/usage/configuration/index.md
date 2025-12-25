@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-weight: 1
+weight: 3
 ---
 
 JWT-HACK supports configuration through configuration files, environment variables, and command-line options.
