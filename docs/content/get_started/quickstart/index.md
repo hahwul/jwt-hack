@@ -1,6 +1,6 @@
 ---
 title: "Quick Start"
-weight: 2
+weight: 3
 ---
 
 Get up and running with JWT-HACK in minutes with these basic examples.

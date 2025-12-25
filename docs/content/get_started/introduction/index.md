@@ -1,6 +1,6 @@
 ---
-title: "Features Overview"
-weight: 3
+title: "Introduction"
+weight: 1
 ---
 
 JWT-HACK provides comprehensive JWT security testing capabilities with support for modern token formats and attack vectors.

@@ -1,6 +1,6 @@
 ---
 title: "Performance Optimization"
-weight: 2
+weight: 1
 ---
 
 JWT-HACK is built for high performance, but you can optimize it further for your specific use cases.
