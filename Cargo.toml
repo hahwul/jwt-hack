@@ -11,7 +11,7 @@ categories = ["command-line-utilities", "cryptography"]
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
-jsonwebtoken = "8.3.0"
+jsonwebtoken = "10.2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
