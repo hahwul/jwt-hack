@@ -11,11 +11,10 @@ compile_sass = false
 build_search_index = true
 
 [markdown]
-# Whether to do syntax highlighting
-# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
-highlight_code = true
 bottom_footnotes = true
-highlight_theme = "ayu-mirage"
+
+[markdown.highlighting]
+theme = "github-dark"
 
 [extra]
 badge = "v2.4.0"
