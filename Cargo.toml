@@ -29,7 +29,7 @@ tempfile = "3.20.0"
 flate2 = "1.0"
 josekit = "0.10.3"
 openssl = { version = "0.10", features = ["vendored"] }
-rmcp = { version = "0.13.0", features = ["server", "transport-io"] }
+rmcp = { version = "0.14.0", features = ["server", "transport-io"] }
 dirs = "6.0"
 toml = "0.9"
 axum = "0.8"
