@@ -765,4 +765,50 @@ mod tests {
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Info.as_str(), "INFO");
     }
+
+    #[test]
+    fn test_check_jku_x5u_vulnerabilities() {
+        use std::collections::HashMap;
+
+        // Case 1: jku header present
+        let mut header = HashMap::new();
+        header.insert("jku".to_string(), json!("https://evil.com/jwks.json"));
+        let decoded_jku = jwt::DecodedToken {
+            header,
+            claims: json!({}),
+            algorithm: jsonwebtoken::Algorithm::HS256,
+        };
+
+        let result = check_jku_x5u_vulnerabilities(&decoded_jku).unwrap();
+        assert!(result.vulnerable);
+        assert_eq!(result.name, "JKU/X5U Header");
+        assert_eq!(result.severity, Severity::High);
+        assert!(result.details.contains("jku"));
+
+        // Case 2: x5u header present
+        let mut header = HashMap::new();
+        header.insert("x5u".to_string(), json!("https://evil.com/x509.pem"));
+        let decoded_x5u = jwt::DecodedToken {
+            header,
+            claims: json!({}),
+            algorithm: jsonwebtoken::Algorithm::HS256,
+        };
+
+        let result = check_jku_x5u_vulnerabilities(&decoded_x5u).unwrap();
+        assert!(result.vulnerable);
+        assert_eq!(result.name, "JKU/X5U Header");
+        assert_eq!(result.severity, Severity::High);
+        assert!(result.details.contains("x5u"));
+
+        // Case 3: Neither present
+        let header = HashMap::new();
+        let decoded_clean = jwt::DecodedToken {
+            header,
+            claims: json!({}),
+            algorithm: jsonwebtoken::Algorithm::HS256,
+        };
+
+        let result = check_jku_x5u_vulnerabilities(&decoded_clean).unwrap();
+        assert!(!result.vulnerable);
+    }
 }
