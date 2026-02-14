@@ -765,4 +765,43 @@ mod tests {
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Info.as_str(), "INFO");
     }
+
+    #[test]
+    fn test_check_kid_vulnerabilities() {
+        use std::collections::HashMap;
+        use serde_json::Value;
+        use jsonwebtoken::Algorithm;
+
+        // 1. Test with kid header present (Vulnerable)
+        let mut header = HashMap::new();
+        header.insert("kid".to_string(), Value::String("some_key_id".to_string()));
+        header.insert("alg".to_string(), Value::String("HS256".to_string()));
+
+        let decoded_vulnerable = jwt::DecodedToken {
+            header,
+            claims: json!({}),
+            algorithm: Algorithm::HS256,
+        };
+
+        let result = check_kid_vulnerabilities(&decoded_vulnerable).unwrap();
+        assert!(result.vulnerable);
+        assert_eq!(result.name, "Kid Header Injection");
+        assert!(result.details.contains("some_key_id"));
+        assert_eq!(result.severity, Severity::Medium);
+
+        // 2. Test without kid header (Safe)
+        let mut header_safe = HashMap::new();
+        header_safe.insert("alg".to_string(), Value::String("HS256".to_string()));
+
+        let decoded_safe = jwt::DecodedToken {
+            header: header_safe,
+            claims: json!({}),
+            algorithm: Algorithm::HS256,
+        };
+
+        let result_safe = check_kid_vulnerabilities(&decoded_safe).unwrap();
+        assert!(!result_safe.vulnerable);
+        assert_eq!(result_safe.name, "Kid Header Injection");
+        assert_eq!(result_safe.severity, Severity::Info);
+    }
 }
