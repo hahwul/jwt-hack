@@ -31,7 +31,7 @@ josekit = "0.10.3"
 openssl = { version = "0.10", features = ["vendored"] }
 rmcp = { version = "0.14.0", features = ["server", "transport-io"] }
 dirs = "6.0"
-toml = "0.9"
+toml = "1.0"
 axum = "0.8"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors"] }
