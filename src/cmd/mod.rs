@@ -366,9 +366,6 @@ mod tests {
     fn test_parse_key_value_invalid_empty() {
         let result = parse_key_value("");
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "invalid KEY=value: no `=` found in ``"
-        );
+        assert_eq!(result.unwrap_err(), "invalid KEY=value: no `=` found in ``");
     }
 }
