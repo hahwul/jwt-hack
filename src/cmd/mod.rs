@@ -323,3 +323,52 @@ pub fn execute() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_key_value_valid() {
+        let result = parse_key_value("key=value");
+        assert_eq!(result, Ok(("key".to_string(), "value".to_string())));
+    }
+
+    #[test]
+    fn test_parse_key_value_with_multiple_equals() {
+        let result = parse_key_value("key=value=more");
+        assert_eq!(result, Ok(("key".to_string(), "value=more".to_string())));
+    }
+
+    #[test]
+    fn test_parse_key_value_empty_key() {
+        let result = parse_key_value("=value");
+        assert_eq!(result, Ok(("".to_string(), "value".to_string())));
+    }
+
+    #[test]
+    fn test_parse_key_value_empty_value() {
+        let result = parse_key_value("key=");
+        assert_eq!(result, Ok(("key".to_string(), "".to_string())));
+    }
+
+    #[test]
+    fn test_parse_key_value_invalid_no_equals() {
+        let result = parse_key_value("keyvalue");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "invalid KEY=value: no `=` found in `keyvalue`"
+        );
+    }
+
+    #[test]
+    fn test_parse_key_value_invalid_empty() {
+        let result = parse_key_value("");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "invalid KEY=value: no `=` found in ``"
+        );
+    }
+}

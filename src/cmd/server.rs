@@ -719,6 +719,11 @@ mod tests {
         let path = file.path().to_path_buf();
         let result = crack_dict(&token, &path);
 
+    fn test_crack_brute_success() {
+        let secret = "ab";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let result = crack_brute(&token, "abc", 3);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Some(secret.to_string()));
     }
@@ -738,6 +743,11 @@ mod tests {
         let path = file.path().to_path_buf();
         let result = crack_dict(&token, &path);
 
+    fn test_crack_brute_failure() {
+        let secret = "ab";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let result = crack_brute(&token, "cde", 3);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
     }
@@ -749,5 +759,13 @@ mod tests {
         let result = crack_dict(token, &path);
 
         assert!(result.is_err());
+    fn test_crack_brute_length_limit() {
+        let secret = "abc";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        // Max length is 2, secret is length 3
+        let result = crack_brute(&token, "abc", 2);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
     }
 }

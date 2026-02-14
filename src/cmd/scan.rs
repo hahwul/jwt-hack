@@ -722,9 +722,8 @@ mod tests {
     }
 
     #[test]
-    fn test_check_algorithm_confusion_rs256() {
-        // For this test, we'll create a mock RS256 token
-        // In practice, RS256 would be vulnerable to algorithm confusion
+    fn test_check_algorithm_confusion_hs256_not_vulnerable() {
+        // HS256 should NOT be vulnerable to algorithm confusion (which affects asymmetric algs)
         let token = create_test_token("HS256", "secret");
         let decoded = jwt::decode(&token).unwrap();
 
@@ -732,6 +731,48 @@ mod tests {
 
         // HS256 should not be vulnerable to algorithm confusion
         assert!(!result.vulnerable);
+    }
+
+    #[test]
+    fn test_check_algorithm_confusion_asymmetric_vulnerable() {
+        use base64::Engine;
+
+        let asymmetric_algs = vec!["RS256", "ES256", "PS256", "EdDSA"];
+
+        for alg in asymmetric_algs {
+            // Manually construct a token with the target algorithm
+            // We can't use create_test_token because it requires a valid private key for asymmetric algs
+            let header = json!({
+                "alg": alg,
+                "typ": "JWT"
+            });
+            let claims = json!({
+                "sub": "test_user",
+                "name": "Test User"
+            });
+
+            let encoded_header =
+                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
+            let encoded_claims =
+                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+
+            // Signature doesn't matter for decode
+            let token = format!("{}.{}.fake_signature", encoded_header, encoded_claims);
+
+            let decoded = jwt::decode(&token).unwrap();
+            let result = check_algorithm_confusion(&token, &decoded).unwrap();
+
+            assert!(
+                result.vulnerable,
+                "{} should be flagged as vulnerable to algorithm confusion",
+                alg
+            );
+            assert!(
+                result.details.contains(alg),
+                "Details should mention {}",
+                alg
+            );
+        }
     }
 
     #[test]
@@ -764,5 +805,19 @@ mod tests {
         assert_eq!(Severity::Medium.as_str(), "MEDIUM");
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Info.as_str(), "INFO");
+    }
+
+    #[test]
+    fn test_check_none_algorithm_positive() {
+        // Create a token with 'none' algorithm
+        let token = create_test_token("none", "");
+        let decoded = jwt::decode(&token).unwrap();
+
+        let result = check_none_algorithm(&token, &decoded).unwrap();
+
+        // Should be vulnerable
+        assert!(result.vulnerable);
+        assert_eq!(result.name, "None Algorithm");
+        assert_eq!(result.severity, Severity::Critical);
     }
 }
