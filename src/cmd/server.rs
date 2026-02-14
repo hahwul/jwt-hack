@@ -13,6 +13,10 @@ use tower_http::cors::{Any, CorsLayer};
 
 use crate::{crack, jwt, payload, utils};
 
+/// Security constants for API endpoints
+const MAX_DICTIONARY_WORDS: usize = 100_000;
+const MAX_LINE_LENGTH: usize = 1024;
+
 /// Request/Response structures for API endpoints
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DecodeRequest {
@@ -81,6 +85,8 @@ pub struct CrackRequest {
     pub concurrency: usize,
     #[serde(default = "default_max_length")]
     pub max: usize,
+    #[serde(default = "default_max_crack_attempts")]
+    pub max_attempts: usize,
 }
 
 fn default_crack_mode() -> String {
@@ -150,7 +156,7 @@ pub struct ScanRequest {
 }
 
 fn default_max_crack_attempts() -> usize {
-    100
+    MAX_DICTIONARY_WORDS
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -273,16 +279,30 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
 }
 
 /// Helper function to crack JWT using dictionary attack
-fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
+fn crack_dict(
+    token: &str,
+    wordlist_path: &PathBuf,
+    attempts_limit: usize,
+) -> anyhow::Result<Option<String>> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file);
 
-    for word in reader.lines().map_while(Result::ok) {
-        if let Ok(true) = jwt::verify(token, &word) {
-            return Ok(Some(word));
+    for (i, line) in reader.lines().enumerate() {
+        if i >= attempts_limit {
+            break;
+        }
+
+        let line = line?;
+        // Skip lines that are too long to be a reasonable secret
+        if line.len() > MAX_LINE_LENGTH {
+            continue;
+        }
+
+        if let Ok(true) = jwt::verify(token, &line) {
+            return Ok(Some(line));
         }
     }
 
@@ -312,7 +332,11 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
         "dict" => {
             if let Some(wordlist_path) = req.wordlist {
                 let path = PathBuf::from(wordlist_path);
-                crack_dict(&req.token, &path)
+                let token = req.token.clone();
+                let limit = req.max_attempts;
+                tokio::task::spawn_blocking(move || crack_dict(&token, &path, limit))
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Blocking task failed: {}", e))?
             } else {
                 return Ok(Json(CrackResponse {
                     success: false,
@@ -335,7 +359,12 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
             } else {
                 &req.chars
             };
-            crack_brute(&req.token, charset, req.max)
+            let token = req.token.clone();
+            let charset = charset.to_string();
+            let max = req.max;
+            tokio::task::spawn_blocking(move || crack_brute(&token, &charset, max))
+                .await
+                .map_err(|e| anyhow::anyhow!("Blocking task failed: {}", e))?
         }
         _ => {
             return Ok(Json(CrackResponse {
@@ -438,7 +467,13 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
     if !req.skip_crack {
         if let Some(wordlist_path) = &req.wordlist {
             let path = PathBuf::from(wordlist_path);
-            if let Ok(Some(secret)) = crack_dict(&req.token, &path) {
+            let token = req.token.clone();
+            let limit = req.max_crack_attempts;
+            let crack_res = tokio::task::spawn_blocking(move || crack_dict(&token, &path, limit))
+                .await
+                .map_err(|e| anyhow::anyhow!("Blocking task failed: {}", e))?;
+
+            if let Ok(Some(secret)) = crack_res {
                 vulnerabilities.push(format!("Weak secret found: {}", secret));
                 found_secret = Some(secret);
             }
@@ -682,6 +717,62 @@ mod tests {
 
         let res = Service::call(&mut app, req).await.unwrap();
         assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_crack_dict_limit() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut file = NamedTempFile::new().unwrap();
+        for i in 0..200 {
+            writeln!(file, "word{}", i).unwrap();
+        }
+        let path = PathBuf::from(file.path());
+
+        // Test with limit 50
+        let result = crack_dict("invalid.token.sig", &path, 50);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        // Test with a word that matches within limit
+        let secret = "secret123";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "wrong").unwrap();
+        writeln!(file, "{}", secret).unwrap();
+        let path = PathBuf::from(file.path());
+
+        let result = crack_dict(&token, &path, 10);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Some(secret.to_string()));
+
+        // Test with a word that matches OUTSIDE limit
+        let result = crack_dict(&token, &path, 1);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_crack_dict_line_length_limit() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let secret = "secret123";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let mut file = NamedTempFile::new().unwrap();
+        // Create a very long line
+        let long_line = "a".repeat(MAX_LINE_LENGTH + 1);
+        writeln!(file, "{}", long_line).unwrap();
+        writeln!(file, "{}", secret).unwrap();
+        let path = PathBuf::from(file.path());
+
+        // Should skip the long line and find the secret
+        let result = crack_dict(&token, &path, 10);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Some(secret.to_string()));
     }
 
     #[tokio::test]
