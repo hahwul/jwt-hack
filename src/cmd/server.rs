@@ -702,4 +702,52 @@ mod tests {
         let res = Service::call(&mut app, req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
     }
+
+    #[test]
+    fn test_crack_dict_found() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let secret = "secret123";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "wrong_secret").unwrap();
+        writeln!(file, "secret123").unwrap();
+        writeln!(file, "another_wrong").unwrap();
+
+        let path = file.path().to_path_buf();
+        let result = crack_dict(&token, &path);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Some(secret.to_string()));
+    }
+
+    #[test]
+    fn test_crack_dict_not_found() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let secret = "secret123";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "wrong_secret").unwrap();
+        writeln!(file, "another_wrong").unwrap();
+
+        let path = file.path().to_path_buf();
+        let result = crack_dict(&token, &path);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+    }
+
+    #[test]
+    fn test_crack_dict_file_error() {
+        let token = "some_token";
+        let path = PathBuf::from("/non/existent/file/path");
+        let result = crack_dict(token, &path);
+
+        assert!(result.is_err());
+    }
 }
