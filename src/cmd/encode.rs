@@ -228,6 +228,29 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    fn test_create_header_map() {
+        // Test empty headers
+        let headers = Vec::new();
+        assert_eq!(create_header_map(&headers), None);
+
+        // Test single header
+        let headers = vec![("key1".to_string(), "value1".to_string())];
+        let map = create_header_map(&headers).expect("Should return Some map");
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("key1"), Some(&"value1"));
+
+        // Test multiple headers
+        let headers = vec![
+            ("key1".to_string(), "value1".to_string()),
+            ("key2".to_string(), "value2".to_string()),
+        ];
+        let map = create_header_map(&headers).expect("Should return Some map");
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get("key1"), Some(&"value1"));
+        assert_eq!(map.get("key2"), Some(&"value2"));
+    }
+
+    #[test]
     fn test_execute_with_secret() {
         // Create a simple JSON payload
         let json_str = r#"{"sub":"1234567890","name":"John Doe"}"#;
