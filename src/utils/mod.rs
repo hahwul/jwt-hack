@@ -199,4 +199,35 @@ mod tests {
         let expected_fail = "456".bright_red(); // is_success = false
         assert_eq!(format_value(456, false), expected_fail);
     }
+
+    #[test]
+    fn test_format_base64_preview_empty() {
+        assert_eq!(format_base64_preview(""), "");
+    }
+
+    #[test]
+    fn test_format_base64_preview_short() {
+        let input = "SGVsbG8=";
+        assert_eq!(format_base64_preview(input), input);
+    }
+
+    #[test]
+    fn test_format_base64_preview_threshold() {
+        let input = "1234567812345678";
+        assert_eq!(format_base64_preview(input), input);
+    }
+
+    #[test]
+    fn test_format_base64_preview_long() {
+        let input = "1234567890abcdefg";
+        let expected = "12345678...0abcdefg (17 chars)";
+        assert_eq!(format_base64_preview(input), expected);
+    }
+
+    #[test]
+    fn test_format_base64_preview_very_long() {
+        let input = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let expected = "ABCDEFGH...456789+/ (64 chars)";
+        assert_eq!(format_base64_preview(input), expected);
+    }
 }
