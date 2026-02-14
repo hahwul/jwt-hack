@@ -225,28 +225,7 @@ fn check_weak_secret(
     }
 
     // Use provided wordlist or common passwords
-    let common_secrets = vec![
-        "",
-        "secret",
-        "password",
-        "1234",
-        "123456",
-        "admin",
-        "test",
-        "key",
-        "jwt",
-        "token",
-        "your-256-bit-secret",
-        "your-secret",
-        "mysecret",
-        "default",
-        "changeme",
-        "qwerty",
-        "abc123",
-        "letmein",
-        "welcome",
-        "monkey",
-    ];
+    let common_secrets = crate::config::COMMON_SECRETS;
 
     let secrets_to_test: Vec<String> = if let Some(ref wordlist_path) = options.wordlist {
         // Read from wordlist file (limited to max_crack_attempts)

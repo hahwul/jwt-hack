@@ -255,7 +255,7 @@ impl JwtHackServer {
         // since we can't reliably access wordlist files
         if args.mode == "dict" {
             // Use a built-in small wordlist for demo purposes
-            let common_passwords = vec!["secret", "password", "123456", "admin", "test", "jwt"];
+            let common_passwords = crate::config::COMMON_SECRETS;
 
             for password in common_passwords {
                 if let Ok(is_valid) = crate::jwt::verify(&args.token, password) {

@@ -3,6 +3,30 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Common secrets for dictionary attacks
+pub const COMMON_SECRETS: &[&str] = &[
+    "",
+    "secret",
+    "password",
+    "1234",
+    "123456",
+    "admin",
+    "test",
+    "key",
+    "jwt",
+    "token",
+    "your-256-bit-secret",
+    "your-secret",
+    "mysecret",
+    "default",
+    "changeme",
+    "qwerty",
+    "abc123",
+    "letmein",
+    "welcome",
+    "monkey",
+];
+
 /// Configuration structure for jwt-hack
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
