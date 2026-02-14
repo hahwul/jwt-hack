@@ -765,4 +765,18 @@ mod tests {
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Info.as_str(), "INFO");
     }
+
+    #[test]
+    fn test_check_none_algorithm_positive() {
+        // Create a token with 'none' algorithm
+        let token = create_test_token("none", "");
+        let decoded = jwt::decode(&token).unwrap();
+
+        let result = check_none_algorithm(&token, &decoded).unwrap();
+
+        // Should be vulnerable
+        assert!(result.vulnerable);
+        assert_eq!(result.name, "None Algorithm");
+        assert_eq!(result.severity, Severity::Critical);
+    }
 }
