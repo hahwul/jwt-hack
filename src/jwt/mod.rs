@@ -1659,4 +1659,50 @@ mod tests {
             "Generated JWE token should be decodable"
         );
     }
+
+    #[test]
+    fn test_encode_compressed_jwt_unsupported_algorithm() {
+        let claims = json!({"user": "test"});
+        // Use RS256 with a placeholder key. The key validity doesn't matter because
+        // the error should happen before key usage, during algorithm check in encode_compressed_jwt.
+        // However, we need to provide a non-Secret key data to trigger the outer match arm error.
+        let rsa_private_key = "placeholder_key";
+        let options = EncodeOptions {
+            algorithm: "RS256",
+            key_data: KeyData::PrivateKeyPem(rsa_private_key),
+            header_params: None,
+            compress_payload: true,
+        };
+
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Only HMAC-SHA256 is currently supported for compressed JWTs"),
+            "Unexpected error message: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_encode_compressed_jwt_hs512_unsupported() {
+        let claims = json!({"user": "test"});
+        let options = EncodeOptions {
+            algorithm: "HS512",
+            key_data: KeyData::Secret("test_secret"),
+            header_params: None,
+            compress_payload: true,
+        };
+
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("HS384/HS512 with compression not yet supported"),
+            "Unexpected error message: {}",
+            err
+        );
+    }
 }
