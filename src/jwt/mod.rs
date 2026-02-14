@@ -1703,6 +1703,14 @@ mod tests {
                 .contains("HS384/HS512 with compression not yet supported"),
             "Unexpected error message: {}",
             err
+    fn test_jwt_error_display() {
+        assert_eq!(JwtError::InvalidSignature.to_string(), "Invalid signature");
+        assert_eq!(JwtError::ExpiredSignature.to_string(), "Expired signature");
+        assert_eq!(JwtError::ImmatureSignature.to_string(), "Immature signature");
+        assert_eq!(JwtError::InvalidAlgorithm.to_string(), "Invalid algorithm");
+        assert_eq!(
+            JwtError::Other("test error".to_string()).to_string(),
+            "JWT error: test error"
         );
     }
 }
