@@ -702,4 +702,35 @@ mod tests {
         let res = Service::call(&mut app, req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
     }
+
+    #[test]
+    fn test_crack_brute_success() {
+        let secret = "ab";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let result = crack_brute(&token, "abc", 3);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Some(secret.to_string()));
+    }
+
+    #[test]
+    fn test_crack_brute_failure() {
+        let secret = "ab";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        let result = crack_brute(&token, "cde", 3);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+    }
+
+    #[test]
+    fn test_crack_brute_length_limit() {
+        let secret = "abc";
+        let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
+
+        // Max length is 2, secret is length 3
+        let result = crack_brute(&token, "abc", 2);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+    }
 }
