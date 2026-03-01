@@ -1,9 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::time::Duration;
 
 use crate::jwt;
 use crate::payload;
@@ -172,7 +170,7 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
 
 /// Check for none algorithm vulnerability
 fn check_none_algorithm(_token: &str, decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for 'none' algorithm vulnerability");
+    let pb = utils::start_progress_with_color("Checking for 'none' algorithm vulnerability", "cyan");
 
     let alg_str = format!("{:?}", decoded.algorithm).to_lowercase();
     let vulnerable = alg_str.contains("none")
@@ -210,7 +208,7 @@ fn check_weak_secret(
     decoded: &jwt::DecodedToken,
     options: &ScanOptions,
 ) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for weak/common secrets");
+    let pb = utils::start_progress_with_color("Checking for weak/common secrets", "cyan");
 
     // Only check HMAC algorithms
     let alg_str = format!("{:?}", decoded.algorithm);
@@ -284,7 +282,7 @@ fn check_algorithm_confusion(
     _token: &str,
     decoded: &jwt::DecodedToken,
 ) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for algorithm confusion vulnerability");
+    let pb = utils::start_progress_with_color("Checking for algorithm confusion vulnerability", "cyan");
 
     let alg_str = format!("{:?}", decoded.algorithm);
 
@@ -321,7 +319,7 @@ fn check_algorithm_confusion(
 
 /// Check token expiration
 fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking token expiration");
+    let pb = utils::start_progress_with_color("Checking token expiration", "cyan");
 
     let has_exp = decoded.claims.get("exp").is_some();
     let has_nbf = decoded.claims.get("nbf").is_some();
@@ -373,7 +371,7 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
 
 /// Check for missing important claims
 fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for missing security claims");
+    let pb = utils::start_progress_with_color("Checking for missing security claims", "cyan");
 
     let important_claims = vec!["sub", "aud", "iss", "jti"];
     let mut missing = Vec::new();
@@ -407,30 +405,19 @@ fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResu
 
 /// Check for kid header vulnerabilities
 fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for kid header injection vulnerabilities");
-
-    let has_kid = decoded.header.contains_key("kid");
+    let pb = utils::start_progress_with_color("Checking for kid header injection vulnerabilities", "cyan");
 
     pb.finish_and_clear();
 
-    let result = if has_kid {
-        if let Some(kid) = decoded.header.get("kid") {
-            VulnerabilityResult {
-                name: "Kid Header Injection".to_string(),
-                vulnerable: true,
-                details: format!(
-                    "Token has 'kid' header ({}), which may be vulnerable to SQL/path injection",
-                    kid.to_string().bright_yellow()
-                ),
-                severity: Severity::Medium,
-            }
-        } else {
-            VulnerabilityResult {
-                name: "Kid Header Injection".to_string(),
-                vulnerable: false,
-                details: "No 'kid' header present".to_string(),
-                severity: Severity::Info,
-            }
+    let result = if let Some(kid) = decoded.header.get("kid") {
+        VulnerabilityResult {
+            name: "Kid Header Injection".to_string(),
+            vulnerable: true,
+            details: format!(
+                "Token has 'kid' header ({}), which may be vulnerable to SQL/path injection",
+                kid.to_string().bright_yellow()
+            ),
+            severity: Severity::Medium,
         }
     } else {
         VulnerabilityResult {
@@ -446,7 +433,7 @@ fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerabilit
 
 /// Check for JKU/X5U header vulnerabilities
 fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = create_check_spinner("Checking for JKU/X5U header vulnerabilities");
+    let pb = utils::start_progress_with_color("Checking for JKU/X5U header vulnerabilities", "cyan");
 
     let has_jku = decoded.header.contains_key("jku");
     let has_x5u = decoded.header.contains_key("x5u");
@@ -654,19 +641,6 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
     Ok(())
 }
 
-/// Create a spinner progress bar for checks
-fn create_check_spinner(message: &str) -> ProgressBar {
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.cyan} {msg}")
-            .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
-    pb.set_message(message.to_string());
-    pb.enable_steady_tick(Duration::from_millis(100));
-    pb
-}
 
 #[cfg(test)]
 mod tests {

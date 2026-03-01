@@ -61,18 +61,24 @@ pub fn format_jwt_token(token: &str) -> String {
     )
 }
 
-/// Creates an animated spinner to indicate ongoing operations with the specified message
-pub fn start_progress(message: &str) -> indicatif::ProgressBar {
+/// Creates an animated spinner with a custom color to indicate ongoing operations
+pub fn start_progress_with_color(message: &str, color: &str) -> indicatif::ProgressBar {
     let pb = indicatif::ProgressBar::new_spinner();
+    let template = format!("{{spinner:.{color}}} {{msg}}");
     pb.set_style(
         indicatif::ProgressStyle::default_spinner()
-            .template("{spinner:.blue} {msg}")
+            .template(&template)
             .unwrap()
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     pb.set_message(message.to_string());
     pb.enable_steady_tick(std::time::Duration::from_millis(100));
     pb
+}
+
+/// Creates an animated spinner to indicate ongoing operations with the specified message
+pub fn start_progress(message: &str) -> indicatif::ProgressBar {
+    start_progress_with_color(message, "blue")
 }
 
 /// Converts a duration into human-readable format (hours, minutes, seconds)
