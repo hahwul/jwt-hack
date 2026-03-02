@@ -3,6 +3,12 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '릴리스 버전 (예: v2.5.1)'
+        required: true
+        type: string
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -10,7 +16,7 @@ jobs:
     name: Build and upload
     runs-on: ${{ matrix.os }}
     permissions:
-      contents: write # Required to upload release assets
+      contents: write  # Required to upload release assets
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +38,7 @@ jobs:
           - build: macos-aarch64
             os: macos-latest
             target: aarch64-apple-darwin
-            use_cross: false # Apple Silicon Macs can build for both architectures natively
+            use_cross: false
           # Windows targets
           - build: windows-x86_64
             os: windows-latest
@@ -45,11 +51,16 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: "${{ runner.workspace }}/vcpkg"
-          vcpkgArguments: "install openssl:x64-windows-static"
-      - name: Get the release version from the tag
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
+          vcpkgArguments: install openssl:x64-windows-static
+      - name: Determine release version
         shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -73,15 +84,11 @@ jobs:
           binary_name="jwt-hack"
           dirname="$binary_name-$VERSION-${{ matrix.build }}"
           mkdir "$dirname"
-
-          # Move the appropriate binary into the archive directory
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
           else
             mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
           fi
-
-          # Create the appropriate archive format for each OS
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             7z a "$dirname.zip" "$dirname"
             echo "ASSET=$dirname.zip" >> $GITHUB_ENV
@@ -100,6 +107,7 @@ jobs:
       - name: Upload release archive
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.VERSION }}
           files: |-
             ${{ env.ASSET }}
             ${{ env.ASSET }}.sha256
