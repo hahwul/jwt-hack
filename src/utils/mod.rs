@@ -3,30 +3,30 @@ use std::fmt::Display;
 
 pub mod compression;
 
-/// Displays a success message with a green plus icon prefix
+/// Displays a success message with a green checkmark prefix
 pub fn log_success<T: Display>(message: T) {
-    println!("{} {}", "[+]".bright_green(), message);
+    eprintln!("{} {}", "✓".bright_green(), message);
 }
 
-/// Displays an information message with a blue asterisk icon prefix
+/// Displays an information message with a blue arrow prefix
 pub fn log_info<T: Display>(message: T) {
-    println!("{} {}", "[*]".bright_blue(), message);
+    eprintln!("{} {}", "▸".bright_blue(), message);
 }
 
-/// Displays a warning message with a yellow exclamation mark prefix
+/// Displays a warning message with a yellow warning symbol prefix
 pub fn log_warning<T: Display>(message: T) {
-    println!("{} {}", "[!]".yellow(), message);
+    eprintln!("{} {}", "⚠".yellow(), message);
 }
 
-/// Displays an error message with a red minus icon prefix
+/// Displays an error message with a red cross prefix
 pub fn log_error<T: Display>(message: T) {
-    println!("{} {}", "[-]".bright_red(), message);
+    eprintln!("{} {}", "✗".bright_red(), message);
 }
 
-/// Displays a debug message with a cyan question mark prefix for development purposes
+/// Displays a debug message with a cyan dot prefix for development purposes
 #[allow(dead_code)]
 pub fn log_debug<T: Display>(message: T) {
-    println!("{} {}", "[?]".cyan(), message);
+    eprintln!("{} {}", "●".cyan(), message);
 }
 
 /// Returns a value formatted with color based on success status (green for success, red for failure)

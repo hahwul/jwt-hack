@@ -18,11 +18,11 @@ impl log::Log for PrettyLogger {
         if self.enabled(record.metadata()) {
             let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
             let level_str = match record.level() {
-                Level::Error => format!("{}", "ERROR".bright_red()),
-                Level::Warn => format!("{}", "WARN ".yellow()),
-                Level::Info => format!("{}", "INFO ".bright_blue()),
-                Level::Debug => format!("{}", "DEBUG".cyan()),
-                Level::Trace => format!("{}", "TRACE".normal()),
+                Level::Error => format!("{}", "✗".bright_red()),
+                Level::Warn => format!("{}", "⚠".yellow()),
+                Level::Info => format!("{}", "▸".bright_blue()),
+                Level::Debug => format!("{}", "●".cyan()),
+                Level::Trace => format!("{}", "○".normal()),
             };
 
             let message = match record.level() {
@@ -53,7 +53,7 @@ pub fn setup_logger() -> Result<(), log::SetLoggerError> {
 
 // Print the banner with version information
 pub fn banner() {
-    println!(
+    eprintln!(
         "{}",
         r#"
       __     __     __     ______      __  __     ______     ______     __  __
@@ -64,13 +64,13 @@ pub fn banner() {
 "#
         .bright_blue()
     );
-    println!(
+    eprintln!(
         "{}{}{}",
         "                JSON Web Token Hack Toolkit - ".bright_yellow(),
         VERSION.bright_green(),
         " by @hahwul".bright_yellow()
     );
-    println!(
+    eprintln!(
         "{}\n",
         "                https://github.com/hahwul/jwt-hack".dimmed()
     );
