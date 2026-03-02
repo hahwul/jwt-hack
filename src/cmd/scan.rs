@@ -59,8 +59,8 @@ impl Severity {
 
     fn color(&self) -> colored::Color {
         match self {
-            Severity::Critical => colored::Color::BrightRed,
-            Severity::High => colored::Color::Red,
+            Severity::Critical => colored::Color::Red,
+            Severity::High => colored::Color::Yellow,
             Severity::Medium => colored::Color::Yellow,
             Severity::Low => colored::Color::Blue,
             Severity::Info => colored::Color::Cyan,
@@ -83,11 +83,6 @@ pub fn execute(
         max_crack_attempts,
     };
 
-    utils::log_info(format!(
-        "Starting comprehensive JWT vulnerability scan for: {}",
-        utils::format_jwt_token(token)
-    ));
-
     if let Err(e) = run_scan(token, &options) {
         utils::log_error(format!("Scan failed: {e}"));
         utils::log_error(
@@ -100,31 +95,19 @@ pub fn execute(
 fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
     let mut results: Vec<VulnerabilityResult> = Vec::new();
 
-    println!(
-        "\n{}",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            .bright_cyan()
-            .bold()
-    );
-    println!("{}", "  JWT VULNERABILITY SCANNER".bright_cyan().bold());
-    println!(
-        "{}",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            .bright_cyan()
-            .bold()
-    );
-
     // Decode token first to get basic info
     let decoded = jwt::decode(token)?;
 
-    println!("\n{}", "━━━ Token Information ━━━".bright_magenta().bold());
-    println!(
-        "Algorithm: {}",
-        format!("{:?}", decoded.algorithm).bright_yellow()
-    );
-    if let Some(typ) = decoded.header.get("typ") {
-        println!("Type: {}", typ.to_string().bright_yellow());
-    }
+    let alg_str = format!("{:?}", decoded.algorithm);
+    let typ = decoded
+        .header
+        .get("typ")
+        .and_then(|v| v.as_str())
+        .unwrap_or("JWT");
+
+    println!("  {}", "Token".bold());
+    println!("  {:<18}{}", "Algorithm".dimmed(), alg_str.cyan());
+    println!("  {:<18}{}", "Type".dimmed(), typ);
 
     // Check 1: None Algorithm Vulnerability
     results.push(check_none_algorithm(token, &decoded)?);
@@ -154,15 +137,7 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
 
     // Generate attack payloads if not skipped
     if !options.skip_payloads {
-        println!(
-            "\n{}",
-            "━━━ Generating Attack Payloads ━━━".bright_magenta().bold()
-        );
-        utils::log_info("Generating example attack payloads for discovered vulnerabilities...");
-
-        let spinner = utils::start_progress("Creating attack payloads...");
         generate_attack_payloads(token, &results)?;
-        spinner.finish_and_clear();
     }
 
     Ok(())
@@ -170,8 +145,6 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
 
 /// Check for none algorithm vulnerability
 fn check_none_algorithm(_token: &str, decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for 'none' algorithm vulnerability", "cyan");
-
     let alg_str = format!("{:?}", decoded.algorithm).to_lowercase();
     let vulnerable = alg_str.contains("none")
         || decoded
@@ -180,8 +153,6 @@ fn check_none_algorithm(_token: &str, decoded: &jwt::DecodedToken) -> Result<Vul
             .and_then(|v| v.as_str())
             .map(|s| s.to_lowercase() == "none")
             .unwrap_or(false);
-
-    pb.finish_and_clear();
 
     let result = if vulnerable {
         VulnerabilityResult {
@@ -208,12 +179,9 @@ fn check_weak_secret(
     decoded: &jwt::DecodedToken,
     options: &ScanOptions,
 ) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for weak/common secrets", "cyan");
-
     // Only check HMAC algorithms
     let alg_str = format!("{:?}", decoded.algorithm);
     if !alg_str.starts_with("HS") {
-        pb.finish_and_clear();
         return Ok(VulnerabilityResult {
             name: "Weak Secret".to_string(),
             vulnerable: false,
@@ -250,16 +218,11 @@ fn check_weak_secret(
         }
     }
 
-    pb.finish_and_clear();
-
     let result = if let Some(secret) = found_secret {
         VulnerabilityResult {
             name: "Weak Secret".to_string(),
             vulnerable: true,
-            details: format!(
-                "Token uses weak/common secret: '{}'",
-                secret.bright_red().bold()
-            ),
+            details: format!("Uses weak secret: '{}'", secret),
             severity: Severity::Critical,
         }
     } else {
@@ -282,8 +245,6 @@ fn check_algorithm_confusion(
     _token: &str,
     decoded: &jwt::DecodedToken,
 ) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for algorithm confusion vulnerability", "cyan");
-
     let alg_str = format!("{:?}", decoded.algorithm);
 
     // Check if token uses asymmetric algorithm (RS256, ES256, etc.)
@@ -292,15 +253,13 @@ fn check_algorithm_confusion(
         || alg_str.starts_with("PS")
         || alg_str == "EdDSA";
 
-    pb.finish_and_clear();
-
     let result = if uses_asymmetric {
         VulnerabilityResult {
             name: "Algorithm Confusion".to_string(),
             vulnerable: true,
             details: format!(
-                "Token uses {} which may be vulnerable to algorithm confusion attacks (RS256->HS256)",
-                alg_str.bright_yellow()
+                "Uses {} — vulnerable to alg confusion (RS256->HS256)",
+                alg_str
             ),
             severity: Severity::High,
         }
@@ -308,8 +267,7 @@ fn check_algorithm_confusion(
         VulnerabilityResult {
             name: "Algorithm Confusion".to_string(),
             vulnerable: false,
-            details: "Token uses symmetric algorithm, not vulnerable to typical alg confusion"
-                .to_string(),
+            details: "Symmetric algorithm".to_string(),
             severity: Severity::Info,
         }
     };
@@ -319,8 +277,6 @@ fn check_algorithm_confusion(
 
 /// Check token expiration
 fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking token expiration", "cyan");
-
     let has_exp = decoded.claims.get("exp").is_some();
     let has_nbf = decoded.claims.get("nbf").is_some();
     let has_iat = decoded.claims.get("iat").is_some();
@@ -348,16 +304,27 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
         issues.push("Missing 'iat' (issued at) claim".to_string());
     }
 
-    pb.finish_and_clear();
-
     let vulnerable = !issues.is_empty();
+    let missing_claims: Vec<&str> = [
+        (!has_exp, "exp"),
+        (!has_nbf, "nbf"),
+        (!has_iat, "iat"),
+    ]
+        .iter()
+        .filter(|(missing, _)| *missing)
+        .map(|(_, name)| *name)
+        .collect();
     let result = VulnerabilityResult {
         name: "Token Expiration".to_string(),
         vulnerable,
         details: if vulnerable {
-            issues.join("; ")
+            if missing_claims.is_empty() {
+                issues.join("; ")
+            } else {
+                format!("Missing '{}'", missing_claims.join("', '"))
+            }
         } else {
-            "Token has proper expiration claims".to_string()
+            "Proper expiration claims".to_string()
         },
         severity: if vulnerable {
             Severity::Medium
@@ -371,8 +338,6 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
 
 /// Check for missing important claims
 fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for missing security claims", "cyan");
-
     let important_claims = vec!["sub", "aud", "iss", "jti"];
     let mut missing = Vec::new();
 
@@ -381,8 +346,6 @@ fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResu
             missing.push(*claim);
         }
     }
-
-    pb.finish_and_clear();
 
     let vulnerable = !missing.is_empty();
     let result = VulnerabilityResult {
@@ -405,25 +368,21 @@ fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResu
 
 /// Check for kid header vulnerabilities
 fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for kid header injection vulnerabilities", "cyan");
-
-    pb.finish_and_clear();
-
     let result = if let Some(kid) = decoded.header.get("kid") {
         VulnerabilityResult {
-            name: "Kid Header Injection".to_string(),
+            name: "Kid Header".to_string(),
             vulnerable: true,
             details: format!(
-                "Token has 'kid' header ({}), which may be vulnerable to SQL/path injection",
-                kid.to_string().bright_yellow()
+                "Has 'kid' header ({}), may be vulnerable to injection",
+                kid
             ),
             severity: Severity::Medium,
         }
     } else {
         VulnerabilityResult {
-            name: "Kid Header Injection".to_string(),
+            name: "Kid Header".to_string(),
             vulnerable: false,
-            details: "No 'kid' header present".to_string(),
+            details: "No 'kid' header".to_string(),
             severity: Severity::Info,
         }
     };
@@ -433,12 +392,8 @@ fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerabilit
 
 /// Check for JKU/X5U header vulnerabilities
 fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let pb = utils::start_progress_with_color("Checking for JKU/X5U header vulnerabilities", "cyan");
-
     let has_jku = decoded.header.contains_key("jku");
     let has_x5u = decoded.header.contains_key("x5u");
-
-    pb.finish_and_clear();
 
     let result = if has_jku || has_x5u {
         let header_type = if has_jku { "jku" } else { "x5u" };
@@ -448,12 +403,11 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
             name: "JKU/X5U Header".to_string(),
             vulnerable: true,
             details: format!(
-                "Token has '{}' header ({}), which may allow URL spoofing attacks",
+                "Has '{}' header ({}), URL spoofing risk",
                 header_type,
                 header_value
                     .map(|v| v.to_string())
                     .unwrap_or_default()
-                    .bright_yellow()
             ),
             severity: Severity::High,
         }
@@ -461,7 +415,7 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
         VulnerabilityResult {
             name: "JKU/X5U Header".to_string(),
             vulnerable: false,
-            details: "No JKU/X5U headers present".to_string(),
+            details: "No JKU/X5U headers".to_string(),
             severity: Severity::Info,
         }
     };
@@ -471,7 +425,7 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
 
 /// Display scan results
 fn display_results(results: &[VulnerabilityResult]) {
-    println!("\n{}", "━━━ Scan Results ━━━".bright_green().bold());
+    println!("\n  {}", "Results".bold());
 
     let mut vulnerable_count = 0;
     let mut critical_count = 0;
@@ -491,66 +445,48 @@ fn display_results(results: &[VulnerabilityResult]) {
             }
         }
 
-        let status = if result.vulnerable { "✗" } else { "✓" };
-        let status_color = if result.vulnerable {
-            colored::Color::Red
+        let status = if result.vulnerable {
+            "✗".red().to_string()
         } else {
-            colored::Color::Green
+            "✓".green().to_string()
         };
 
-        println!(
-            "\n{} {} [{}]",
-            status.color(status_color).bold(),
-            result.name.bright_white().bold(),
-            result
-                .severity
-                .as_str()
-                .color(result.severity.color())
-                .bold()
-        );
-        println!("  {}", result.details);
-    }
+        let severity_str = result
+            .severity
+            .as_str()
+            .color(result.severity.color());
 
-    println!("\n{}", "━━━ Summary ━━━".bright_cyan().bold());
-    println!(
-        "Total Vulnerabilities Found: {}",
-        vulnerable_count
-            .to_string()
-            .color(if vulnerable_count > 0 {
-                colored::Color::Red
-            } else {
-                colored::Color::Green
-            })
-            .bold()
-    );
-
-    if critical_count > 0 {
         println!(
-            "  {} Critical",
-            critical_count.to_string().bright_red().bold()
+            "  {}  {:<22} {:<12} {}",
+            status,
+            result.name.bold(),
+            severity_str,
+            result.details
         );
     }
-    if high_count > 0 {
-        println!("  {} High", high_count.to_string().red().bold());
-    }
-    if medium_count > 0 {
-        println!("  {} Medium", medium_count.to_string().yellow().bold());
-    }
-    if low_count > 0 {
-        println!("  {} Low", low_count.to_string().blue().bold());
-    }
 
+    // Summary
+    println!("\n  {}", "Summary".bold());
     if vulnerable_count > 0 {
+        let mut parts = Vec::new();
+        if critical_count > 0 {
+            parts.push(format!("{} critical", critical_count));
+        }
+        if high_count > 0 {
+            parts.push(format!("{} high", high_count));
+        }
+        if medium_count > 0 {
+            parts.push(format!("{} medium", medium_count));
+        }
+        if low_count > 0 {
+            parts.push(format!("{} low", low_count));
+        }
         println!(
-            "\n{}",
-            "⚠️  Review the vulnerabilities above and consider generating attack payloads."
-                .bright_yellow()
+            "  {} vulnerabilities found: {}",
+            vulnerable_count, parts.join(", ")
         );
     } else {
-        println!(
-            "\n{}",
-            "✓ No major vulnerabilities detected in this scan.".bright_green()
-        );
+        println!("  {} {}", "✓".green(), "No vulnerabilities detected");
     }
 }
 
@@ -570,7 +506,7 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
             "Algorithm Confusion" => {
                 targets.insert("alg_confusion");
             }
-            "Kid Header Injection" => {
+            "Kid Header" => {
                 targets.insert("kid_sql");
             }
             "JKU/X5U Header" => {
@@ -582,56 +518,34 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
     }
 
     if targets.is_empty() {
-        utils::log_info("No attack payloads to generate (no vulnerabilities found)");
         return Ok(());
     }
 
-    // Generate payloads for the vulnerable areas
     let target_str = targets.into_iter().collect::<Vec<_>>().join(",");
 
-    // Use the payload module to generate attack payloads
     if !target_str.is_empty() {
-        utils::log_info(format!(
-            "Generating payloads for: {}",
-            target_str.bright_yellow()
-        ));
-
-        // Decode token parts
         let parts: Vec<&str> = token.split('.').collect();
         if parts.len() >= 2 {
-            // Generate none payloads if vulnerable
+            println!("\n  {}", "Attack Payloads".bold());
+
             if target_str.contains("none") {
-                println!(
-                    "\n{}",
-                    "━━━ None Algorithm Payloads ━━━".bright_cyan().bold()
-                );
                 let _ = payload::generate_none_payload(token, "none");
                 let _ = payload::generate_none_payload(token, "None");
                 let _ = payload::generate_none_payload(token, "NONE");
             }
 
-            // Generate algorithm confusion payloads if vulnerable
             if target_str.contains("alg_confusion") {
-                println!(
-                    "\n{}",
-                    "━━━ Algorithm Confusion Payloads ━━━".bright_cyan().bold()
-                );
                 if let Ok(payloads) = payload::generate_alg_confusion_payload(token, None) {
-                    for payload in payloads.iter().take(2) {
-                        println!("{}", payload);
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
                     }
                 }
             }
 
-            // Generate kid SQL injection payloads if vulnerable
             if target_str.contains("kid_sql") {
-                println!(
-                    "\n{}",
-                    "━━━ Kid SQL Injection Payloads ━━━".bright_cyan().bold()
-                );
                 if let Ok(payloads) = payload::generate_kid_sql_payload(token) {
-                    for payload in payloads.iter().take(2) {
-                        println!("{}", payload);
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
                     }
                 }
             }

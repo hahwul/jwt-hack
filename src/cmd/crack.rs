@@ -70,12 +70,6 @@ pub fn execute(
 
 /// Execute the crack command with options struct
 fn execute_with_options(options: &CrackOptions) {
-    utils::log_info(format!(
-        "Starting {} cracking mode for: {}",
-        options.mode.bright_green(),
-        utils::format_jwt_token(options.token)
-    ));
-
     if options.mode == "dict" {
         if let Some(wordlist_path) = options.wordlist {
             if let Err(e) = crack_dictionary(
@@ -148,19 +142,13 @@ fn create_crack_progress_bar(
 fn build_thread_pool(
     concurrency: usize,
     power: bool,
-    mode_name: &str,
+    _mode_name: &str,
 ) -> anyhow::Result<rayon::ThreadPool> {
     let pool_size = if power {
         rayon::current_num_threads()
     } else {
         concurrency.min(rayon::current_num_threads())
     };
-
-    utils::log_info(format!(
-        "Starting {} attack with {} threads",
-        mode_name,
-        pool_size.to_string().bright_green()
-    ));
 
     rayon::ThreadPoolBuilder::new()
         .num_threads(pool_size)
@@ -269,30 +257,25 @@ fn report_crack_results(
     let rate = attempts_total as f64 / elapsed.as_secs_f64();
 
     if let Some(secret) = found.lock().unwrap().clone() {
-        utils::log_success(format!(
-            "Found JWT signature secret: {}",
-            secret.bright_yellow().bold()
-        ));
-        utils::log_success(format!(
-            "Cracking completed in {} ({:.2} keys/sec)",
-            HumanDuration(elapsed).to_string().bright_cyan(),
-            rate.to_string().bright_green()
-        ));
-
-        println!("\n{}", "━━━ Crack Results ━━━".bright_green().bold());
-        println!("Token:  {}", utils::format_jwt_token(token));
-        println!("Secret: {}", secret.bright_yellow().bold());
+        eprintln!("\n  {} {}", "✓".green(), "Secret found".bold());
         println!();
+        println!("  {:<14}{}", "Secret".bold(), secret.bold());
+        println!(
+            "  {:<14}{} ({:.2} keys/sec)",
+            "Time".bold(),
+            HumanDuration(elapsed),
+            rate
+        );
+        println!("  {:<14}{}", "Token".bold(), utils::format_jwt_token(token));
     } else {
-        utils::log_error(format!(
-            "Secret not found after trying {} keys in {}",
-            attempts_total.to_string().bright_yellow(),
-            HumanDuration(elapsed).to_string().bright_cyan()
-        ));
-        utils::log_error(format!(
-            "Average speed: {:.2} keys/sec",
-            rate.to_string().bright_green()
-        ));
+        eprintln!(
+            "\n  {} {} ({} keys in {}, {:.2} keys/sec)",
+            "✗".red(),
+            "Secret not found".bold(),
+            attempts_total,
+            HumanDuration(elapsed),
+            rate
+        );
     }
 }
 
@@ -305,11 +288,6 @@ fn crack_dictionary(
 ) -> anyhow::Result<()> {
     let start_time = Instant::now();
 
-    // Load wordlist
-    utils::log_info(format!(
-        "Loading wordlist from {}",
-        wordlist_path.display().to_string().bright_yellow()
-    ));
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file);
 
@@ -335,16 +313,9 @@ fn crack_dictionary(
     let words_vec: Vec<String> = words.into_iter().collect();
     loading_pb.finish_with_message(format!(
         "Loaded {} unique words in {}",
-        words_vec.len().to_string().bright_green(),
+        words_vec.len(),
         HumanDuration(start_time.elapsed())
-            .to_string()
-            .bright_cyan()
     ));
-    utils::log_info(format!(
-        "Loaded {} unique words after deduplication",
-        words_vec.len().to_string().bright_green()
-    ));
-
     let found = Arc::new(Mutex::new(None::<String>));
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let start = Instant::now();
@@ -360,7 +331,6 @@ fn crack_dictionary(
     let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
     report_crack_results(&found, elapsed, attempts_total, token);
 
-    utils::log_info("Finished dictionary crack mode");
     Ok(())
 }
 
@@ -373,17 +343,6 @@ fn crack_bruteforce(
     verbose: bool,
 ) -> anyhow::Result<()> {
     let start_time = Instant::now();
-    utils::log_info(format!(
-        "Preparing bruteforce attack with charset: {} (length: {})",
-        chars.bright_cyan(),
-        chars.len().to_string().bright_green()
-    ));
-
-    let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
-    utils::log_info(format!(
-        "Will try up to {} combinations",
-        total_combinations.to_string().bright_yellow()
-    ));
 
     let multi = MultiProgress::new();
 
@@ -398,11 +357,6 @@ fn crack_bruteforce(
     let found = Arc::new(Mutex::new(None::<String>));
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-    utils::log_info(format!(
-        "Generating bruteforce combinations (up to {} characters)...",
-        max_length.to_string().bright_green()
-    ));
-
     let gen_pb_clone = gen_pb.clone();
     let payloads = crack::generate_bruteforce_payloads_with_progress(
         chars,
@@ -415,15 +369,8 @@ fn crack_bruteforce(
 
     gen_pb.finish_with_message(format!(
         "Generated {} potential payloads in {}",
-        payloads.len().to_string().bright_green(),
+        payloads.len(),
         HumanDuration(start_time.elapsed())
-            .to_string()
-            .bright_cyan()
-    ));
-
-    utils::log_info(format!(
-        "Generated {} potential payloads for bruteforce attack",
-        payloads.len().to_string().bright_green()
     ));
 
     let pb = create_crack_progress_bar(&multi, payloads.len() as u64, verbose);
@@ -438,7 +385,6 @@ fn crack_bruteforce(
     let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
     report_crack_results(&found, elapsed, attempts_total, token);
 
-    utils::log_info("Finished bruteforce crack mode");
     Ok(())
 }
 

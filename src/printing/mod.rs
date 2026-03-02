@@ -18,18 +18,18 @@ impl log::Log for PrettyLogger {
         if self.enabled(record.metadata()) {
             let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
             let level_str = match record.level() {
-                Level::Error => format!("{}", "✗".bright_red()),
+                Level::Error => format!("{}", "✗".red()),
                 Level::Warn => format!("{}", "⚠".yellow()),
-                Level::Info => format!("{}", "▸".bright_blue()),
-                Level::Debug => format!("{}", "●".cyan()),
-                Level::Trace => format!("{}", "○".normal()),
+                Level::Info => format!("{}", "▸".cyan()),
+                Level::Debug => format!("{}", "●".dimmed()),
+                Level::Trace => format!("{}", "○".dimmed()),
             };
 
             let message = match record.level() {
-                Level::Error => format!("{}", record.args().to_string().bright_red()),
+                Level::Error => format!("{}", record.args().to_string().red()),
                 Level::Warn => format!("{}", record.args().to_string().yellow()),
                 Level::Info => format!("{}", record.args()),
-                Level::Debug => format!("{}", record.args().to_string().cyan()),
+                Level::Debug => format!("{}", record.args().to_string().dimmed()),
                 Level::Trace => format!("{}", record.args()),
             };
 
@@ -62,13 +62,13 @@ pub fn banner() {
    /\_____\  \ \__/".~\_\    \ \_\     \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\
    \/_____/   \/_/   \/_/     \/_/      \/_/\/_/   \/_/\/_/   \/_____/   \/_/\/_/
 "#
-        .bright_blue()
+        .cyan()
     );
     eprintln!(
         "{}{}{}",
-        "                JSON Web Token Hack Toolkit - ".bright_yellow(),
-        VERSION.bright_green(),
-        " by @hahwul".bright_yellow()
+        "                JSON Web Token Hack Toolkit - ".dimmed(),
+        VERSION.green(),
+        " by @hahwul".dimmed()
     );
     eprintln!(
         "{}\n",

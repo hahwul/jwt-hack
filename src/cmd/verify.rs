@@ -12,11 +12,6 @@ pub fn execute(
     private_key_path: Option<&PathBuf>,
     validate_exp: bool,
 ) {
-    utils::log_info(format!(
-        "Verifying JWT token: {}",
-        utils::format_jwt_token(token)
-    ));
-
     match verify_token(token, secret, private_key_path, validate_exp) {
         Ok(is_valid) => {
             if is_valid {

@@ -14,20 +14,13 @@ fn format_unix_timestamp(seconds: u64) -> String {
         .to_string()
 }
 
-/// Process and display issued-at claim with formatted timestamp
+/// Annotate issued-at claim with human-readable timestamp in the JSON output
 fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(iat) = claims.get("iat") {
         if let Some(iat_val) = iat.as_f64() {
             let iat_seconds = iat_val as u64;
             let formatted_time = format_unix_timestamp(iat_seconds);
 
-            utils::log_info(format!(
-                "Issued At (iat): {} ({})",
-                iat_seconds.to_string().bright_yellow(),
-                formatted_time.bright_cyan()
-            ));
-
-            // Add human-readable time format to the JSON output
             if let Some(obj) = claims_map.as_object_mut() {
                 obj.insert("iat_time".to_string(), Value::String(formatted_time));
             }
@@ -35,7 +28,7 @@ fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
     }
 }
 
-/// Process and display expiration claim with status check
+/// Annotate expiration claim with human-readable timestamp and status in the JSON output
 fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(exp) = claims.get("exp") {
         if let Some(exp_val) = exp.as_f64() {
@@ -43,23 +36,9 @@ fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
             let exp_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(exp_seconds);
             let formatted_time = format_unix_timestamp(exp_seconds);
 
-            // Check if token is expired
             let now = SystemTime::now();
             let is_expired = now > exp_time;
-            let status = if is_expired {
-                "EXPIRED".bright_red().bold()
-            } else {
-                "VALID".bright_green().bold()
-            };
 
-            utils::log_info(format!(
-                "Expiration (exp): {} ({}) [{}]",
-                exp_seconds.to_string().bright_yellow(),
-                formatted_time.bright_cyan(),
-                status
-            ));
-
-            // Add human-readable time and expiration status to the JSON output
             if let Some(obj) = claims_map.as_object_mut() {
                 obj.insert("exp_time".to_string(), Value::String(formatted_time));
                 obj.insert(
@@ -73,10 +52,6 @@ fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
 
 /// Decodes and displays JWT token components with formatted output
 pub fn execute(token: &str) {
-    utils::log_info(format!(
-        "Decoding JWT token: {}",
-        utils::format_jwt_token(token)
-    ));
     if let Err(e) = decode_token(token) {
         utils::log_error(format!("JWT Decode Error: {e}"));
         utils::log_error("e.g jwt-hack decode {JWT_CODE}");
@@ -101,94 +76,73 @@ fn decode_token(token: &str) -> Result<()> {
 }
 
 fn decode_jwt_token(token: &str) -> Result<()> {
-    // Decode JWT token into its components
     let decoded = jwt::decode(token)?;
-    utils::log_success("JWT token decoded successfully");
 
-    // Display formatted header section
-    println!("\n{}", "━━━ JWT Header ━━━".bright_cyan().bold());
+    let alg_str = format!("{:?}", decoded.algorithm);
+    let typ = decoded
+        .header
+        .get("typ")
+        .and_then(|v| v.as_str())
+        .unwrap_or("JWT");
+
+    println!("  {:<14}{}", "Algorithm".bold(), alg_str.cyan());
+    println!("  {:<14}{}", "Type".bold(), typ);
+
+    println!("\n  {}", "Header".bold());
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
-    println!("{}", header_json.bright_blue());
-
-    utils::log_info(format!(
-        "Algorithm: {}",
-        format!("{:?}", decoded.algorithm).bright_green()
-    ));
-
-    // Display payload section with human-readable timestamp formatting
-    println!("\n{}", "━━━ JWT Payload ━━━".bright_magenta().bold());
+    println!("  {}", header_json.replace('\n', "\n  "));
 
     let mut claims_map: Value = decoded.claims.clone();
-
-    // Convert Unix timestamps to human-readable dates
     process_issued_at_claim(&decoded.claims, &mut claims_map);
     process_expiration_claim(&decoded.claims, &mut claims_map);
 
-    // Display claims as properly formatted JSON with added time information
-    println!("\n{}", serde_json::to_string_pretty(&claims_map)?);
+    println!("\n  {}", "Payload".bold());
+    let payload_json = serde_json::to_string_pretty(&claims_map)?;
+    println!("  {}", payload_json.replace('\n', "\n  "));
 
     Ok(())
 }
 
 fn decode_jwe_token(token: &str) -> Result<()> {
-    // Decode JWE token structure
     let decoded = jwt::decode_jwe(token)?;
-    utils::log_success("JWE token decoded successfully");
 
-    // Display formatted header section
-    println!("\n{}", "━━━ JWE Header ━━━".bright_cyan().bold());
+    println!("  {:<14}{}", "Key Mgmt".bold(), decoded.algorithm.cyan());
+    println!("  {:<14}{}", "Encryption".bold(), decoded.encryption.cyan());
+
+    println!("\n  {}", "Header".bold());
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
-    println!("{}", header_json.bright_blue());
+    println!("  {}", header_json.replace('\n', "\n  "));
 
-    utils::log_info(format!(
-        "Key Management Algorithm: {}",
-        decoded.algorithm.bright_green()
-    ));
-    utils::log_info(format!(
-        "Content Encryption Algorithm: {}",
-        decoded.encryption.bright_green()
-    ));
-
-    // Display JWE structure
-    println!("\n{}", "━━━ JWE Structure ━━━".bright_magenta().bold());
-
-    println!("\n{}", "Encrypted Key:".bright_yellow());
-    println!(
-        "{}",
+    println!("\n  {:<18}{}",
+        "Encrypted Key".bold(),
         if decoded.encrypted_key.is_empty() {
-            "(empty)".dimmed()
+            "(empty)".dimmed().to_string()
         } else {
-            utils::format_base64_preview(&decoded.encrypted_key).bright_blue()
+            utils::format_base64_preview(&decoded.encrypted_key)
         }
     );
-
-    println!("\n{}", "Initialization Vector:".bright_yellow());
-    println!(
-        "{}",
+    println!("  {:<18}{}",
+        "IV".bold(),
         if decoded.iv.is_empty() {
-            "(empty)".dimmed()
+            "(empty)".dimmed().to_string()
         } else {
-            utils::format_base64_preview(&decoded.iv).bright_blue()
+            utils::format_base64_preview(&decoded.iv)
         }
     );
-
-    println!("\n{}", "Ciphertext:".bright_yellow());
-    println!(
-        "{}",
-        utils::format_base64_preview(&decoded.ciphertext).bright_blue()
+    println!("  {:<18}{}",
+        "Ciphertext".bold(),
+        utils::format_base64_preview(&decoded.ciphertext)
     );
-
-    println!("\n{}", "Authentication Tag:".bright_yellow());
-    println!(
-        "{}",
+    println!("  {:<18}{}",
+        "Auth Tag".bold(),
         if decoded.tag.is_empty() {
-            "(empty)".dimmed()
+            "(empty)".dimmed().to_string()
         } else {
-            utils::format_base64_preview(&decoded.tag).bright_blue()
+            utils::format_base64_preview(&decoded.tag)
         }
     );
 
-    utils::log_info("JWE payload is encrypted and cannot be decoded without the appropriate key");
+    eprintln!("\n  {}", "JWE payload is encrypted and cannot be decoded without the appropriate key".dimmed());
 
     Ok(())
 }

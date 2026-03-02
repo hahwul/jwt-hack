@@ -16,10 +16,6 @@ pub fn execute(
     jwk_protocol: &str,
     target: Option<&str>,
 ) {
-    utils::log_info(format!(
-        "Generating attack payloads for token: {}",
-        utils::format_jwt_token(token)
-    ));
     if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target) {
         utils::log_error(format!("Error generating payloads: {e}"));
         utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
@@ -75,25 +71,14 @@ fn generate_payloads(
 
     // Generate 'none' algorithm attack payloads
     if should_generate_all || targets.contains("none") {
-        utils::log_info("Generating 'none' algorithm attack payloads");
-        let spinner = utils::start_progress("Creating none algorithm variants...");
-
         generate_none_payloads(claims_part, "none")?;
         generate_none_payloads(claims_part, "NonE")?;
         generate_none_payloads(claims_part, "NONE")?;
-
-        spinner.finish_and_clear();
     }
 
     // Generate URL-based attack payloads (jku/x5u) if attack domain is provided
     if let Some(attack_domain) = jwk_attack {
         if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
-            utils::log_info(format!(
-                "Generating URL-based attack payloads using domain: {}",
-                attack_domain.bright_yellow()
-            ));
-            let spinner = utils::start_progress("Creating JKU and X5U payloads...");
-
             generate_url_payloads(
                 token,
                 jwk_trust,
@@ -102,92 +87,49 @@ fn generate_payloads(
                 &targets,
                 should_generate_all,
             )?;
-
-            spinner.finish_and_clear();
         }
     } else if should_generate_all || targets.contains("jku") || targets.contains("x5u") {
         utils::log_warning("No attack domain provided. Skipping URL-based payloads.");
-        utils::log_info("To generate URL payloads, use --jwk-attack parameter.");
     }
 
     // Generate algorithm confusion attack payloads (RS256->HS256)
     if should_generate_all || targets.contains("alg_confusion") {
-        utils::log_info("Generating algorithm confusion attack payloads");
-        let spinner = utils::start_progress("Creating algorithm confusion variants...");
-
         if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, None) {
             for payload in payloads {
-                println!(
-                    "\n{}",
-                    "━━━ Algorithm Confusion Payload (RS256->HS256) ━━━"
-                        .bright_cyan()
-                        .bold()
-                );
-                println!("{payload}");
-                println!();
+                println!("\n  {}", "Algorithm Confusion (RS256->HS256)".bold());
+                println!("  {payload}");
             }
         }
-
-        spinner.finish_and_clear();
     }
 
     // Generate key ID (kid) SQL injection attack payloads
     if should_generate_all || targets.contains("kid_sql") {
-        utils::log_info("Generating kid SQL injection attack payloads");
-        let spinner = utils::start_progress("Creating kid SQL injection variants...");
-
         if let Ok(payloads) = crate::payload::generate_kid_sql_payload(token) {
             for payload in payloads {
-                println!(
-                    "\n{}",
-                    "━━━ kid SQL Injection Payload ━━━".bright_cyan().bold()
-                );
-                println!("{payload}");
-                println!();
+                println!("\n  {}", "kid SQL Injection".bold());
+                println!("  {payload}");
             }
         }
-
-        spinner.finish_and_clear();
     }
 
     // Generate x5c certificate header injection attack payloads
     if should_generate_all || targets.contains("x5c") {
-        utils::log_info("Generating x5c header injection attack payloads");
-        let spinner = utils::start_progress("Creating x5c header injection variants...");
-
         if let Ok(payloads) = crate::payload::generate_x5c_payload(token) {
             for payload in payloads {
-                println!(
-                    "\n{}",
-                    "━━━ x5c Header Injection Payload ━━━".bright_cyan().bold()
-                );
-                println!("{payload}");
-                println!();
+                println!("\n  {}", "x5c Header Injection".bold());
+                println!("  {payload}");
             }
         }
-
-        spinner.finish_and_clear();
     }
 
     // Generate content type (cty) header manipulation attack payloads
     if should_generate_all || targets.contains("cty") {
-        utils::log_info("Generating cty header manipulation attack payloads");
-        let spinner = utils::start_progress("Creating cty header variants...");
-
         if let Ok(payloads) = crate::payload::generate_cty_payload(token) {
             for payload in payloads {
-                println!(
-                    "\n{}",
-                    "━━━ cty Header Manipulation Payload ━━━"
-                        .bright_cyan()
-                        .bold()
-                );
-                println!("{payload}");
-                println!();
+                println!("\n  {}", "cty Header Manipulation".bold());
+                println!("  {payload}");
             }
         }
-
-        spinner.finish_and_clear();
     }
 
     Ok(())
@@ -207,19 +149,8 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     // Base64 encode the header for JWT format
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
 
-    // Format as JWT token without signature (none algorithm attack)
-    println!(
-        "\n{}",
-        format!("━━━ None Algorithm Payload ({alg_value}) ━━━")
-            .bright_cyan()
-            .bold()
-    );
-    println!(
-        "{}.{}",
-        encoded_header.bright_blue(),
-        claims.bright_magenta()
-    );
-    println!();
+    println!("\n  {}", format!("None Algorithm ({alg_value})").bold());
+    println!("  {}.{}", encoded_header, claims);
 
     Ok(())
 }
@@ -256,14 +187,8 @@ fn generate_url_payloads(
 
         for (i, payload) in payloads.iter().enumerate() {
             let label = payload_labels.get(i).unwrap_or(&"Bypass");
-            println!(
-                "\n{}",
-                format!("━━━ {label} Payload ({key_type}) ━━━")
-                    .bright_cyan()
-                    .bold()
-            );
-            println!("{payload}");
-            println!();
+            println!("\n  {}", format!("{label} ({key_type})").bold());
+            println!("  {payload}");
         }
     }
 

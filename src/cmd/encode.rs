@@ -33,20 +33,11 @@ pub fn execute(
     jwe: bool,
 ) {
     if jwe {
-        utils::log_info(format!(
-            "Encoding JSON to JWE with encryption: {}",
-            "A256GCM".bright_green()
-        ));
         if let Err(e) = encode_jwe(json_str, secret) {
             utils::log_error(format!("JWE Encode Error: {e}"));
             utils::log_error("e.g jwt-hack encode {JSON} --jwe --secret={YOUR_SECRET}");
         }
     } else {
-        utils::log_info(format!(
-            "Encoding JSON to JWT with algorithm: {}",
-            algorithm.bright_green()
-        ));
-
         if let Err(e) = encode_json(
             json_str,
             secret,
@@ -85,25 +76,18 @@ fn display_encoding_result(
     key_info: &str,
     headers: &[(String, String)],
 ) {
-    utils::log_success("JWT token created successfully");
+    println!("  {:<14}{}", "Algorithm".bold(), algorithm.cyan());
+    println!("  {:<14}{}", "Key".bold(), key_info);
 
-    // Display algorithm information
-    println!("\n{}", "━━━ Encoding Details ━━━".bright_cyan().bold());
-    utils::log_info(format!("Algorithm: {}", algorithm.bright_green()));
-    utils::log_info(format!("Key: {}", key_info));
-
-    // Display any custom headers included in the token
     if !headers.is_empty() {
-        utils::log_info("Custom Headers:".to_string());
+        println!("\n  {}", "Headers".bold());
         for (key, value) in headers {
-            println!("  • {}: {}", key.bright_blue(), value.bright_yellow());
+            println!("  {:<14}{}", format!("{key}").dimmed(), value);
         }
     }
 
-    // Display the generated JWT token with color-coded segments
-    println!("\n{}", "━━━ JWT Token ━━━".bright_magenta().bold());
-    let formatted_token = utils::format_jwt_token(token);
-    println!("{formatted_token}\n");
+    println!("\n  {}", "Token".bold());
+    println!("  {}", utils::format_jwt_token(token));
 }
 
 fn encode_json(
@@ -117,8 +101,6 @@ fn encode_json(
 ) -> Result<()> {
     // Parse the input JSON into a Value object
     let claims: Value = serde_json::from_str(json_str)?;
-
-    let progress = utils::start_progress("Encoding JWT token...");
 
     // Convert custom header key-value pairs into a hashmap for JWT encoding
     let header_map = create_header_map(headers);
@@ -148,12 +130,10 @@ fn encode_json(
         // Encode JWT immediately while private key content is in scope
         let token = jwt::encode_with_options(&claims, &options)?;
 
-        progress.finish_and_clear();
-
         let key_info = format!(
             "{} ({})",
-            path.display().to_string().bright_yellow(),
-            "Private Key".bright_cyan()
+            path.display(),
+            "Private Key".dimmed()
         );
         display_encoding_result(&token, algorithm, &key_info, headers);
 
@@ -171,13 +151,11 @@ fn encode_json(
     // Encode the JWT token using the configured options
     let token = jwt::encode_with_options(&claims, &options)?;
 
-    progress.finish_and_clear();
-
     // Determine key information display based on signature type
     let key_info = if no_signature || secret.unwrap_or("").is_empty() {
         "None (unsigned)".dimmed().to_string()
     } else {
-        "****".bright_yellow().to_string()
+        "****".to_string()
     };
 
     display_encoding_result(&token, algorithm, &key_info, headers);
@@ -186,38 +164,15 @@ fn encode_json(
 }
 
 fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
-    // Parse JSON string to ensure it's valid
     let _claims: Value = serde_json::from_str(json_str)?;
-
-    // Use default secret if none provided
     let key = secret.unwrap_or("default_jwe_key");
-
-    // Start progress indicator
-    let progress = utils::start_progress("Encoding JWE token...");
-
-    // Create JWE token using our demo function
     let token = jwt::encode_jwe_demo(json_str, key)?;
 
-    progress.finish_and_clear();
+    println!("  {:<14}{}", "Key Mgmt".bold(), "dir".cyan());
+    println!("  {:<14}{}", "Encryption".bold(), "A256GCM".cyan());
 
-    // Display successful encoding result
-    utils::log_success("JWE token created successfully");
-
-    // Display encoding details
-    println!("\n{}", "━━━ JWE Encoding Details ━━━".bright_cyan().bold());
-    utils::log_info(format!(
-        "Key Management Algorithm: {}",
-        "dir".bright_green()
-    ));
-    utils::log_info(format!(
-        "Content Encryption Algorithm: {}",
-        "A256GCM".bright_green()
-    ));
-    utils::log_info("Note: This is a demonstration JWE token for testing purposes");
-
-    // Display the JWE token
-    println!("\n{}", "━━━ JWE Token ━━━".bright_yellow().bold());
-    println!("{}", token);
+    println!("\n  {}", "Token".bold());
+    println!("  {}", token);
 
     Ok(())
 }

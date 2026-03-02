@@ -5,12 +5,12 @@ pub mod compression;
 
 /// Displays a success message with a green checkmark prefix
 pub fn log_success<T: Display>(message: T) {
-    eprintln!("{} {}", "✓".bright_green(), message);
+    eprintln!("{} {}", "✓".green(), message);
 }
 
-/// Displays an information message with a blue arrow prefix
+/// Displays an information message with a cyan arrow prefix
 pub fn log_info<T: Display>(message: T) {
-    eprintln!("{} {}", "▸".bright_blue(), message);
+    eprintln!("{} {}", "▸".cyan(), message);
 }
 
 /// Displays a warning message with a yellow warning symbol prefix
@@ -20,26 +20,26 @@ pub fn log_warning<T: Display>(message: T) {
 
 /// Displays an error message with a red cross prefix
 pub fn log_error<T: Display>(message: T) {
-    eprintln!("{} {}", "✗".bright_red(), message);
+    eprintln!("{} {}", "✗".red(), message);
 }
 
-/// Displays a debug message with a cyan dot prefix for development purposes
+/// Displays a debug message with a dimmed dot prefix for development purposes
 #[allow(dead_code)]
 pub fn log_debug<T: Display>(message: T) {
-    eprintln!("{} {}", "●".cyan(), message);
+    eprintln!("{} {}", "●".dimmed(), message);
 }
 
 /// Returns a value formatted with color based on success status (green for success, red for failure)
 #[allow(dead_code)]
 pub fn format_value<T: Display>(value: T, is_success: bool) -> colored::ColoredString {
     if is_success {
-        format!("{value}").bright_green()
+        format!("{value}").green()
     } else {
-        format!("{value}").bright_red()
+        format!("{value}").red()
     }
 }
 
-/// Colorizes JWT token components for better visual distinction (header=blue, payload=magenta, signature=yellow)
+/// Colorizes JWT token components for better visual distinction (header=cyan, payload=default, signature=yellow)
 pub fn format_jwt_token(token: &str) -> String {
     let parts: Vec<&str> = token.split('.').collect();
 
@@ -49,15 +49,15 @@ pub fn format_jwt_token(token: &str) -> String {
 
     if parts.len() == 2 {
         // Header and payload only
-        return format!("{}.{}", parts[0].bright_blue(), parts[1].bright_magenta());
+        return format!("{}.{}", parts[0].cyan(), parts[1]);
     }
 
     // Full JWT with signature
     format!(
         "{}.{}.{}",
-        parts[0].bright_blue(),
-        parts[1].bright_magenta(),
-        parts[2].bright_yellow()
+        parts[0].cyan(),
+        parts[1],
+        parts[2].yellow()
     )
 }
 
@@ -129,9 +129,9 @@ mod tests {
         let token = "header.payload.signature";
         let expected = format!(
             "{}.{}.{}",
-            "header".bright_blue(),
-            "payload".bright_magenta(),
-            "signature".bright_yellow()
+            "header".cyan(),
+            "payload",
+            "signature".yellow()
         );
         assert_eq!(format_jwt_token(token), expected);
     }
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_format_jwt_token_no_signature() {
         let token = "header.payload";
-        let expected = format!("{}.{}", "header".bright_blue(), "payload".bright_magenta());
+        let expected = format!("{}.{}", "header".cyan(), "payload");
         assert_eq!(format_jwt_token(token), expected);
     }
 
@@ -187,22 +187,22 @@ mod tests {
 
     #[test]
     fn test_format_value_success() {
-        let expected = "success_text".bright_green();
+        let expected = "success_text".green();
         assert_eq!(format_value("success_text", true), expected);
     }
 
     #[test]
     fn test_format_value_failure() {
-        let expected = "failure_text".bright_red();
+        let expected = "failure_text".red();
         assert_eq!(format_value("failure_text", false), expected);
     }
 
     #[test]
     fn test_format_value_integer() {
-        let expected = "123".bright_green(); // is_success = true
+        let expected = "123".green(); // is_success = true
         assert_eq!(format_value(123, true), expected);
 
-        let expected_fail = "456".bright_red(); // is_success = false
+        let expected_fail = "456".red(); // is_success = false
         assert_eq!(format_value(456, false), expected_fail);
     }
 

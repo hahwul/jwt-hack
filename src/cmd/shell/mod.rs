@@ -451,19 +451,16 @@ fn handle_command(line: &str, app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
 }
 
 fn render_help(app: &mut App) {
-    use ratatui::style::{Color, Modifier, Style};
+    use ratatui::style::{Modifier, Style};
     use ratatui::text::{Line, Span};
 
-    let header_style = Style::default()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-    let cmd_style = Style::default().fg(Color::Green);
-    let dim_style = Style::default().fg(Color::DarkGray);
+    let bold_style = Style::default().add_modifier(Modifier::BOLD);
+    let dim_style = Style::default().add_modifier(Modifier::DIM);
 
     app.output_lines.lines.push(Line::raw(""));
     app.output_lines
         .lines
-        .push(Line::from(Span::styled("  ━━━ Available Commands ━━━", header_style)));
+        .push(Line::from(Span::styled("  Commands", bold_style)));
 
     let commands = [
         ("set", "<key> <value>", "Set a session variable"),
@@ -481,7 +478,7 @@ fn render_help(app: &mut App) {
     for (name, args, desc) in commands {
         let mut spans = vec![
             Span::raw("    "),
-            Span::styled(format!("{name:<10}"), cmd_style),
+            Span::styled(format!("{name:<10}"), bold_style),
         ];
         if !args.is_empty() {
             spans.push(Span::styled(format!("{args:<16}"), dim_style));
@@ -495,7 +492,7 @@ fn render_help(app: &mut App) {
     app.output_lines.lines.push(Line::raw(""));
     app.output_lines
         .lines
-        .push(Line::from(Span::styled("  ━━━ Set Keys ━━━", header_style)));
+        .push(Line::from(Span::styled("  Set Keys", bold_style)));
     app.output_lines.lines.push(Line::from(Span::styled(
         "    token, secret, algorithm, private_key, wordlist",
         dim_style,
@@ -503,7 +500,7 @@ fn render_help(app: &mut App) {
     app.output_lines.lines.push(Line::raw(""));
     app.output_lines
         .lines
-        .push(Line::from(Span::styled("  ━━━ Examples ━━━", header_style)));
+        .push(Line::from(Span::styled("  Examples", bold_style)));
 
     let examples = [
         "    set token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abc",
@@ -522,26 +519,22 @@ fn render_help(app: &mut App) {
 }
 
 fn render_show(app: &mut App) {
-    use ratatui::style::{Color, Modifier, Style};
+    use ratatui::style::{Modifier, Style};
     use ratatui::text::{Line, Span};
 
-    let header_style = Style::default()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-    let label_style = Style::default().fg(Color::White);
-    let value_style = Style::default().fg(Color::Green);
-    let dim_style = Style::default().fg(Color::DarkGray);
-    let secret_style = Style::default().fg(Color::Yellow);
+    let bold_style = Style::default().add_modifier(Modifier::BOLD);
+    let dim_style = Style::default().add_modifier(Modifier::DIM);
+    let default_style = Style::default();
 
     app.output_lines.lines.push(Line::raw(""));
     app.output_lines
         .lines
-        .push(Line::from(Span::styled("  ━━━ Session State ━━━", header_style)));
+        .push(Line::from(Span::styled("  Session", bold_style)));
 
     // Algorithm
     app.output_lines.lines.push(Line::from(vec![
-        Span::styled("    Algorithm:   ", label_style),
-        Span::styled(app.session.algorithm.clone(), value_style),
+        Span::styled("    Algorithm:   ", dim_style),
+        Span::styled(app.session.algorithm.clone(), default_style),
     ]));
 
     // Token
@@ -558,23 +551,23 @@ fn render_show(app: &mut App) {
         })
         .unwrap_or_else(|| "(not set)".to_string());
     let token_style = if app.session.token.is_some() {
-        value_style
+        default_style
     } else {
         dim_style
     };
     app.output_lines.lines.push(Line::from(vec![
-        Span::styled("    Token:       ", label_style),
+        Span::styled("    Token:       ", dim_style),
         Span::styled(token_display, token_style),
     ]));
 
     // Secret
     let (secret_display, s_style) = if app.session.secret.is_some() {
-        ("****".to_string(), secret_style)
+        ("****".to_string(), default_style)
     } else {
         ("(not set)".to_string(), dim_style)
     };
     app.output_lines.lines.push(Line::from(vec![
-        Span::styled("    Secret:      ", label_style),
+        Span::styled("    Secret:      ", dim_style),
         Span::styled(secret_display, s_style),
     ]));
 
@@ -583,10 +576,10 @@ fn render_show(app: &mut App) {
         .session
         .private_key
         .as_ref()
-        .map(|p| (p.display().to_string(), secret_style))
+        .map(|p| (p.display().to_string(), default_style))
         .unwrap_or_else(|| ("(not set)".to_string(), dim_style));
     app.output_lines.lines.push(Line::from(vec![
-        Span::styled("    Private Key: ", label_style),
+        Span::styled("    Private Key: ", dim_style),
         Span::styled(pk_display, pk_style),
     ]));
 
@@ -595,10 +588,10 @@ fn render_show(app: &mut App) {
         .session
         .wordlist
         .as_ref()
-        .map(|p| (p.display().to_string(), secret_style))
+        .map(|p| (p.display().to_string(), default_style))
         .unwrap_or_else(|| ("(not set)".to_string(), dim_style));
     app.output_lines.lines.push(Line::from(vec![
-        Span::styled("    Wordlist:    ", label_style),
+        Span::styled("    Wordlist:    ", dim_style),
         Span::styled(wl_display, wl_style),
     ]));
 

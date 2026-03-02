@@ -3,16 +3,26 @@ use colored::Colorize;
 
 /// Displays version information and other project details
 pub fn execute() {
-    println!("\n{}", "━━━ JWT-HACK ━━━".bright_green().bold());
-    println!("{}: {}", "Version".bright_blue(), VERSION.bright_green());
-    println!("{}: {}", "Author".bright_blue(), "@hahwul".bright_yellow());
     println!(
-        "{}: {}",
-        "Repository".bright_blue(),
-        "https://github.com/hahwul/jwt-hack".bright_cyan()
+        "  {:<14}{}",
+        "Version".dimmed(),
+        VERSION
     );
-    println!("{}: {}", "License".bright_blue(), "MIT".bright_magenta());
-    println!("\n{}", "Thank you for using JWT-Hack!".bright_green());
+    println!(
+        "  {:<14}{}",
+        "Author".dimmed(),
+        "@hahwul"
+    );
+    println!(
+        "  {:<14}{}",
+        "Repository".dimmed(),
+        "https://github.com/hahwul/jwt-hack"
+    );
+    println!(
+        "  {:<14}{}",
+        "License".dimmed(),
+        "MIT"
+    );
 }
 
 #[cfg(test)]
