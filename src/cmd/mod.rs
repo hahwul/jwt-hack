@@ -9,6 +9,7 @@ mod mcp;
 mod payload;
 mod scan;
 mod server;
+mod shell;
 mod verify;
 mod version;
 
@@ -180,6 +181,9 @@ pub enum Commands {
     /// Runs jwt-hack as an MCP (Model Context Protocol) server
     Mcp,
 
+    /// Starts an interactive shell for JWT operations
+    Shell,
+
     /// Starts a REST API server for JWT operations
     Server {
         /// Host address to bind to
@@ -305,6 +309,9 @@ pub fn execute() {
         }
         Some(Commands::Mcp) => {
             mcp::execute();
+        }
+        Some(Commands::Shell) => {
+            shell::execute();
         }
         Some(Commands::Server {
             host,
