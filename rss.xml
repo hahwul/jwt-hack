@@ -1,0 +1,1209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>JWT-HACK</title>
+    <link>https://jwt-hack.hahwul.com</link>
+    <description>A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens</description>
+    <atom:link href="https://jwt-hack.hahwul.com/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>FAQ</title>
+      <link>https://jwt-hack.hahwul.com/support/faq/</link>
+      <guid>https://jwt-hack.hahwul.com/support/faq/</guid>
+      <description>&lt;p&gt;Frequently asked questions about JWT-HACK.&lt;/p&gt;
+&lt;h2 id=&quot;content-coming-soon&quot;&gt;Content Coming Soon&lt;/h2&gt;
+&lt;p&gt;This section is currently under development. Common questions and answers will be added here.&lt;/p&gt;
+&lt;h2 id=&quot;have-a-question&quot;&gt;Have a Question?&lt;/h2&gt;
+&lt;p&gt;While this FAQ is being built, you can:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Check the &lt;a href=&quot;/get_started/introduction&quot;&gt;documentation&lt;/a&gt; for detailed information&lt;/li&gt;
+&lt;li&gt;Review &lt;a href=&quot;/usage/examples&quot;&gt;examples&lt;/a&gt; for practical use cases&lt;/li&gt;
+&lt;li&gt;Ask questions on &lt;a href=&quot;https://github.com/hahwul/jwt-hack/discussions&quot;&gt;GitHub Discussions&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;Report issues on &lt;a href=&quot;https://github.com/hahwul/jwt-hack/issues&quot;&gt;GitHub Issues&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&quot;quick-answers&quot;&gt;Quick Answers&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Q: What JWT algorithms are supported?&lt;/strong&gt;
+A: JWT-HACK supports HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, and EdDSA. See the &lt;a href=&quot;/get_started/introduction&quot;&gt;Introduction&lt;/a&gt; for details.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Q: How do I install JWT-HACK?&lt;/strong&gt;
+A: See the &lt;a href=&quot;/get_started/installation&quot;&gt;Installation&lt;/a&gt; guide for multiple installation methods.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Q: Can I use JWT-HACK in automated scripts?&lt;/strong&gt;
+A: Yes! See &lt;a href=&quot;/advanced/scripting-automation&quot;&gt;Scripting &amp;amp; Automation&lt;/a&gt; for details.&lt;/p&gt;
+</description>
+    </item>
+    <item>
+      <title>Troubleshooting</title>
+      <link>https://jwt-hack.hahwul.com/support/troubleshooting/</link>
+      <guid>https://jwt-hack.hahwul.com/support/troubleshooting/</guid>
+      <description>&lt;p&gt;Common issues and their solutions.&lt;/p&gt;
+&lt;h2 id=&quot;content-coming-soon&quot;&gt;Content Coming Soon&lt;/h2&gt;
+&lt;p&gt;This section is currently under development. Common troubleshooting guides and solutions will be added here.&lt;/p&gt;
+&lt;h2 id=&quot;getting-help&quot;&gt;Getting Help&lt;/h2&gt;
+&lt;p&gt;In the meantime, if you encounter issues:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Check the &lt;a href=&quot;/get_started/introduction&quot;&gt;documentation&lt;/a&gt; for general guidance&lt;/li&gt;
+&lt;li&gt;Review &lt;a href=&quot;/usage/examples&quot;&gt;examples&lt;/a&gt; for common use cases&lt;/li&gt;
+&lt;li&gt;Visit the &lt;a href=&quot;https://github.com/hahwul/jwt-hack/issues&quot;&gt;GitHub Issues&lt;/a&gt; page&lt;/li&gt;
+&lt;li&gt;Join the community discussions&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&quot;quick-tips&quot;&gt;Quick Tips&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Ensure you have the latest version installed&lt;/li&gt;
+&lt;li&gt;Check command syntax with &lt;code&gt;jwt-hack &amp;lt;command&amp;gt; --help&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Verify file paths are correct and accessible&lt;/li&gt;
+&lt;li&gt;Review error messages carefully for specific issues&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Community</title>
+      <link>https://jwt-hack.hahwul.com/support/community/</link>
+      <guid>https://jwt-hack.hahwul.com/support/community/</guid>
+      <description>&lt;p&gt;Community resources and communication channels for JWT-HACK.&lt;/p&gt;
+&lt;h2 id=&quot;content-coming-soon&quot;&gt;Content Coming Soon&lt;/h2&gt;
+&lt;p&gt;This section is currently under development. Community resources, channels, and guidelines will be added here.&lt;/p&gt;
+&lt;h2 id=&quot;stay-connected&quot;&gt;Stay Connected&lt;/h2&gt;
+&lt;p&gt;While this section is being built, you can connect with the JWT-HACK community:&lt;/p&gt;
+&lt;h3 id=&quot;github&quot;&gt;GitHub&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Repository&lt;/strong&gt;: &lt;a href=&quot;https://github.com/hahwul/jwt-hack&quot;&gt;github.com/hahwul/jwt-hack&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Issues&lt;/strong&gt;: Report bugs and request features&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Discussions&lt;/strong&gt;: Ask questions and share ideas&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Pull Requests&lt;/strong&gt;: Contribute code improvements&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;social-media&quot;&gt;Social Media&lt;/h3&gt;
+&lt;p&gt;Follow the project maintainer for updates:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;GitHub&lt;/strong&gt;: &lt;a href=&quot;https://github.com/hahwul&quot;&gt;@hahwul&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;contributing&quot;&gt;Contributing&lt;/h2&gt;
+&lt;p&gt;Want to contribute to JWT-HACK? Check out the &lt;a href=&quot;/support/contributing&quot;&gt;Contributing Guide&lt;/a&gt; for details on how to get started.&lt;/p&gt;
+&lt;h2 id=&quot;code-of-conduct&quot;&gt;Code of Conduct&lt;/h2&gt;
+&lt;p&gt;JWT-HACK follows a Code of Conduct to ensure a welcoming and inclusive community for all contributors. Please be respectful and considerate in all interactions.&lt;/p&gt;
+&lt;h2 id=&quot;getting-help&quot;&gt;Getting Help&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Documentation&lt;/strong&gt;: Start with the &lt;a href=&quot;/get_started/introduction&quot;&gt;Introduction&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Examples&lt;/strong&gt;: Check out &lt;a href=&quot;/usage/examples&quot;&gt;practical examples&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Issues&lt;/strong&gt;: Report bugs on &lt;a href=&quot;https://github.com/hahwul/jwt-hack/issues&quot;&gt;GitHub Issues&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Discussions&lt;/strong&gt;: Ask questions on &lt;a href=&quot;https://github.com/hahwul/jwt-hack/discussions&quot;&gt;GitHub Discussions&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;acknowledgments&quot;&gt;Acknowledgments&lt;/h2&gt;
+&lt;p&gt;JWT-HACK is an open-source project made with ❤️ by the community. Thanks to all contributors who have helped improve the project!&lt;/p&gt;
+</description>
+    </item>
+    <item>
+      <title>Contributing</title>
+      <link>https://jwt-hack.hahwul.com/support/contributing/</link>
+      <guid>https://jwt-hack.hahwul.com/support/contributing/</guid>
+      <description>&lt;p&gt;Thank you for your interest in contributing to JWT-HACK! This project welcomes contributions from the community.&lt;/p&gt;
+&lt;h2 id=&quot;getting-started&quot;&gt;Getting Started&lt;/h2&gt;
+&lt;h3 id=&quot;prerequisites&quot;&gt;Prerequisites&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Rust and Cargo installed (latest stable version recommended)&lt;/li&gt;
+&lt;li&gt;Git&lt;/li&gt;
+&lt;li&gt;Just task runner (optional but recommended)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;development-setup&quot;&gt;Development Setup&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;Fork the repository on GitHub&lt;/li&gt;
+&lt;li&gt;Clone your fork locally:
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;git clone https://github.com/YOUR-USERNAME/jwt-hack.git
+cd jwt-hack
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;Create a branch for your work:
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;git checkout -b features/your-feature-name
+# or
+git checkout -b bugfix/issue-description
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&quot;building-and-testing&quot;&gt;Building and Testing&lt;/h3&gt;
+&lt;p&gt;Install Just task runner for easier development:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;cargo install just
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Development workflow:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Build for development (takes ~75s first time, ~18s subsequent)
+just dev
+
+# Run all tests (takes ~17s)
+just test
+
+# Format and fix linting issues
+just fix
+
+# Clean build
+cargo clean &amp;amp;&amp;amp; just dev
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;code-guidelines&quot;&gt;Code Guidelines&lt;/h2&gt;
+&lt;h3 id=&quot;rust-code-style&quot;&gt;Rust Code Style&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Follow the &lt;a href=&quot;https://rust-lang.github.io/api-guidelines/&quot;&gt;Rust API Guidelines&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;Use &lt;code&gt;cargo fmt&lt;/code&gt; to format your code before committing&lt;/li&gt;
+&lt;li&gt;Run &lt;code&gt;cargo clippy&lt;/code&gt; and address any warnings&lt;/li&gt;
+&lt;li&gt;Write comprehensive tests for new functionality&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;commit-messages&quot;&gt;Commit Messages&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Use clear, concise commit messages&lt;/li&gt;
+&lt;li&gt;Start with a verb in the present tense (e.g., &amp;quot;Add feature&amp;quot; not &amp;quot;Added feature&amp;quot;)&lt;/li&gt;
+&lt;li&gt;Reference issue numbers when applicable (e.g., &amp;quot;Fix #123: Memory leak in URL parser&amp;quot;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;testing-requirements&quot;&gt;Testing Requirements&lt;/h3&gt;
+&lt;p&gt;All contributions must include appropriate tests:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Unit tests
+cargo test
+
+# Integration tests
+cargo test --test integration
+
+# Linting
+cargo clippy -- --deny warnings
+
+# Formatting check
+cargo fmt --check
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;pull-request-process&quot;&gt;Pull Request Process&lt;/h2&gt;
+&lt;h3 id=&quot;before-submitting&quot;&gt;Before Submitting&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Ensure your code builds without errors:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;just dev
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Run the full test suite:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;just test
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Update documentation if needed&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Verify functionality with manual testing:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;./target/debug/jwt-hack --help
+./target/debug/jwt-hack decode &amp;lt;test-token&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;For more detailed contributing guidelines, please see the &lt;a href=&quot;https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md&quot;&gt;full CONTRIBUTING.md&lt;/a&gt; in the repository.&lt;/p&gt;
+</description>
+    </item>
+    <item>
+      <title>JWT-HACK</title>
+      <link>https://jwt-hack.hahwul.com/</link>
+      <guid>https://jwt-hack.hahwul.com/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Scripting &amp; Automation</title>
+      <link>https://jwt-hack.hahwul.com/advanced/scripting-automation/</link>
+      <guid>https://jwt-hack.hahwul.com/advanced/scripting-automation/</guid>
+      <description>&lt;p&gt;JWT-HACK is designed to work well in scripts and automated workflows.&lt;/p&gt;
+&lt;h2 id=&quot;exit-codes&quot;&gt;Exit Codes&lt;/h2&gt;
+&lt;p&gt;JWT-HACK uses standard exit codes for automation:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;0&lt;/strong&gt; - Success&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;1&lt;/strong&gt; - General error&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;2&lt;/strong&gt; - Invalid input/arguments&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;3&lt;/strong&gt; - Authentication/verification failure&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;bash-scripting&quot;&gt;Bash Scripting&lt;/h2&gt;
+&lt;h3 id=&quot;basic-token-validation&quot;&gt;Basic Token Validation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+validate_token() {
+    local token=&amp;quot;$1&amp;quot;
+    local secret=&amp;quot;$2&amp;quot;
+
+    if jwt-hack verify &amp;quot;$token&amp;quot; --secret=&amp;quot;$secret&amp;quot; &amp;gt; /dev/null 2&amp;gt;&amp;amp;1; then
+        echo &amp;quot;Token is valid&amp;quot;
+        return 0
+    else
+        echo &amp;quot;Token is invalid&amp;quot;
+        return 1
+    fi
+}
+
+# Usage
+if validate_token &amp;quot;$JWT_TOKEN&amp;quot; &amp;quot;$SECRET&amp;quot;; then
+    echo &amp;quot;Proceeding with authenticated request&amp;quot;
+else
+    echo &amp;quot;Authentication failed&amp;quot;
+    exit 1
+fi
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;batch-token-processing&quot;&gt;Batch Token Processing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Process multiple tokens from file
+while IFS= read -r token; do
+    echo &amp;quot;Processing token: ${token:0:20}...&amp;quot;
+
+    if jwt-hack decode &amp;quot;$token&amp;quot; &amp;gt; /dev/null 2&amp;gt;&amp;amp;1; then
+        echo &amp;quot;✓ Valid format&amp;quot;
+        jwt-hack decode &amp;quot;$token&amp;quot; | grep -E &amp;quot;(exp|iat)&amp;quot;
+    else
+        echo &amp;quot;✗ Invalid format&amp;quot;
+    fi
+    echo &amp;quot;---&amp;quot;
+done &amp;lt; tokens.txt
+&lt;/code&gt;&lt;/pre&gt; id=&quot;automated-cracking&quot;&gt;Automated Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+crack_token() {
+    local token=&amp;quot;$1&amp;quot;
+    local wordlist=&amp;quot;$2&amp;quot;
+
+    echo &amp;quot;Attempting to crack token...&amp;quot;
+
+    if result=$(jwt-hack crack -w &amp;quot;$wordlist&amp;quot; &amp;quot;$token&amp;quot; 2&amp;gt;&amp;amp;1); then
+        echo &amp;quot;SUCCESS: Secret found!&amp;quot;
+        echo &amp;quot;$result&amp;quot; | grep &amp;quot;Secret:&amp;quot;
+        return 0
+    else
+        echo &amp;quot;FAILED: Could not crack token&amp;quot;
+        return 1
+    fi
+}
+
+# Try multiple wordlists
+wordlists=(&amp;quot;/usr/share/wordlists/rockyou.txt&amp;quot; &amp;quot;custom.txt&amp;quot; &amp;quot;common.txt&amp;quot;)
+
+for wordlist in &amp;quot;${wordlists[@]}&amp;quot;; do
+    if [[ -f &amp;quot;$wordlist&amp;quot; ]]; then
+        echo &amp;quot;Trying wordlist: $wordlist&amp;quot;
+        if crack_token &amp;quot;$JWT_TOKEN&amp;quot; &amp;quot;$wordlist&amp;quot;; then
+            break
+        fi
+    fi
+done
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;python-integration&quot;&gt;Python Integration&lt;/h2&gt;
+&lt;h3 id=&quot;using-subprocess&quot;&gt;Using subprocess&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python hljs&quot;&gt;import subprocess
+import json
+import sys
+
+def decode_jwt(token):
+    &amp;quot;&amp;quot;&amp;quot;Decode JWT token using jwt-hack&amp;quot;&amp;quot;&amp;quot;
+    try:
+        result = subprocess.run(
+            [&apos;jwt-hack&apos;, &apos;decode&apos;, token],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError:
+        return None
+
+def verify_jwt(token, secret):
+    &amp;quot;&amp;quot;&amp;quot;Verify JWT token&amp;quot;&amp;quot;&amp;quot;
+    try:
+        subprocess.run(
+            [&apos;jwt-hack&apos;, &apos;verify&apos;, token, &apos;--secret&apos;, secret],
+            capture_output=True,
+            check=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+# Usage
+token = &amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&amp;quot;
+if decode_result := decode_jwt(token):
+    print(&amp;quot;Token decoded successfully&amp;quot;)
+    print(decode_result)
+else:
+    print(&amp;quot;Failed to decode token&amp;quot;)
+    sys.exit(1)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;token-analysis-pipeline&quot;&gt;Token Analysis Pipeline&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python hljs&quot;&gt;#!/usr/bin/env python3
+
+import subprocess
+import json
+import re
+from pathlib import Path
+
+class JWTAnalyzer:
+    def __init__(self):
+        self.jwt_hack = &amp;quot;jwt-hack&amp;quot;
+
+    def decode(self, token):
+        &amp;quot;&amp;quot;&amp;quot;Decode JWT and extract information&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;decode&apos;, token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return self._parse_decode_output(result.stdout)
+        except subprocess.CalledProcessError:
+            return None
+
+    def verify(self, token, secret):
+        &amp;quot;&amp;quot;&amp;quot;Verify JWT signature&amp;quot;&amp;quot;&amp;quot;
+        try:
+            subprocess.run(
+                [self.jwt_hack, &apos;verify&apos;, token, &apos;--secret&apos;, secret],
+                capture_output=True,
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def crack(self, token, wordlist):
+        &amp;quot;&amp;quot;&amp;quot;Attempt to crack JWT secret&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;crack&apos;, &apos;-w&apos;, wordlist, token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Extract secret from output
+            if match := re.search(r&apos;Secret: (.+)&apos;, result.stdout):
+                return match.group(1)
+        except subprocess.CalledProcessError:
+            pass
+        return None
+
+    def generate_payloads(self, token, target=&apos;all&apos;):
+        &amp;quot;&amp;quot;&amp;quot;Generate attack payloads&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;payload&apos;, token, &apos;--target&apos;, target],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError:
+            return None
+
+    def _parse_decode_output(self, output):
+        &amp;quot;&amp;quot;&amp;quot;Parse decode output to extract structured data&amp;quot;&amp;quot;&amp;quot;
+        # This would parse the actual output format
+        # Implementation depends on jwt-hack output format
+        return {&amp;quot;raw_output&amp;quot;: output}
+
+# Usage example
+analyzer = JWTAnalyzer()
+token = &amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&amp;quot;
+
+# Analyze token
+info = analyzer.decode(token)
+if info:
+    print(&amp;quot;Token analysis:&amp;quot;, info)
+
+    # Try to crack it
+    secret = analyzer.crack(token, &amp;quot;wordlist.txt&amp;quot;)
+    if secret:
+        print(f&amp;quot;Secret found: {secret}&amp;quot;)
+
+        # Verify with found secret
+        if analyzer.verify(token, secret):
+            print(&amp;quot;Secret verified!&amp;quot;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;cicd-integration&quot;&gt;CI/CD Integration&lt;/h2&gt;
+&lt;h3 id=&quot;github-actions&quot;&gt;GitHub Actions&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-yaml hljs&quot;&gt;name: JWT Security Check
+
+on: [push, pull_request]
+
+jobs:
+  jwt-security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install JWT-HACK
+      run: |
+        cargo install jwt-hack
+
+    - name: Analyze JWT tokens in code
+      run: |
+        # Find JWT tokens in code (simple regex)
+        grep -r &amp;quot;eyJ[A-Za-z0-9_-]*\.&amp;quot; . || true
+
+    - name: Test JWT security
+      run: |
+        # Test any hardcoded tokens
+        if [ -f &amp;quot;test-tokens.txt&amp;quot; ]; then
+          while read token; do
+            echo &amp;quot;Testing token: $token&amp;quot;
+            jwt-hack decode &amp;quot;$token&amp;quot;
+            jwt-hack crack -w common-passwords.txt &amp;quot;$token&amp;quot; || true
+          done &amp;lt; test-tokens.txt
+        fi
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;docker-integration&quot;&gt;Docker Integration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-dockerfile hljs&quot;&gt;FROM rust:1.75 as builder
+RUN cargo install jwt-hack
+
+FROM debian:bookworm-slim
+COPY --from=builder /usr/local/cargo/bin/jwt-hack /usr/local/bin/
+COPY scripts/ /scripts/
+ENTRYPOINT [&amp;quot;/scripts/analyze.sh&amp;quot;]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;configuration-management&quot;&gt;Configuration Management&lt;/h2&gt;
+&lt;h3 id=&quot;environment-based-configuration&quot;&gt;Environment-Based Configuration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Set defaults from environment
+JWT_HACK_SECRET=&amp;quot;${JWT_HACK_SECRET:-default-secret}&amp;quot;
+JWT_HACK_WORDLIST=&amp;quot;${JWT_HACK_WORDLIST:-/usr/share/wordlists/rockyou.txt}&amp;quot;
+JWT_HACK_CONCURRENCY=&amp;quot;${JWT_HACK_CONCURRENCY:-$(nproc)}&amp;quot;
+
+# Use in scripts
+jwt-hack verify &amp;quot;$token&amp;quot; --secret=&amp;quot;$JWT_HACK_SECRET&amp;quot;
+jwt-hack crack -w &amp;quot;$JWT_HACK_WORDLIST&amp;quot; -c &amp;quot;$JWT_HACK_CONCURRENCY&amp;quot; &amp;quot;$token&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;config-file-generation&quot;&gt;Config File Generation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Generate jwt-hack config
+mkdir -p ~/.config/jwt-hack
+
+cat &amp;gt; ~/.config/jwt-hack/config.toml &amp;lt;&amp;lt; EOF
+default_secret = &amp;quot;${DEFAULT_SECRET}&amp;quot;
+default_algorithm = &amp;quot;${DEFAULT_ALGORITHM:-HS256}&amp;quot;
+default_wordlist = &amp;quot;${DEFAULT_WORDLIST}&amp;quot;
+default_private_key = &amp;quot;${DEFAULT_PRIVATE_KEY}&amp;quot;
+EOF
+
+echo &amp;quot;Configuration generated at ~/.config/jwt-hack/config.toml&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Performance Optimization</title>
+      <link>https://jwt-hack.hahwul.com/advanced/performance-optimization/</link>
+      <guid>https://jwt-hack.hahwul.com/advanced/performance-optimization/</guid>
+      <description>&lt;p&gt;JWT-HACK is built for high performance, but you can optimize it further for your specific use cases.&lt;/p&gt;
+&lt;h2 id=&quot;cracking-performance&quot;&gt;Cracking Performance&lt;/h2&gt;
+&lt;h3 id=&quot;thread-configuration&quot;&gt;Thread Configuration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Use all available CPU cores
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+
+# Set specific thread count
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 16
+
+# Balance between performance and resource usage
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c $(nproc)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;memory-optimization&quot;&gt;Memory Optimization&lt;/h3&gt;
+&lt;p&gt;For large wordlists:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Use SSD storage for faster I/O&lt;/li&gt;
+&lt;li&gt;Ensure adequate RAM (4GB+ recommended for large operations)&lt;/li&gt;
+&lt;li&gt;Monitor memory usage with system tools&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;wordlist-optimization&quot;&gt;Wordlist Optimization&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Sort by frequency for faster results
+sort -u wordlist.txt &amp;gt; sorted_wordlist.txt
+
+# Remove duplicates to reduce processing time
+awk &apos;!seen[$0]++&apos; wordlist.txt &amp;gt; unique_wordlist.txt
+
+# Split large wordlists for parallel processing
+split -l 100000 large_wordlist.txt chunk_
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;build-optimizations&quot;&gt;Build Optimizations&lt;/h2&gt;
+&lt;h3 id=&quot;release-builds&quot;&gt;Release Builds&lt;/h3&gt;
+&lt;p&gt;Always use release builds for production:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Standard release build
+cargo build --release
+
+# Maximum optimization
+RUSTFLAGS=&amp;quot;-C target-cpu=native&amp;quot; cargo build --release
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;profile-guided-optimization&quot;&gt;Profile-Guided Optimization&lt;/h3&gt;
+&lt;p&gt;For maximum performance:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Build with PGO
+RUSTFLAGS=&amp;quot;-C profile-generate&amp;quot; cargo build --release
+./target/release/jwt-hack crack -w sample.txt &amp;lt;TOKEN&amp;gt;
+RUSTFLAGS=&amp;quot;-C profile-use&amp;quot; cargo build --release
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;system-tuning&quot;&gt;System Tuning&lt;/h2&gt;
+&lt;h3 id=&quot;linux&quot;&gt;Linux&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Increase file descriptor limits
+ulimit -n 65536
+
+# Optimize CPU scaling
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;macos&quot;&gt;macOS&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Increase file descriptor limits
+launchctl limit maxfiles 65536 200000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;benchmarking&quot;&gt;Benchmarking&lt;/h2&gt;
+&lt;p&gt;Compare performance with different settings:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Benchmark dictionary attack
+time jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 8
+time jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+
+# Benchmark brute force
+time jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 -c 8
+time jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Examples</title>
+      <link>https://jwt-hack.hahwul.com/usage/examples/</link>
+      <guid>https://jwt-hack.hahwul.com/usage/examples/</guid>
+      <description>&lt;p&gt;Practical examples for common JWT-HACK use cases and workflows.&lt;/p&gt;
+&lt;h2 id=&quot;basic-operations&quot;&gt;Basic Operations&lt;/h2&gt;
+&lt;h3 id=&quot;decode-a-jwt-token&quot;&gt;Decode a JWT Token&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode and display token contents
+jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;create-a-new-jwt&quot;&gt;Create a New JWT&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create with HMAC-SHA256
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;, &amp;quot;name&amp;quot;:&amp;quot;John Doe&amp;quot;, &amp;quot;admin&amp;quot;:true}&apos; --secret=mysecret
+
+# Create with RSA
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;, &amp;quot;role&amp;quot;:&amp;quot;admin&amp;quot;}&apos; --private-key=private.pem --algorithm=RS256
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;verify-jwt-signature&quot;&gt;Verify JWT Signature&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify HMAC token
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIG --secret=mysecret
+
+# Verify RSA token with expiration
+jwt-hack verify &amp;lt;RSA_TOKEN&amp;gt; --private-key=public.pem --validate-exp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;security-testing-workflows&quot;&gt;Security Testing Workflows&lt;/h2&gt;
+&lt;h3 id=&quot;full-token-analysis&quot;&gt;Full Token Analysis&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Step 1: Decode to understand structure
+jwt-hack decode &amp;lt;TOKEN&amp;gt;
+
+# Step 2: Try cracking the secret
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt;
+
+# Step 3: Generate attack payloads
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;password-cracking&quot;&gt;Password Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Quick dictionary attack with common passwords
+jwt-hack crack -w /usr/share/wordlists/rockyou.txt &amp;lt;TOKEN&amp;gt;
+
+# Brute force attack (short secrets)
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+
+# Custom wordlist with verbose output
+jwt-hack crack -w custom-secrets.txt &amp;lt;TOKEN&amp;gt; --verbose
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;none-algorithm-bypass&quot;&gt;None Algorithm Bypass&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate none algorithm payloads
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=none
+
+# Test each variant manually
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;advanced-use-cases&quot;&gt;Advanced Use Cases&lt;/h2&gt;
+&lt;h3 id=&quot;compressed-tokens&quot;&gt;Compressed Tokens&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create compressed JWT
+jwt-hack encode &apos;{&amp;quot;data&amp;quot;:&amp;quot;very long payload content...&amp;quot;}&apos; --secret=test --compress
+
+# Decode automatically handles decompression
+jwt-hack decode &amp;lt;COMPRESSED_TOKEN&amp;gt;
+
+# Crack compressed token
+jwt-hack crack -w wordlist.txt &amp;lt;COMPRESSED_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;custom-headers&quot;&gt;Custom Headers&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Add custom header fields
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; \
+  --secret=test \
+  --header=&apos;{&amp;quot;kid&amp;quot;:&amp;quot;key-123&amp;quot;,&amp;quot;x5u&amp;quot;:&amp;quot;https://example.com/certs&amp;quot;}&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;multiple-algorithms&quot;&gt;Multiple Algorithms&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# HS256 (HMAC SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=secret --algorithm=HS256
+
+# HS512 (HMAC SHA-512)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=secret --algorithm=HS512
+
+# RS256 (RSA SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --private-key=rsa.pem --algorithm=RS256
+
+# ES256 (ECDSA SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --private-key=ec.pem --algorithm=ES256
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;integration-with-other-tools&quot;&gt;Integration with Other Tools&lt;/h2&gt;
+&lt;h3 id=&quot;with-curl&quot;&gt;With curl&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create token and use in API request
+TOKEN=$(jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;user123&amp;quot;}&apos; --secret=mysecret)
+curl -H &amp;quot;Authorization: Bearer $TOKEN&amp;quot; https://api.example.com/data
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;with-jq&quot;&gt;With jq&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Extract specific claims from decoded token
+jwt-hack decode &amp;lt;TOKEN&amp;gt; --json | jq &apos;.payload.sub&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;performance-optimization&quot;&gt;Performance Optimization&lt;/h2&gt;
+&lt;h3 id=&quot;parallel-cracking&quot;&gt;Parallel Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Use all CPU cores
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5 --power
+
+# Custom concurrency
+jwt-hack crack -w huge-wordlist.txt &amp;lt;TOKEN&amp;gt; -c 16
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;best-practices&quot;&gt;Best Practices&lt;/h2&gt;
+&lt;h3 id=&quot;always-decode-first&quot;&gt;Always Decode First&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Before any attack, understand the token
+jwt-hack decode &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;use-targeted-wordlists&quot;&gt;Use Targeted Wordlists&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Start with small, targeted wordlists
+jwt-hack crack -w top-100.txt &amp;lt;TOKEN&amp;gt;
+
+# Then try larger sets if needed
+jwt-hack crack -w rockyou.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;responsible-testing&quot;&gt;Responsible Testing&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Only test systems you own or have permission to test&lt;/li&gt;
+&lt;li&gt;Always get written authorization&lt;/li&gt;
+&lt;li&gt;Follow responsible disclosure practices&lt;/li&gt;
+&lt;li&gt;Document all testing activities&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Server Command</title>
+      <link>https://jwt-hack.hahwul.com/usage/commands/server/</link>
+      <guid>https://jwt-hack.hahwul.com/usage/commands/server/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;server&lt;/code&gt; command starts a local REST API that exposes JWT-HACK features over HTTP. It&apos;s useful for automation, integrations, and UI frontends.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Default bind: http://127.0.0.1:3000&lt;/li&gt;
+&lt;li&gt;CORS: Allowed from any origin&lt;/li&gt;
+&lt;li&gt;Content type: All endpoints expect and return application/json&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;usage&quot;&gt;Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/help.txt#L1-20 hljs&quot;&gt;Starts a REST API server for JWT operations
+
+Usage: jwt-hack server [OPTIONS]
+
+Global options (available to all subcommands):
+      --config &amp;lt;CONFIG&amp;gt;  Path to configuration file
+
+Server options:
+      --host &amp;lt;HOST&amp;gt;      Host address to bind to [default: 127.0.0.1]
+      --port &amp;lt;PORT&amp;gt;      Port number to listen on [default: 3000]
+      --api-key &amp;lt;API_KEY&amp;gt;  API key to secure the REST API (validated via X-API-KEY header)
+  -h, --help             Print help
+
+Examples:
+  # start on default 127.0.0.1:3000
+  ./target/debug/jwt-hack server
+
+  # start on all interfaces on port 8080
+  ./target/debug/jwt-hack server --host 0.0.0.0 --port 8080
+
+  # protect with API key (clients must send -H &apos;X-API-KEY: &amp;lt;KEY&amp;gt;&apos;)
+  ./target/debug/jwt-hack server --api-key your-api-key
+
+  # with a config file (global option)
+  ./target/debug/jwt-hack --config ./jwt-hack.toml server
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Note on configuration: the &lt;code&gt;--config&lt;/code&gt; option is global. The server loads configuration at startup, but most REST behaviors described here do not require a config file.&lt;/p&gt;
+&lt;h2 id=&quot;endpoints&quot;&gt;Endpoints&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;GET/POST &lt;code&gt;/health&lt;/code&gt; — Health check with version info&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/decode&lt;/code&gt; — Decode a JWT&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/encode&lt;/code&gt; — Create a JWT&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/verify&lt;/code&gt; — Verify a JWT signature&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/crack&lt;/code&gt; — Attempt to find a weak secret (dictionary or brute force)&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/payload&lt;/code&gt; — Generate attack payload tokens (for testing)&lt;/li&gt;
+&lt;li&gt;POST &lt;code&gt;/scan&lt;/code&gt; — Basic vulnerability scan and weak secret check&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;All endpoints return JSON. Most errors are reported as HTTP 200 with &lt;code&gt;success:false&lt;/code&gt; and an &lt;code&gt;error&lt;/code&gt; string. In rare internal failures, HTTP 500 may be returned with the same JSON shape via &lt;code&gt;{ success:false, error:&amp;quot;...&amp;quot; }&lt;/code&gt;.&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2 id=&quot;schemas&quot;&gt;Schemas&lt;/h2&gt;
+&lt;p&gt;The following request and response shapes are supported.&lt;/p&gt;
+&lt;h3 id=&quot;health&quot;&gt;Health&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request: none&lt;/li&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/health-response.json#L1-5 hljs&quot;&gt;{
+  &amp;quot;status&amp;quot;: &amp;quot;ok&amp;quot;,
+  &amp;quot;version&amp;quot;: &amp;quot;2.5.0&amp;quot;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;decode&quot;&gt;Decode&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/decode-request.json#L1-3 hljs&quot;&gt;{
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...&amp;quot;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/decode-response.json#L1-16 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  &amp;quot;header&amp;quot;: {
+    &amp;quot;alg&amp;quot;: &amp;quot;HS256&amp;quot;,
+    &amp;quot;typ&amp;quot;: &amp;quot;JWT&amp;quot;
+  },
+  &amp;quot;payload&amp;quot;: {
+    &amp;quot;sub&amp;quot;: &amp;quot;1234567890&amp;quot;,
+    &amp;quot;name&amp;quot;: &amp;quot;John Doe&amp;quot;,
+    &amp;quot;iat&amp;quot;: 1516239022
+  },
+  &amp;quot;algorithm&amp;quot;: &amp;quot;HS256&amp;quot;,
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;encode&quot;&gt;Encode&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/encode-request.json#L1-20 hljs&quot;&gt;{
+  &amp;quot;payload&amp;quot;: { &amp;quot;sub&amp;quot;: &amp;quot;1234567890&amp;quot;, &amp;quot;name&amp;quot;: &amp;quot;John Doe&amp;quot;, &amp;quot;iat&amp;quot;: 1516239022 },
+
+  // Optional. Used when signing with HMAC (HS256/HS384/HS512).
+  // If &amp;quot;no_signature&amp;quot;: true, this is ignored.
+  &amp;quot;secret&amp;quot;: &amp;quot;secret&amp;quot;,
+
+  // Optional. Defaults to &amp;quot;HS256&amp;quot;.
+  // Combined with &amp;quot;no_signature&amp;quot;: true, you can produce &amp;quot;none&amp;quot; algorithm tokens.
+  &amp;quot;algorithm&amp;quot;: &amp;quot;HS256&amp;quot;,
+
+  // Optional. When true, produces an unsigned token (&amp;quot;alg&amp;quot;:&amp;quot;none&amp;quot;).
+  &amp;quot;no_signature&amp;quot;: false,
+
+  // Optional. Additional header parameters as an array of 2-tuples.
+  // Example below adds {&amp;quot;kid&amp;quot;:&amp;quot;abc123&amp;quot;, &amp;quot;cty&amp;quot;:&amp;quot;JWT&amp;quot;} to the header.
+  &amp;quot;headers&amp;quot;: [[&amp;quot;kid&amp;quot;,&amp;quot;abc123&amp;quot;], [&amp;quot;cty&amp;quot;,&amp;quot;JWT&amp;quot;]],
+
+  // Optional. DEFLATE compression for payload; adds {&amp;quot;zip&amp;quot;:&amp;quot;DEF&amp;quot;} to headers.
+  &amp;quot;compress&amp;quot;: false
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/encode-response.json#L1-6 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...signature&amp;quot;,
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The server-side encode API currently supports HMAC secrets and &amp;quot;none&amp;quot; algorithm. Asymmetric keys for encoding are not exposed over this REST API.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;verify&quot;&gt;Verify&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/verify-request.json#L1-10 hljs&quot;&gt;{
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...&amp;quot;,
+  // Optional HMAC secret; defaults to empty string when omitted.
+  &amp;quot;secret&amp;quot;: &amp;quot;secret&amp;quot;,
+  // Optional. When true, validates &amp;quot;exp&amp;quot; claim; when false, ignores it.
+  &amp;quot;validate_exp&amp;quot;: true
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/verify-response.json#L1-6 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  &amp;quot;valid&amp;quot;: true,
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The server-side verify API uses HMAC secrets. If the token was signed with RSA/ECDSA/EdDSA, this endpoint will not validate it successfully.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;crack&quot;&gt;Crack&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/crack-request.json#L1-18 hljs&quot;&gt;{
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...&amp;quot;,
+  // &amp;quot;dict&amp;quot; (default) or &amp;quot;brute&amp;quot;
+  &amp;quot;mode&amp;quot;: &amp;quot;dict&amp;quot;,
+
+  // Required when mode=&amp;quot;dict&amp;quot;: file path accessible to the server process
+  // (e.g., &amp;quot;samples/wordlist.txt&amp;quot;)
+  &amp;quot;wordlist&amp;quot;: &amp;quot;samples/wordlist.txt&amp;quot;,
+
+  // Used when mode=&amp;quot;brute&amp;quot;:
+  // Either specify &amp;quot;preset&amp;quot; or provide a custom &amp;quot;chars&amp;quot; and &amp;quot;max&amp;quot;.
+  // Presets: &amp;quot;az&amp;quot;, &amp;quot;AZ&amp;quot;, &amp;quot;aZ&amp;quot;, &amp;quot;19&amp;quot;, &amp;quot;aZ19&amp;quot;, &amp;quot;ascii&amp;quot;
+  &amp;quot;preset&amp;quot;: &amp;quot;aZ19&amp;quot;,
+  &amp;quot;chars&amp;quot;: &amp;quot;abcdefghijklmnopqrstuvwxyz0123456789&amp;quot;,
+  &amp;quot;concurrency&amp;quot;: 20,  // accepted but not leveraged by the current API code
+  &amp;quot;max&amp;quot;: 4
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/crack-response.json#L1-10 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  // The discovered secret (if any)
+  &amp;quot;secret&amp;quot;: &amp;quot;secret&amp;quot;,
+  // When no secret is found, API returns:
+  // { &amp;quot;success&amp;quot;: true, &amp;quot;secret&amp;quot;: null, &amp;quot;error&amp;quot;: &amp;quot;Secret not found&amp;quot; }
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Dictionary mode requires a file path on the server host. The API does not upload wordlists.&lt;/li&gt;
+&lt;li&gt;Brute-force tries all combinations up to &lt;code&gt;max&lt;/code&gt; using &lt;code&gt;chars&lt;/code&gt; or a &lt;code&gt;preset&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;This endpoint executes synchronously and can be CPU-intensive; prefer small search spaces or offload heavy jobs to batch workers.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;payload&quot;&gt;Payload&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/payload-request.json#L1-12 hljs&quot;&gt;{
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...&amp;quot;,
+  // Optional trusted domain for jku/x5u scenarios
+  &amp;quot;jwk_trust&amp;quot;: &amp;quot;example.com&amp;quot;,
+  // Optional attacker-controlled domain for jku/x5u scenarios
+  &amp;quot;jwk_attack&amp;quot;: &amp;quot;attacker.tld&amp;quot;,
+  // http/https; defaults to &amp;quot;https&amp;quot;
+  &amp;quot;jwk_protocol&amp;quot;: &amp;quot;https&amp;quot;,
+  // Optional. Same values as CLI: &amp;quot;all,none,jku,x5u,alg_confusion,kid_sql,x5c,cty&amp;quot;
+  &amp;quot;target&amp;quot;: &amp;quot;all&amp;quot;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/payload-response.json#L1-18 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  &amp;quot;payloads&amp;quot;: [
+    {
+      &amp;quot;name&amp;quot;: &amp;quot;Payload #1&amp;quot;,
+      &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...payload1...&amp;quot;
+    },
+    {
+      &amp;quot;name&amp;quot;: &amp;quot;Payload #2&amp;quot;,
+      &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...payload2...&amp;quot;
+    }
+  ],
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The API returns a list of generated attack tokens labeled as &lt;code&gt;Payload #N&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Use these only in safe, controlled environments for security testing.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;scan&quot;&gt;Scan&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Request:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/scan-request.json#L1-12 hljs&quot;&gt;{
+  &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOi...&amp;quot;,
+  // If true, skip dictionary-based weak secret check
+  &amp;quot;skip_crack&amp;quot;: false,
+  // Accepted but not used by current server-side implementation
+  &amp;quot;skip_payloads&amp;quot;: false,
+  // Optional path for wordlist (used if skip_crack=false)
+  &amp;quot;wordlist&amp;quot;: &amp;quot;samples/wordlist.txt&amp;quot;,
+  // Accepted but not enforced by current implementation
+  &amp;quot;max_crack_attempts&amp;quot;: 100
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;Response:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/scan-response.json#L1-14 hljs&quot;&gt;{
+  &amp;quot;success&amp;quot;: true,
+  &amp;quot;vulnerabilities&amp;quot;: [
+    &amp;quot;Uses &apos;none&apos; algorithm (unsigned token)&amp;quot;,
+    &amp;quot;Token is expired&amp;quot;,
+    &amp;quot;Weak secret found: secret&amp;quot;,
+    &amp;quot;Invalid token format&amp;quot;
+  ],
+  // Present only if a weak secret was found via wordlist
+  &amp;quot;secret&amp;quot;: &amp;quot;secret&amp;quot;,
+  &amp;quot;error&amp;quot;: null
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The scan performs:
+&lt;ul&gt;
+&lt;li&gt;Basic header check for &lt;code&gt;alg:&amp;quot;none&amp;quot;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Expiration check on &lt;code&gt;exp&lt;/code&gt; if present.&lt;/li&gt;
+&lt;li&gt;Optional weak secret discovery via dictionary if &lt;code&gt;wordlist&lt;/code&gt; is provided and &lt;code&gt;skip_crack&lt;/code&gt; is false.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;It does not currently generate payloads despite accepting &lt;code&gt;skip_payloads&lt;/code&gt; (reserved for future behavior).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr /&gt;
+&lt;h2 id=&quot;curl-examples&quot;&gt;cURL Examples&lt;/h2&gt;
+&lt;p&gt;Replace host/port as needed. If the server was started with --api-key, include -H &apos;X-API-KEY: &amp;lt;API_KEY&amp;gt;&apos; in each request.&lt;/p&gt;
+&lt;h3 id=&quot;health-1&quot;&gt;Health&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-health.sh#L1-3 hljs&quot;&gt;curl -s http://127.0.0.1:3000/health
+curl -s -X POST http://127.0.0.1:3000/health
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;decode-1&quot;&gt;Decode&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-decode.sh#L1-4 hljs&quot;&gt;curl -s http://127.0.0.1:3000/decode \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{&amp;quot;token&amp;quot;:&amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6InQifQ.f8oE7B4G3RzYQ0kQ1kSsm1oQ2wKT1L9WZbnzv2mC1pI&amp;quot;}&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;encode-hs256&quot;&gt;Encode (HS256)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-encode-hs256.sh#L1-6 hljs&quot;&gt;curl -s http://127.0.0.1:3000/encode \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;payload&amp;quot;:{&amp;quot;sub&amp;quot;:&amp;quot;1234567890&amp;quot;,&amp;quot;name&amp;quot;:&amp;quot;John Doe&amp;quot;,&amp;quot;iat&amp;quot;:1516239022},
+        &amp;quot;secret&amp;quot;:&amp;quot;secret&amp;quot;,&amp;quot;algorithm&amp;quot;:&amp;quot;HS256&amp;quot;,&amp;quot;headers&amp;quot;:[[&amp;quot;kid&amp;quot;,&amp;quot;abc123&amp;quot;]]
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;encode-none&quot;&gt;Encode (none)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-encode-none.sh#L1-6 hljs&quot;&gt;curl -s http://127.0.0.1:3000/encode \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;payload&amp;quot;:{&amp;quot;sub&amp;quot;:&amp;quot;123&amp;quot;},
+        &amp;quot;no_signature&amp;quot;:true
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;verify-1&quot;&gt;Verify&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-verify.sh#L1-6 hljs&quot;&gt;curl -s http://127.0.0.1:3000/verify \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;token&amp;quot;:&amp;quot;&amp;lt;your-token&amp;gt;&amp;quot;,
+        &amp;quot;secret&amp;quot;:&amp;quot;secret&amp;quot;, &amp;quot;validate_exp&amp;quot;:true
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;crack-dictionary&quot;&gt;Crack (dictionary)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-crack-dict.sh#L1-5 hljs&quot;&gt;curl -s http://127.0.0.1:3000/crack \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;token&amp;quot;:&amp;quot;&amp;lt;your-token&amp;gt;&amp;quot;, &amp;quot;mode&amp;quot;:&amp;quot;dict&amp;quot;, &amp;quot;wordlist&amp;quot;:&amp;quot;samples/wordlist.txt&amp;quot;
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;crack-brute-force&quot;&gt;Crack (brute force)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-crack-brute.sh#L1-6 hljs&quot;&gt;curl -s http://127.0.0.1:3000/crack \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;token&amp;quot;:&amp;quot;&amp;lt;your-token&amp;gt;&amp;quot;, &amp;quot;mode&amp;quot;:&amp;quot;brute&amp;quot;,
+        &amp;quot;preset&amp;quot;:&amp;quot;aZ19&amp;quot;, &amp;quot;max&amp;quot;:3
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;payload-generation&quot;&gt;Payload generation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-payload.sh#L1-7 hljs&quot;&gt;curl -s http://127.0.0.1:3000/payload \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;token&amp;quot;:&amp;quot;&amp;lt;your-token&amp;gt;&amp;quot;,
+        &amp;quot;jwk_trust&amp;quot;:&amp;quot;example.com&amp;quot;,&amp;quot;jwk_attack&amp;quot;:&amp;quot;attacker.tld&amp;quot;,
+        &amp;quot;jwk_protocol&amp;quot;:&amp;quot;https&amp;quot;,&amp;quot;target&amp;quot;:&amp;quot;all&amp;quot;
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;scan-1&quot;&gt;Scan&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-/dev/null/curl-scan.sh#L1-6 hljs&quot;&gt;curl -s http://127.0.0.1:3000/scan \
+  -H &apos;Content-Type: application/json&apos; \
+  -d &apos;{
+        &amp;quot;token&amp;quot;:&amp;quot;&amp;lt;your-token&amp;gt;&amp;quot;,
+        &amp;quot;skip_crack&amp;quot;:false, &amp;quot;wordlist&amp;quot;:&amp;quot;samples/wordlist.txt&amp;quot;
+      }&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;hr /&gt;
+&lt;h2 id=&quot;operational-notes&quot;&gt;Operational Notes&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Bind address: Use &lt;code&gt;--host 0.0.0.0&lt;/code&gt; to accept remote connections.&lt;/li&gt;
+&lt;li&gt;CORS: Open (any origin, any method, any header).&lt;/li&gt;
+&lt;li&gt;Performance: &lt;code&gt;/crack&lt;/code&gt; can be CPU-heavy and synchronous; keep search spaces small or run behind a job queue.&lt;/li&gt;
+&lt;li&gt;Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).&lt;/li&gt;
+&lt;li&gt;Errors: Most endpoints return HTTP 200 with &lt;code&gt;success:false&lt;/code&gt; and &lt;code&gt;error&lt;/code&gt;. Handle both the HTTP status and the &lt;code&gt;success&lt;/code&gt; flag in clients.&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Crack Command</title>
+      <link>https://jwt-hack.hahwul.com/usage/commands/crack/</link>
+      <guid>https://jwt-hack.hahwul.com/usage/commands/crack/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;crack&lt;/code&gt; command attempts to discover JWT secrets using dictionary attacks or brute force methods.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack [OPTIONS] &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;dictionary-attack&quot;&gt;Dictionary Attack&lt;/h2&gt;
+&lt;p&gt;Use a wordlist to crack JWT secrets:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Basic dictionary attack
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt;
+
+# Use custom wordlist
+jwt-hack crack --wordlist=/path/to/custom/wordlist.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;brute-force-attack&quot;&gt;Brute Force Attack&lt;/h2&gt;
+&lt;p&gt;Generate and test password combinations:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Brute force up to 4 characters
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4
+
+# Brute force up to 6 characters (longer runtime)
+jwt-hack crack --mode=brute &amp;lt;TOKEN&amp;gt; --max=6
+
+# Use all CPU cores for faster cracking
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;attack-modes&quot;&gt;Attack Modes&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-mode-default&quot;&gt;Dictionary Mode (Default)&lt;/h3&gt;
+&lt;p&gt;Uses a wordlist file to test potential secrets:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack -w passwords.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Wordlist Requirements:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Plain text file&lt;/li&gt;
+&lt;li&gt;One password per line&lt;/li&gt;
+&lt;li&gt;No size limit (handles large files efficiently)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;brute-force-mode&quot;&gt;Brute Force Mode&lt;/h3&gt;
+&lt;p&gt;Generates combinations of characters:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Character Sets:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Lowercase letters (a-z)&lt;/li&gt;
+&lt;li&gt;Uppercase letters (A-Z)&lt;/li&gt;
+&lt;li&gt;Numbers (0-9)&lt;/li&gt;
+&lt;li&gt;Special characters (!@#$%^&amp;amp;*)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;performance-options&quot;&gt;Performance Options&lt;/h2&gt;
+&lt;h3 id=&quot;concurrency-control&quot;&gt;Concurrency Control&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Set custom thread count
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 10
+
+# Use maximum CPU cores
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;progress-monitoring&quot;&gt;Progress Monitoring&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Enable verbose output
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --verbose
+
+# Shows:
+# - Current password being tested
+# - Progress percentage
+# - Estimated time remaining
+# - Passwords tested per second
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;command-options&quot;&gt;Command Options&lt;/h2&gt;
+&lt;h3 id=&quot;required&quot;&gt;Required&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&amp;lt;TOKEN&amp;gt;&lt;/code&gt; - The JWT token to crack&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;attack-mode-options&quot;&gt;Attack Mode Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-w, --wordlist &amp;lt;FILE&amp;gt;&lt;/code&gt; - Path to wordlist file&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-m, --mode &amp;lt;MODE&amp;gt;&lt;/code&gt; - Attack mode: dictionary (default) or brute&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;performance-options-1&quot;&gt;Performance Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-c, --concurrency &amp;lt;NUM&amp;gt;&lt;/code&gt; - Number of threads (default: 20)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--max &amp;lt;LENGTH&amp;gt;&lt;/code&gt; - Maximum length for brute force (default: 4)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--power&lt;/code&gt; - Use all available CPU cores&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--verbose&lt;/code&gt; - Show detailed progress information&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;compressed-token-support&quot;&gt;Compressed Token Support&lt;/h2&gt;
+&lt;p&gt;JWT-HACK automatically handles DEFLATE-compressed tokens:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Crack compressed JWT (detected automatically)
+jwt-hack crack -w wordlist.txt &amp;lt;COMPRESSED_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The tool will:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Detect compression automatically&lt;/li&gt;
+&lt;li&gt;Decompress during verification&lt;/li&gt;
+&lt;li&gt;Crack the original uncompressed secret&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;examples&quot;&gt;Examples&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-attack-examples&quot;&gt;Dictionary Attack Examples&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Common passwords wordlist
+jwt-hack crack -w /usr/share/wordlists/rockyou.txt &amp;lt;TOKEN&amp;gt;
+
+# Custom application-specific wordlist
+jwt-hack crack -w app-secrets.txt &amp;lt;TOKEN&amp;gt;
+
+# SecLists common passwords
+jwt-hack crack -w /opt/SecLists/Passwords/Common-Credentials/10k-most-common.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;brute-force-examples&quot;&gt;Brute Force Examples&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Quick 3-character brute force
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=3
+
+# Intensive 5-character with all cores
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5 --power --verbose
+
+# Custom thread count
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 -c 8
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;targeted-attacks&quot;&gt;Targeted Attacks&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test common weak secrets first
+echo -e &amp;quot;secret\npassword\ntest\n123456\nkey&amp;quot; | jwt-hack crack -w /dev/stdin &amp;lt;TOKEN&amp;gt;
+
+# Application-specific patterns
+jwt-hack crack -w company-keywords.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;wordlist-creation&quot;&gt;Wordlist Creation&lt;/h2&gt;
+&lt;h3 id=&quot;generate-custom-wordlists&quot;&gt;Generate Custom Wordlists&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Company/application-specific terms
+echo -e &amp;quot;company\nappname\napi\ndev\ntest\nprod&amp;quot; &amp;gt; custom.txt
+
+# Common patterns with variations
+echo -e &amp;quot;secret123\npassword1\nkey2023\napi_key&amp;quot; &amp;gt; patterns.txt
+
+# Combine multiple wordlists
+cat wordlist1.txt wordlist2.txt &amp;gt; combined.txt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;recommended-wordlists&quot;&gt;Recommended Wordlists&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;RockYou&lt;/strong&gt; - Most common passwords from breaches&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;SecLists&lt;/strong&gt; - Comprehensive security testing wordlists&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Custom Lists&lt;/strong&gt; - Application-specific terms and patterns&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;success-output&quot;&gt;Success Output&lt;/h2&gt;
+&lt;p&gt;When a secret is found:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;🎉 SECRET FOUND!
+Secret: mysecret123
+Time taken: 2.5 seconds
+Passwords tested: 1,247
+&lt;/code&gt;&lt;/pre&gt;2 id=&quot;performance-tips&quot;&gt;Performance Tips&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-attacks&quot;&gt;Dictionary Attacks&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Use targeted wordlists for faster results&lt;/li&gt;
+&lt;li&gt;Start with common passwords&lt;/li&gt;
+&lt;li&gt;Sort wordlists by frequency/likelihood&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;brute-force-attacks&quot;&gt;Brute Force Attacks&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Start with shorter lengths (3-4 chars)&lt;/li&gt;
+&lt;li&gt;Use &lt;code&gt;--power&lt;/code&gt; flag for maximum performance&lt;/li&gt;
+&lt;li&gt;Consider time vs. likelihood trade-offs&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;general-optimization&quot;&gt;General Optimization&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Use SSD storage for large wordlists&lt;/li&gt;
+&lt;li&gt;Ensure adequate RAM for concurrent operations&lt;/li&gt;
+&lt;li&gt;Monitor CPU usage with &lt;code&gt;--verbose&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;security-considerations&quot;&gt;Security Considerations&lt;/h2&gt;
+&lt;h3 id=&quot;responsible-disclosure&quot;&gt;Responsible Disclosure&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Only crack tokens you own or have permission to test&lt;/li&gt;
+&lt;li&gt;Follow responsible disclosure for vulnerabilities&lt;/li&gt;
+&lt;li&gt;Document findings appropriately&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;rate-limiting&quot;&gt;Rate Limiting&lt;/h3&gt;
+&lt;p&gt;Be aware of potential rate limiting when testing live applications:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Some applications may detect brute force attempts&lt;/li&gt;
+&lt;li&gt;Use appropriate delays if testing against live systems&lt;/li&gt;
+&lt;li&gt;Consider offline token analysis first&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+  </channel>
+</rss>

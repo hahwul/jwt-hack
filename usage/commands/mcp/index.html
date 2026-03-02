@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>MCP Server Mode - JWT-HACK</title>
+  <meta property="og:title" content="MCP Server Mode">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://jwt-hack.hahwul.com/usage/commands/mcp/">
+<meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MCP Server Mode">
+<meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<aside class="docs-sidebar">
+  <!-- Get Started -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <!-- Usage -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/decode/">decode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/encode/">encode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/verify/">verify</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/crack/">crack</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/payload/">payload</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/scan/">scan</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/server/">server</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="https://jwt-hack.hahwul.com/usage/examples/">Examples</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <!-- Advanced -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/advanced/scripting-automation/">Scripting & Automation</a></li>
+    </ul>
+  </div>
+
+  <!-- Reference -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <!-- Support -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/faq/">FAQ</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/community/">Community</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main class="docs-main">
+    <div class="docs-content">
+      <h1>MCP Server Mode</h1>
+      <p>The <code>mcp</code> command runs JWT-HACK as a Model Context Protocol (MCP) server for AI model integration.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre><code class="language-bash hljs">jwt-hack mcp
+</code></pre>
+<h2 id="what-is-mcp">What is MCP?</h2>
+<p>Model Context Protocol (MCP) is a standardized protocol that enables AI models to interact with external tools and services. When JWT-HACK runs in MCP mode, it exposes its JWT analysis capabilities to AI models through a structured interface.</p>
+<h2 id="starting-the-mcp-server">Starting the MCP Server</h2>
+<pre><code class="language-bash hljs"># Start MCP server on default port
+jwt-hack mcp
+
+# The server will:
+# - Listen for MCP connections
+# - Expose JWT-HACK functionality as MCP tools
+# - Process requests from AI models
+# - Return structured responses
+</code></pre>
+<h2 id="available-mcp-tools">Available MCP Tools</h2>
+<p>When running as an MCP server, JWT-HACK exposes these tools to AI models:</p>
+<h3 id="jwt-analysis-tools">JWT Analysis Tools</h3>
+<ul>
+<li><strong>decode-jwt</strong> - Decode and analyze JWT tokens</li>
+<li><strong>verify-jwt</strong> - Verify JWT signatures</li>
+<li><strong>crack-jwt</strong> - Attempt to crack JWT secrets</li>
+<li><strong>generate-payloads</strong> - Create attack payloads</li>
+</ul>
+<h3 id="security-testing-tools">Security Testing Tools</h3>
+<ul>
+<li><strong>analyze-vulnerabilities</strong> - Identify potential security issues</li>
+<li><strong>generate-reports</strong> - Create security assessment reports</li>
+<li><strong>test-algorithms</strong> - Test algorithm-specific vulnerabilities</li>
+</ul>
+<h2 id="integration-examples">Integration Examples</h2>
+<h3 id="with-openai-models">With OpenAI Models</h3>
+<p>AI models can request JWT analysis through the MCP protocol:</p>
+<pre><code>AI Model Request: &quot;Analyze this JWT token for security vulnerabilities&quot;
+MCP Server: Executes decode, verify, and payload generation
+AI Model: Receives structured analysis results
+</code></pre>
+<h3 id="with-local-ai-models">With Local AI Models</h3>
+<p>Compatible with local AI frameworks that support MCP:</p>
+<ul>
+<li><strong>Ollama</strong> with MCP plugins</li>
+<li><strong>LangChain</strong> MCP integration</li>
+<li><strong>Custom AI applications</strong> using MCP protocol</li>
+</ul>
+<h2 id="mcp-protocol-features">MCP Protocol Features</h2>
+<h3 id="structured-requests">Structured Requests</h3>
+<pre><code class="language-json hljs">{
+  &quot;method&quot;: &quot;tools/call&quot;,
+  &quot;params&quot;: {
+    &quot;name&quot;: &quot;decode-jwt&quot;,
+    &quot;arguments&quot;: {
+      &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="structured-responses">Structured Responses</h3>
+<pre><code class="language-json hljs">{
+  &quot;result&quot;: {
+    &quot;algorithm&quot;: &quot;HS256&quot;,
+    &quot;header&quot;: {&quot;alg&quot;: &quot;HS256&quot;, &quot;typ&quot;: &quot;JWT&quot;},
+    &quot;payload&quot;: {&quot;sub&quot;: &quot;1234&quot;, &quot;name&quot;: &quot;John Doe&quot;},
+    &quot;vulnerabilities&quot;: [&quot;weak_secret_suspected&quot;],
+    &quot;recommendations&quot;: [&quot;Use stronger secrets&quot;, &quot;Enable expiration&quot;]
+  }
+}
+</code></pre>
+<h2 id="configuration">Configuration</h2>
+<h3 id="server-configuration">Server Configuration</h3>
+<p>The MCP server can be configured through environment variables:</p>
+<pre><code class="language-bash hljs"># Set custom port
+export MCP_PORT=8080
+jwt-hack mcp
+
+# Enable debug logging
+export MCP_DEBUG=true
+jwt-hack mcp
+
+# Set custom timeout
+export MCP_TIMEOUT=30
+jwt-hack mcp
+</code></pre>
+<h3 id="ai-model-configuration">AI Model Configuration</h3>
+<p>Configure your AI model to connect to the JWT-HACK MCP server:</p>
+<pre><code class="language-json hljs">{
+  &quot;mcp_servers&quot;: {
+    &quot;jwt-hack&quot;: {
+      &quot;command&quot;: &quot;jwt-hack&quot;,
+      &quot;args&quot;: [&quot;mcp&quot;],
+      &quot;description&quot;: &quot;JWT security analysis and testing&quot;
+    }
+  }
+}
+</code></pre>
+<h2 id="use-cases">Use Cases</h2>
+<h3 id="automated-security-analysis">Automated Security Analysis</h3>
+<p>AI models can perform comprehensive JWT security analysis:</p>
+<ol>
+<li><strong>Token Analysis</strong> - Decode and examine token structure</li>
+<li><strong>Vulnerability Detection</strong> - Identify security weaknesses</li>
+<li><strong>Attack Vector Generation</strong> - Create targeted test payloads</li>
+<li><strong>Report Generation</strong> - Summarize findings and recommendations</li>
+</ol>
+<h3 id="interactive-security-testing">Interactive Security Testing</h3>
+<p>Enable conversational security testing:</p>
+<pre><code>User: &quot;Is this JWT token secure?&quot;
+AI + MCP: Analyzes token, identifies issues, suggests improvements
+User: &quot;Show me attack payloads for testing&quot;
+AI + MCP: Generates and explains relevant attack vectors
+</code></pre>
+<h3 id="automated-penetration-testing">Automated Penetration Testing</h3>
+<p>Integrate into automated testing workflows:</p>
+<ul>
+<li><strong>CI/CD Pipelines</strong> - Analyze JWTs in automated tests</li>
+<li><strong>Security Scanners</strong> - Add JWT analysis capabilities</li>
+<li><strong>Monitoring Systems</strong> - Continuous JWT security assessment</li>
+</ul>
+<h2 id="benefits-of-mcp-integration">Benefits of MCP Integration</h2>
+<h3 id="for-ai-models">For AI Models</h3>
+<ul>
+<li>Access to specialized JWT security expertise</li>
+<li>Structured, reliable security analysis</li>
+<li>Real-time vulnerability assessment</li>
+<li>Consistent security recommendations</li>
+</ul>
+<h3 id="for-security-teams">For Security Teams</h3>
+<ul>
+<li>Natural language interaction with security tools</li>
+<li>Automated analysis and reporting</li>
+<li>Integration with existing AI workflows</li>
+<li>Scalable security testing</li>
+</ul>
+<h2 id="technical-details">Technical Details</h2>
+<h3 id="protocol-compliance">Protocol Compliance</h3>
+<p>JWT-HACK's MCP server implements:</p>
+<ul>
+<li><strong>MCP 1.0 specification</strong> compliance</li>
+<li><strong>JSON-RPC 2.0</strong> message format</li>
+<li><strong>WebSocket</strong> transport layer</li>
+<li><strong>Tool discovery</strong> and capability advertisement</li>
+</ul>
+<h3 id="performance-characteristics">Performance Characteristics</h3>
+<ul>
+<li><strong>Low latency</strong> - Fast response times for analysis</li>
+<li><strong>Concurrent requests</strong> - Handle multiple AI model connections</li>
+<li><strong>Resource efficient</strong> - Minimal memory and CPU overhead</li>
+<li><strong>Scalable</strong> - Support for high-volume analysis</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="connection-issues">Connection Issues</h3>
+<pre><code class="language-bash hljs"># Check if MCP server is running
+netstat -ln | grep :8080
+
+# Test MCP connection manually
+curl -X POST http://localhost:8080/mcp
+
+# Enable debug logging
+MCP_DEBUG=true jwt-hack mcp
+</code></pre>
+<h3 id="ai-model-integration">AI Model Integration</h3>
+<pre><code class="language-bash hljs"># Verify AI model can discover tools
+# Check MCP protocol compatibility
+# Validate request/response formats
+</code></pre>
+<h2 id="development-and-extensions">Development and Extensions</h2>
+<h3 id="custom-mcp-tools">Custom MCP Tools</h3>
+<p>The MCP server architecture allows for extending JWT-HACK with custom tools:</p>
+<pre><code class="language-rust hljs">// Example: Add custom JWT analysis tool
+impl McpTool for CustomJwtAnalyzer {
+    fn name(&amp;self) -&gt; &amp;str { &quot;custom-analysis&quot; }
+    fn execute(&amp;self, args: Value) -&gt; Result&lt;Value&gt; {
+        // Custom JWT analysis logic
+    }
+}
+</code></pre>
+<h3 id="protocol-extensions">Protocol Extensions</h3>
+<ul>
+<li>Custom error handling</li>
+<li>Extended metadata support</li>
+<li>Streaming responses for long operations</li>
+<li>Batch processing capabilities</li>
+</ul>
+<h2 id="security-considerations">Security Considerations</h2>
+<h3 id="access-control">Access Control</h3>
+<ul>
+<li>MCP server runs locally by default</li>
+<li>Consider network security for remote access</li>
+<li>Implement authentication for production use</li>
+</ul>
+<h3 id="data-privacy">Data Privacy</h3>
+<ul>
+<li>JWT tokens are processed locally</li>
+<li>No data transmitted to external services</li>
+<li>Full control over sensitive token analysis</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>Scripting & Automation - JWT-HACK</title>
+  <meta property="og:title" content="Scripting &amp; Automation">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://jwt-hack.hahwul.com/advanced/scripting-automation/">
+<meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Scripting &amp; Automation">
+<meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<aside class="docs-sidebar">
+  <!-- Get Started -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <!-- Usage -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/decode/">decode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/encode/">encode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/verify/">verify</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/crack/">crack</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/payload/">payload</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/scan/">scan</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/server/">server</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="https://jwt-hack.hahwul.com/usage/examples/">Examples</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <!-- Advanced -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/advanced/scripting-automation/">Scripting & Automation</a></li>
+    </ul>
+  </div>
+
+  <!-- Reference -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <!-- Support -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/faq/">FAQ</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/community/">Community</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main class="docs-main">
+    <div class="docs-content">
+      <h1>Scripting & Automation</h1>
+      <p>JWT-HACK is designed to work well in scripts and automated workflows.</p>
+<h2 id="exit-codes">Exit Codes</h2>
+<p>JWT-HACK uses standard exit codes for automation:</p>
+<ul>
+<li><strong>0</strong> - Success</li>
+<li><strong>1</strong> - General error</li>
+<li><strong>2</strong> - Invalid input/arguments</li>
+<li><strong>3</strong> - Authentication/verification failure</li>
+</ul>
+<h2 id="bash-scripting">Bash Scripting</h2>
+<h3 id="basic-token-validation">Basic Token Validation</h3>
+<pre><code class="language-bash hljs">#!/bin/bash
+
+validate_token() {
+    local token=&quot;$1&quot;
+    local secret=&quot;$2&quot;
+
+    if jwt-hack verify &quot;$token&quot; --secret=&quot;$secret&quot; &gt; /dev/null 2&gt;&amp;1; then
+        echo &quot;Token is valid&quot;
+        return 0
+    else
+        echo &quot;Token is invalid&quot;
+        return 1
+    fi
+}
+
+# Usage
+if validate_token &quot;$JWT_TOKEN&quot; &quot;$SECRET&quot;; then
+    echo &quot;Proceeding with authenticated request&quot;
+else
+    echo &quot;Authentication failed&quot;
+    exit 1
+fi
+</code></pre>
+<h3 id="batch-token-processing">Batch Token Processing</h3>
+<pre><code class="language-bash hljs">#!/bin/bash
+
+# Process multiple tokens from file
+while IFS= read -r token; do
+    echo &quot;Processing token: ${token:0:20}...&quot;
+
+    if jwt-hack decode &quot;$token&quot; &gt; /dev/null 2&gt;&amp;1; then
+        echo &quot;✓ Valid format&quot;
+        jwt-hack decode &quot;$token&quot; | grep -E &quot;(exp|iat)&quot;
+    else
+        echo &quot;✗ Invalid format&quot;
+    fi
+    echo &quot;---&quot;
+done &lt; tokens.txt
+</code></pre> id="automated-cracking">Automated Cracking</h3>
+<pre><code class="language-bash hljs">#!/bin/bash
+
+crack_token() {
+    local token=&quot;$1&quot;
+    local wordlist=&quot;$2&quot;
+
+    echo &quot;Attempting to crack token...&quot;
+
+    if result=$(jwt-hack crack -w &quot;$wordlist&quot; &quot;$token&quot; 2&gt;&amp;1); then
+        echo &quot;SUCCESS: Secret found!&quot;
+        echo &quot;$result&quot; | grep &quot;Secret:&quot;
+        return 0
+    else
+        echo &quot;FAILED: Could not crack token&quot;
+        return 1
+    fi
+}
+
+# Try multiple wordlists
+wordlists=(&quot;/usr/share/wordlists/rockyou.txt&quot; &quot;custom.txt&quot; &quot;common.txt&quot;)
+
+for wordlist in &quot;${wordlists[@]}&quot;; do
+    if [[ -f &quot;$wordlist&quot; ]]; then
+        echo &quot;Trying wordlist: $wordlist&quot;
+        if crack_token &quot;$JWT_TOKEN&quot; &quot;$wordlist&quot;; then
+            break
+        fi
+    fi
+done
+</code></pre>
+<h2 id="python-integration">Python Integration</h2>
+<h3 id="using-subprocess">Using subprocess</h3>
+<pre><code class="language-python hljs">import subprocess
+import json
+import sys
+
+def decode_jwt(token):
+    &quot;&quot;&quot;Decode JWT token using jwt-hack&quot;&quot;&quot;
+    try:
+        result = subprocess.run(
+            ['jwt-hack', 'decode', token],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError:
+        return None
+
+def verify_jwt(token, secret):
+    &quot;&quot;&quot;Verify JWT token&quot;&quot;&quot;
+    try:
+        subprocess.run(
+            ['jwt-hack', 'verify', token, '--secret', secret],
+            capture_output=True,
+            check=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+# Usage
+token = &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+if decode_result := decode_jwt(token):
+    print(&quot;Token decoded successfully&quot;)
+    print(decode_result)
+else:
+    print(&quot;Failed to decode token&quot;)
+    sys.exit(1)
+</code></pre>
+<h3 id="token-analysis-pipeline">Token Analysis Pipeline</h3>
+<pre><code class="language-python hljs">#!/usr/bin/env python3
+
+import subprocess
+import json
+import re
+from pathlib import Path
+
+class JWTAnalyzer:
+    def __init__(self):
+        self.jwt_hack = &quot;jwt-hack&quot;
+
+    def decode(self, token):
+        &quot;&quot;&quot;Decode JWT and extract information&quot;&quot;&quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, 'decode', token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return self._parse_decode_output(result.stdout)
+        except subprocess.CalledProcessError:
+            return None
+
+    def verify(self, token, secret):
+        &quot;&quot;&quot;Verify JWT signature&quot;&quot;&quot;
+        try:
+            subprocess.run(
+                [self.jwt_hack, 'verify', token, '--secret', secret],
+                capture_output=True,
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def crack(self, token, wordlist):
+        &quot;&quot;&quot;Attempt to crack JWT secret&quot;&quot;&quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, 'crack', '-w', wordlist, token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Extract secret from output
+            if match := re.search(r'Secret: (.+)', result.stdout):
+                return match.group(1)
+        except subprocess.CalledProcessError:
+            pass
+        return None
+
+    def generate_payloads(self, token, target='all'):
+        &quot;&quot;&quot;Generate attack payloads&quot;&quot;&quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, 'payload', token, '--target', target],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError:
+            return None
+
+    def _parse_decode_output(self, output):
+        &quot;&quot;&quot;Parse decode output to extract structured data&quot;&quot;&quot;
+        # This would parse the actual output format
+        # Implementation depends on jwt-hack output format
+        return {&quot;raw_output&quot;: output}
+
+# Usage example
+analyzer = JWTAnalyzer()
+token = &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+
+# Analyze token
+info = analyzer.decode(token)
+if info:
+    print(&quot;Token analysis:&quot;, info)
+
+    # Try to crack it
+    secret = analyzer.crack(token, &quot;wordlist.txt&quot;)
+    if secret:
+        print(f&quot;Secret found: {secret}&quot;)
+
+        # Verify with found secret
+        if analyzer.verify(token, secret):
+            print(&quot;Secret verified!&quot;)
+</code></pre>
+<h2 id="cicd-integration">CI/CD Integration</h2>
+<h3 id="github-actions">GitHub Actions</h3>
+<pre><code class="language-yaml hljs">name: JWT Security Check
+
+on: [push, pull_request]
+
+jobs:
+  jwt-security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install JWT-HACK
+      run: |
+        cargo install jwt-hack
+
+    - name: Analyze JWT tokens in code
+      run: |
+        # Find JWT tokens in code (simple regex)
+        grep -r &quot;eyJ[A-Za-z0-9_-]*\.&quot; . || true
+
+    - name: Test JWT security
+      run: |
+        # Test any hardcoded tokens
+        if [ -f &quot;test-tokens.txt&quot; ]; then
+          while read token; do
+            echo &quot;Testing token: $token&quot;
+            jwt-hack decode &quot;$token&quot;
+            jwt-hack crack -w common-passwords.txt &quot;$token&quot; || true
+          done &lt; test-tokens.txt
+        fi
+</code></pre>
+<h3 id="docker-integration">Docker Integration</h3>
+<pre><code class="language-dockerfile hljs">FROM rust:1.75 as builder
+RUN cargo install jwt-hack
+
+FROM debian:bookworm-slim
+COPY --from=builder /usr/local/cargo/bin/jwt-hack /usr/local/bin/
+COPY scripts/ /scripts/
+ENTRYPOINT [&quot;/scripts/analyze.sh&quot;]
+</code></pre>
+<h2 id="configuration-management">Configuration Management</h2>
+<h3 id="environment-based-configuration">Environment-Based Configuration</h3>
+<pre><code class="language-bash hljs">#!/bin/bash
+
+# Set defaults from environment
+JWT_HACK_SECRET=&quot;${JWT_HACK_SECRET:-default-secret}&quot;
+JWT_HACK_WORDLIST=&quot;${JWT_HACK_WORDLIST:-/usr/share/wordlists/rockyou.txt}&quot;
+JWT_HACK_CONCURRENCY=&quot;${JWT_HACK_CONCURRENCY:-$(nproc)}&quot;
+
+# Use in scripts
+jwt-hack verify &quot;$token&quot; --secret=&quot;$JWT_HACK_SECRET&quot;
+jwt-hack crack -w &quot;$JWT_HACK_WORDLIST&quot; -c &quot;$JWT_HACK_CONCURRENCY&quot; &quot;$token&quot;
+</code></pre>
+<h3 id="config-file-generation">Config File Generation</h3>
+<pre><code class="language-bash hljs">#!/bin/bash
+
+# Generate jwt-hack config
+mkdir -p ~/.config/jwt-hack
+
+cat &gt; ~/.config/jwt-hack/config.toml &lt;&lt; EOF
+default_secret = &quot;${DEFAULT_SECRET}&quot;
+default_algorithm = &quot;${DEFAULT_ALGORITHM:-HS256}&quot;
+default_wordlist = &quot;${DEFAULT_WORDLIST}&quot;
+default_private_key = &quot;${DEFAULT_PRIVATE_KEY}&quot;
+EOF
+
+echo &quot;Configuration generated at ~/.config/jwt-hack/config.toml&quot;
+</code></pre>
+
+    </div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

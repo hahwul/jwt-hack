@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>Server Command - JWT-HACK</title>
+  <meta property="og:title" content="Server Command">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://jwt-hack.hahwul.com/usage/commands/server/">
+<meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Server Command">
+<meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<aside class="docs-sidebar">
+  <!-- Get Started -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <!-- Usage -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/decode/">decode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/encode/">encode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/verify/">verify</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/crack/">crack</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/payload/">payload</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/scan/">scan</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/server/">server</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="https://jwt-hack.hahwul.com/usage/examples/">Examples</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <!-- Advanced -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/advanced/scripting-automation/">Scripting & Automation</a></li>
+    </ul>
+  </div>
+
+  <!-- Reference -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <!-- Support -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/faq/">FAQ</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/community/">Community</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main class="docs-main">
+    <div class="docs-content">
+      <h1>Server Command</h1>
+      <p>The <code>server</code> command starts a local REST API that exposes JWT-HACK features over HTTP. It's useful for automation, integrations, and UI frontends.</p>
+<ul>
+<li>Default bind: http://127.0.0.1:3000</li>
+<li>CORS: Allowed from any origin</li>
+<li>Content type: All endpoints expect and return application/json</li>
+</ul>
+<h2 id="usage">Usage</h2>
+<pre><code class="language-/dev/null/help.txt#L1-20 hljs">Starts a REST API server for JWT operations
+
+Usage: jwt-hack server [OPTIONS]
+
+Global options (available to all subcommands):
+      --config &lt;CONFIG&gt;  Path to configuration file
+
+Server options:
+      --host &lt;HOST&gt;      Host address to bind to [default: 127.0.0.1]
+      --port &lt;PORT&gt;      Port number to listen on [default: 3000]
+      --api-key &lt;API_KEY&gt;  API key to secure the REST API (validated via X-API-KEY header)
+  -h, --help             Print help
+
+Examples:
+  # start on default 127.0.0.1:3000
+  ./target/debug/jwt-hack server
+
+  # start on all interfaces on port 8080
+  ./target/debug/jwt-hack server --host 0.0.0.0 --port 8080
+
+  # protect with API key (clients must send -H 'X-API-KEY: &lt;KEY&gt;')
+  ./target/debug/jwt-hack server --api-key your-api-key
+
+  # with a config file (global option)
+  ./target/debug/jwt-hack --config ./jwt-hack.toml server
+</code></pre>
+<p>Note on configuration: the <code>--config</code> option is global. The server loads configuration at startup, but most REST behaviors described here do not require a config file.</p>
+<h2 id="endpoints">Endpoints</h2>
+<ul>
+<li>GET/POST <code>/health</code> — Health check with version info</li>
+<li>POST <code>/decode</code> — Decode a JWT</li>
+<li>POST <code>/encode</code> — Create a JWT</li>
+<li>POST <code>/verify</code> — Verify a JWT signature</li>
+<li>POST <code>/crack</code> — Attempt to find a weak secret (dictionary or brute force)</li>
+<li>POST <code>/payload</code> — Generate attack payload tokens (for testing)</li>
+<li>POST <code>/scan</code> — Basic vulnerability scan and weak secret check</li>
+</ul>
+<p>All endpoints return JSON. Most errors are reported as HTTP 200 with <code>success:false</code> and an <code>error</code> string. In rare internal failures, HTTP 500 may be returned with the same JSON shape via <code>{ success:false, error:&quot;...&quot; }</code>.</p>
+<hr />
+<h2 id="schemas">Schemas</h2>
+<p>The following request and response shapes are supported.</p>
+<h3 id="health">Health</h3>
+<ul>
+<li>Request: none</li>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/health-response.json#L1-5 hljs">{
+  &quot;status&quot;: &quot;ok&quot;,
+  &quot;version&quot;: &quot;2.5.0&quot;
+}
+</code></pre>
+<h3 id="decode">Decode</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/decode-request.json#L1-3 hljs">{
+  &quot;token&quot;: &quot;eyJhbGciOi...&quot;
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/decode-response.json#L1-16 hljs">{
+  &quot;success&quot;: true,
+  &quot;header&quot;: {
+    &quot;alg&quot;: &quot;HS256&quot;,
+    &quot;typ&quot;: &quot;JWT&quot;
+  },
+  &quot;payload&quot;: {
+    &quot;sub&quot;: &quot;1234567890&quot;,
+    &quot;name&quot;: &quot;John Doe&quot;,
+    &quot;iat&quot;: 1516239022
+  },
+  &quot;algorithm&quot;: &quot;HS256&quot;,
+  &quot;error&quot;: null
+}
+</code></pre>
+<h3 id="encode">Encode</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/encode-request.json#L1-20 hljs">{
+  &quot;payload&quot;: { &quot;sub&quot;: &quot;1234567890&quot;, &quot;name&quot;: &quot;John Doe&quot;, &quot;iat&quot;: 1516239022 },
+
+  // Optional. Used when signing with HMAC (HS256/HS384/HS512).
+  // If &quot;no_signature&quot;: true, this is ignored.
+  &quot;secret&quot;: &quot;secret&quot;,
+
+  // Optional. Defaults to &quot;HS256&quot;.
+  // Combined with &quot;no_signature&quot;: true, you can produce &quot;none&quot; algorithm tokens.
+  &quot;algorithm&quot;: &quot;HS256&quot;,
+
+  // Optional. When true, produces an unsigned token (&quot;alg&quot;:&quot;none&quot;).
+  &quot;no_signature&quot;: false,
+
+  // Optional. Additional header parameters as an array of 2-tuples.
+  // Example below adds {&quot;kid&quot;:&quot;abc123&quot;, &quot;cty&quot;:&quot;JWT&quot;} to the header.
+  &quot;headers&quot;: [[&quot;kid&quot;,&quot;abc123&quot;], [&quot;cty&quot;,&quot;JWT&quot;]],
+
+  // Optional. DEFLATE compression for payload; adds {&quot;zip&quot;:&quot;DEF&quot;} to headers.
+  &quot;compress&quot;: false
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/encode-response.json#L1-6 hljs">{
+  &quot;success&quot;: true,
+  &quot;token&quot;: &quot;eyJhbGciOi...signature&quot;,
+  &quot;error&quot;: null
+}
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The server-side encode API currently supports HMAC secrets and &quot;none&quot; algorithm. Asymmetric keys for encoding are not exposed over this REST API.</li>
+</ul>
+<h3 id="verify">Verify</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/verify-request.json#L1-10 hljs">{
+  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+  // Optional HMAC secret; defaults to empty string when omitted.
+  &quot;secret&quot;: &quot;secret&quot;,
+  // Optional. When true, validates &quot;exp&quot; claim; when false, ignores it.
+  &quot;validate_exp&quot;: true
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/verify-response.json#L1-6 hljs">{
+  &quot;success&quot;: true,
+  &quot;valid&quot;: true,
+  &quot;error&quot;: null
+}
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The server-side verify API uses HMAC secrets. If the token was signed with RSA/ECDSA/EdDSA, this endpoint will not validate it successfully.</li>
+</ul>
+<h3 id="crack">Crack</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/crack-request.json#L1-18 hljs">{
+  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+  // &quot;dict&quot; (default) or &quot;brute&quot;
+  &quot;mode&quot;: &quot;dict&quot;,
+
+  // Required when mode=&quot;dict&quot;: file path accessible to the server process
+  // (e.g., &quot;samples/wordlist.txt&quot;)
+  &quot;wordlist&quot;: &quot;samples/wordlist.txt&quot;,
+
+  // Used when mode=&quot;brute&quot;:
+  // Either specify &quot;preset&quot; or provide a custom &quot;chars&quot; and &quot;max&quot;.
+  // Presets: &quot;az&quot;, &quot;AZ&quot;, &quot;aZ&quot;, &quot;19&quot;, &quot;aZ19&quot;, &quot;ascii&quot;
+  &quot;preset&quot;: &quot;aZ19&quot;,
+  &quot;chars&quot;: &quot;abcdefghijklmnopqrstuvwxyz0123456789&quot;,
+  &quot;concurrency&quot;: 20,  // accepted but not leveraged by the current API code
+  &quot;max&quot;: 4
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/crack-response.json#L1-10 hljs">{
+  &quot;success&quot;: true,
+  // The discovered secret (if any)
+  &quot;secret&quot;: &quot;secret&quot;,
+  // When no secret is found, API returns:
+  // { &quot;success&quot;: true, &quot;secret&quot;: null, &quot;error&quot;: &quot;Secret not found&quot; }
+  &quot;error&quot;: null
+}
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Dictionary mode requires a file path on the server host. The API does not upload wordlists.</li>
+<li>Brute-force tries all combinations up to <code>max</code> using <code>chars</code> or a <code>preset</code>.</li>
+<li>This endpoint executes synchronously and can be CPU-intensive; prefer small search spaces or offload heavy jobs to batch workers.</li>
+</ul>
+<h3 id="payload">Payload</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/payload-request.json#L1-12 hljs">{
+  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+  // Optional trusted domain for jku/x5u scenarios
+  &quot;jwk_trust&quot;: &quot;example.com&quot;,
+  // Optional attacker-controlled domain for jku/x5u scenarios
+  &quot;jwk_attack&quot;: &quot;attacker.tld&quot;,
+  // http/https; defaults to &quot;https&quot;
+  &quot;jwk_protocol&quot;: &quot;https&quot;,
+  // Optional. Same values as CLI: &quot;all,none,jku,x5u,alg_confusion,kid_sql,x5c,cty&quot;
+  &quot;target&quot;: &quot;all&quot;
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/payload-response.json#L1-18 hljs">{
+  &quot;success&quot;: true,
+  &quot;payloads&quot;: [
+    {
+      &quot;name&quot;: &quot;Payload #1&quot;,
+      &quot;token&quot;: &quot;eyJhbGciOi...payload1...&quot;
+    },
+    {
+      &quot;name&quot;: &quot;Payload #2&quot;,
+      &quot;token&quot;: &quot;eyJhbGciOi...payload2...&quot;
+    }
+  ],
+  &quot;error&quot;: null
+}
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The API returns a list of generated attack tokens labeled as <code>Payload #N</code>.</li>
+<li>Use these only in safe, controlled environments for security testing.</li>
+</ul>
+<h3 id="scan">Scan</h3>
+<ul>
+<li>Request:</li>
+</ul>
+<pre><code class="language-/dev/null/scan-request.json#L1-12 hljs">{
+  &quot;token&quot;: &quot;eyJhbGciOi...&quot;,
+  // If true, skip dictionary-based weak secret check
+  &quot;skip_crack&quot;: false,
+  // Accepted but not used by current server-side implementation
+  &quot;skip_payloads&quot;: false,
+  // Optional path for wordlist (used if skip_crack=false)
+  &quot;wordlist&quot;: &quot;samples/wordlist.txt&quot;,
+  // Accepted but not enforced by current implementation
+  &quot;max_crack_attempts&quot;: 100
+}
+</code></pre>
+<ul>
+<li>Response:</li>
+</ul>
+<pre><code class="language-/dev/null/scan-response.json#L1-14 hljs">{
+  &quot;success&quot;: true,
+  &quot;vulnerabilities&quot;: [
+    &quot;Uses 'none' algorithm (unsigned token)&quot;,
+    &quot;Token is expired&quot;,
+    &quot;Weak secret found: secret&quot;,
+    &quot;Invalid token format&quot;
+  ],
+  // Present only if a weak secret was found via wordlist
+  &quot;secret&quot;: &quot;secret&quot;,
+  &quot;error&quot;: null
+}
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The scan performs:
+<ul>
+<li>Basic header check for <code>alg:&quot;none&quot;</code>.</li>
+<li>Expiration check on <code>exp</code> if present.</li>
+<li>Optional weak secret discovery via dictionary if <code>wordlist</code> is provided and <code>skip_crack</code> is false.</li>
+</ul>
+</li>
+<li>It does not currently generate payloads despite accepting <code>skip_payloads</code> (reserved for future behavior).</li>
+</ul>
+<hr />
+<h2 id="curl-examples">cURL Examples</h2>
+<p>Replace host/port as needed. If the server was started with --api-key, include -H 'X-API-KEY: &lt;API_KEY&gt;' in each request.</p>
+<h3 id="health-1">Health</h3>
+<pre><code class="language-/dev/null/curl-health.sh#L1-3 hljs">curl -s http://127.0.0.1:3000/health
+curl -s -X POST http://127.0.0.1:3000/health
+</code></pre>
+<h3 id="decode-1">Decode</h3>
+<pre><code class="language-/dev/null/curl-decode.sh#L1-4 hljs">curl -s http://127.0.0.1:3000/decode \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;token&quot;:&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6InQifQ.f8oE7B4G3RzYQ0kQ1kSsm1oQ2wKT1L9WZbnzv2mC1pI&quot;}'
+</code></pre>
+<h3 id="encode-hs256">Encode (HS256)</h3>
+<pre><code class="language-/dev/null/curl-encode-hs256.sh#L1-6 hljs">curl -s http://127.0.0.1:3000/encode \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;payload&quot;:{&quot;sub&quot;:&quot;1234567890&quot;,&quot;name&quot;:&quot;John Doe&quot;,&quot;iat&quot;:1516239022},
+        &quot;secret&quot;:&quot;secret&quot;,&quot;algorithm&quot;:&quot;HS256&quot;,&quot;headers&quot;:[[&quot;kid&quot;,&quot;abc123&quot;]]
+      }'
+</code></pre>
+<h3 id="encode-none">Encode (none)</h3>
+<pre><code class="language-/dev/null/curl-encode-none.sh#L1-6 hljs">curl -s http://127.0.0.1:3000/encode \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;payload&quot;:{&quot;sub&quot;:&quot;123&quot;},
+        &quot;no_signature&quot;:true
+      }'
+</code></pre>
+<h3 id="verify-1">Verify</h3>
+<pre><code class="language-/dev/null/curl-verify.sh#L1-6 hljs">curl -s http://127.0.0.1:3000/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+        &quot;secret&quot;:&quot;secret&quot;, &quot;validate_exp&quot;:true
+      }'
+</code></pre>
+<h3 id="crack-dictionary">Crack (dictionary)</h3>
+<pre><code class="language-/dev/null/curl-crack-dict.sh#L1-5 hljs">curl -s http://127.0.0.1:3000/crack \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;, &quot;mode&quot;:&quot;dict&quot;, &quot;wordlist&quot;:&quot;samples/wordlist.txt&quot;
+      }'
+</code></pre>
+<h3 id="crack-brute-force">Crack (brute force)</h3>
+<pre><code class="language-/dev/null/curl-crack-brute.sh#L1-6 hljs">curl -s http://127.0.0.1:3000/crack \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;, &quot;mode&quot;:&quot;brute&quot;,
+        &quot;preset&quot;:&quot;aZ19&quot;, &quot;max&quot;:3
+      }'
+</code></pre>
+<h3 id="payload-generation">Payload generation</h3>
+<pre><code class="language-/dev/null/curl-payload.sh#L1-7 hljs">curl -s http://127.0.0.1:3000/payload \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+        &quot;jwk_trust&quot;:&quot;example.com&quot;,&quot;jwk_attack&quot;:&quot;attacker.tld&quot;,
+        &quot;jwk_protocol&quot;:&quot;https&quot;,&quot;target&quot;:&quot;all&quot;
+      }'
+</code></pre>
+<h3 id="scan-1">Scan</h3>
+<pre><code class="language-/dev/null/curl-scan.sh#L1-6 hljs">curl -s http://127.0.0.1:3000/scan \
+  -H 'Content-Type: application/json' \
+  -d '{
+        &quot;token&quot;:&quot;&lt;your-token&gt;&quot;,
+        &quot;skip_crack&quot;:false, &quot;wordlist&quot;:&quot;samples/wordlist.txt&quot;
+      }'
+</code></pre>
+<hr />
+<h2 id="operational-notes">Operational Notes</h2>
+<ul>
+<li>Bind address: Use <code>--host 0.0.0.0</code> to accept remote connections.</li>
+<li>CORS: Open (any origin, any method, any header).</li>
+<li>Performance: <code>/crack</code> can be CPU-heavy and synchronous; keep search spaces small or run behind a job queue.</li>
+<li>Security: This server is a testing tool. If exposed beyond localhost, use --api-key to require X-API-KEY on all requests and add additional safeguards (authN/Z, rate limits, isolation).</li>
+<li>Errors: Most endpoints return HTTP 200 with <code>success:false</code> and <code>error</code>. Handle both the HTTP status and the <code>success</code> flag in clients.</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>
