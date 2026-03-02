@@ -65,7 +65,7 @@ The following request and response shapes are supported.
 ```/dev/null/health-response.json#L1-5
 {
   "status": "ok",
-  "version": "2.4.0"
+  "version": "2.5.0"
 }
 ```
 
