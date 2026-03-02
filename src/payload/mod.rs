@@ -29,7 +29,10 @@ pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
         "typ": "JWT"
     });
 
-    info!("Generate {alg_value} payload header=\"{}\" payload={alg_value}", serde_json::to_string(&header)?);
+    info!(
+        "Generate {alg_value} payload header=\"{}\" payload={alg_value}",
+        serde_json::to_string(&header)?
+    );
 
     encode_header_with_claims(&header, claims_part)
 }
@@ -51,7 +54,10 @@ pub fn generate_url_payload(
         key_type: domain,
         "typ": "JWT"
     });
-    info!("Generate {key_type} + basic payload header=\"{}\" payload={key_type}", serde_json::to_string(&header)?);
+    info!(
+        "Generate {key_type} + basic payload header=\"{}\" payload={key_type}",
+        serde_json::to_string(&header)?
+    );
     payloads.push(encode_header_with_claims(&header, claims_part)?);
 
     // If trust domain is provided, generate bypass payloads
@@ -68,7 +74,10 @@ pub fn generate_url_payload(
                 key_type: url,
                 "typ": "JWT"
             });
-            info!("Generate {key_type} bypass payload header=\"{}\" payload={key_type}", serde_json::to_string(&header)?);
+            info!(
+                "Generate {key_type} bypass payload header=\"{}\" payload={key_type}",
+                serde_json::to_string(&header)?
+            );
             payloads.push(encode_header_with_claims(&header, claims_part)?);
         }
     }

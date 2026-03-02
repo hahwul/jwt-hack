@@ -54,11 +54,7 @@ impl Clone for Session {
 
 impl Session {
     pub fn prompt(&self) -> String {
-        let token_indicator = if self.token.is_some() {
-            "JWT"
-        } else {
-            "---"
-        };
+        let token_indicator = if self.token.is_some() { "JWT" } else { "---" };
         format!("jwt-hack({})[{}]> ", self.algorithm, token_indicator)
     }
 }
@@ -309,10 +305,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             if app.cursor_position > 0 {
                 let before = &app.input[..app.cursor_position];
                 let trimmed = before.trim_end();
-                let new_end = trimmed
-                    .rfind(' ')
-                    .map(|i| i + 1)
-                    .unwrap_or(0);
+                let new_end = trimmed.rfind(' ').map(|i| i + 1).unwrap_or(0);
                 let after = &app.input[app.cursor_position..];
                 app.input = format!("{}{}", &app.input[..new_end], after);
                 app.cursor_position = new_end;
@@ -332,9 +325,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
         }
         // Tab — trigger completion
         (_, KeyCode::Tab) => {
-            if let Some(state) =
-                completion::compute_completions(&app.input, app.cursor_position)
-            {
+            if let Some(state) = completion::compute_completions(&app.input, app.cursor_position) {
                 // Apply first completion immediately
                 let (new_input, new_cursor) = state.apply(&app.input);
                 app.input = new_input;
@@ -352,18 +343,16 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             }
         }
         // Down arrow — history navigate down
-        (_, KeyCode::Down) => {
-            match app.history.navigate_down() {
-                Some(entry) => {
-                    app.input = entry.to_string();
-                    app.cursor_position = app.input.len();
-                }
-                None => {
-                    app.input.clear();
-                    app.cursor_position = 0;
-                }
+        (_, KeyCode::Down) => match app.history.navigate_down() {
+            Some(entry) => {
+                app.input = entry.to_string();
+                app.cursor_position = app.input.len();
             }
-        }
+            None => {
+                app.input.clear();
+                app.cursor_position = 0;
+            }
+        },
         // Left arrow
         (_, KeyCode::Left) => {
             if app.cursor_position > 0 {
@@ -601,10 +590,7 @@ fn render_show(app: &mut App) {
 fn handle_set(parts: &[&str], app: &mut App) {
     if parts.len() < 3 {
         app.push_error("Usage: set <key> <value>");
-        app.push_output_raw(&format!(
-            "  Keys: {}",
-            SET_KEYS.join(", ")
-        ));
+        app.push_output_raw(&format!("  Keys: {}", SET_KEYS.join(", ")));
         return;
     }
 
@@ -647,10 +633,7 @@ fn handle_set(parts: &[&str], app: &mut App) {
         }
         _ => {
             app.push_error(&format!("Unknown key: {key}"));
-            app.push_output_raw(&format!(
-                "  Valid keys: {}",
-                SET_KEYS.join(", ")
-            ));
+            app.push_output_raw(&format!("  Valid keys: {}", SET_KEYS.join(", ")));
         }
     }
 }
@@ -783,13 +766,7 @@ fn handle_scan(parts: &[&str], app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
     let tx = tx.clone();
     std::thread::spawn(move || {
         let output = capture::capture_command_output(|| {
-            super::scan::execute(
-                &token,
-                false,
-                false,
-                session.wordlist.as_ref(),
-                100,
-            );
+            super::scan::execute(&token, false, false, session.wordlist.as_ref(), 100);
         });
         let _ = tx.send(AsyncResult {
             output: output.text,
@@ -867,10 +844,7 @@ mod tests {
         let mut app = App::new();
         let (tx, _rx) = mpsc::channel();
         handle_command("set private_key /tmp/key.pem", &mut app, &tx);
-        assert_eq!(
-            app.session.private_key,
-            Some(PathBuf::from("/tmp/key.pem"))
-        );
+        assert_eq!(app.session.private_key, Some(PathBuf::from("/tmp/key.pem")));
     }
 
     #[test]
@@ -878,10 +852,7 @@ mod tests {
         let mut app = App::new();
         let (tx, _rx) = mpsc::channel();
         handle_command("set wordlist /tmp/words.txt", &mut app, &tx);
-        assert_eq!(
-            app.session.wordlist,
-            Some(PathBuf::from("/tmp/words.txt"))
-        );
+        assert_eq!(app.session.wordlist, Some(PathBuf::from("/tmp/words.txt")));
     }
 
     #[test]

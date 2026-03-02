@@ -113,7 +113,8 @@ fn decode_jwe_token(token: &str) -> Result<()> {
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
     println!("  {}", header_json.replace('\n', "\n  "));
 
-    println!("\n  {:<18}{}",
+    println!(
+        "\n  {:<18}{}",
         "Encrypted Key".bold(),
         if decoded.encrypted_key.is_empty() {
             "(empty)".dimmed().to_string()
@@ -121,7 +122,8 @@ fn decode_jwe_token(token: &str) -> Result<()> {
             utils::format_base64_preview(&decoded.encrypted_key)
         }
     );
-    println!("  {:<18}{}",
+    println!(
+        "  {:<18}{}",
         "IV".bold(),
         if decoded.iv.is_empty() {
             "(empty)".dimmed().to_string()
@@ -129,11 +131,13 @@ fn decode_jwe_token(token: &str) -> Result<()> {
             utils::format_base64_preview(&decoded.iv)
         }
     );
-    println!("  {:<18}{}",
+    println!(
+        "  {:<18}{}",
         "Ciphertext".bold(),
         utils::format_base64_preview(&decoded.ciphertext)
     );
-    println!("  {:<18}{}",
+    println!(
+        "  {:<18}{}",
         "Auth Tag".bold(),
         if decoded.tag.is_empty() {
             "(empty)".dimmed().to_string()
@@ -142,7 +146,10 @@ fn decode_jwe_token(token: &str) -> Result<()> {
         }
     );
 
-    eprintln!("\n  {}", "JWE payload is encrypted and cannot be decoded without the appropriate key".dimmed());
+    eprintln!(
+        "\n  {}",
+        "JWE payload is encrypted and cannot be decoded without the appropriate key".dimmed()
+    );
 
     Ok(())
 }

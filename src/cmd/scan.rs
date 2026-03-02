@@ -305,11 +305,7 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
     }
 
     let vulnerable = !issues.is_empty();
-    let missing_claims: Vec<&str> = [
-        (!has_exp, "exp"),
-        (!has_nbf, "nbf"),
-        (!has_iat, "iat"),
-    ]
+    let missing_claims: Vec<&str> = [(!has_exp, "exp"), (!has_nbf, "nbf"), (!has_iat, "iat")]
         .iter()
         .filter(|(missing, _)| *missing)
         .map(|(_, name)| *name)
@@ -372,10 +368,7 @@ fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerabilit
         VulnerabilityResult {
             name: "Kid Header".to_string(),
             vulnerable: true,
-            details: format!(
-                "Has 'kid' header ({}), may be vulnerable to injection",
-                kid
-            ),
+            details: format!("Has 'kid' header ({}), may be vulnerable to injection", kid),
             severity: Severity::Medium,
         }
     } else {
@@ -405,9 +398,7 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
             details: format!(
                 "Has '{}' header ({}), URL spoofing risk",
                 header_type,
-                header_value
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()
+                header_value.map(|v| v.to_string()).unwrap_or_default()
             ),
             severity: Severity::High,
         }
@@ -451,10 +442,7 @@ fn display_results(results: &[VulnerabilityResult]) {
             "✓".green().to_string()
         };
 
-        let severity_str = result
-            .severity
-            .as_str()
-            .color(result.severity.color());
+        let severity_str = result.severity.as_str().color(result.severity.color());
 
         println!(
             "  {}  {:<22} {:<12} {}",
@@ -483,10 +471,11 @@ fn display_results(results: &[VulnerabilityResult]) {
         }
         println!(
             "  {} vulnerabilities found: {}",
-            vulnerable_count, parts.join(", ")
+            vulnerable_count,
+            parts.join(", ")
         );
     } else {
-        println!("  {} {}", "✓".green(), "No vulnerabilities detected");
+        println!("  {} No vulnerabilities detected", "✓".green());
     }
 }
 
@@ -554,7 +543,6 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

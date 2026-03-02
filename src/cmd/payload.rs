@@ -178,11 +178,20 @@ fn generate_url_payloads(
         return Ok(());
     }
 
-    let payload_labels = ["Basic", "Z-Separator Bypass", "@-Separator Bypass", "CRLF Injection"];
+    let payload_labels = [
+        "Basic",
+        "Z-Separator Bypass",
+        "@-Separator Bypass",
+        "CRLF Injection",
+    ];
 
     for key_type in key_types {
         let payloads = crate::payload::generate_url_payload(
-            token, key_type, jwk_attack, jwk_trust, jwk_protocol,
+            token,
+            key_type,
+            jwk_attack,
+            jwk_trust,
+            jwk_protocol,
         )?;
 
         for (i, payload) in payloads.iter().enumerate() {

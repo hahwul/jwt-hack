@@ -3,26 +3,13 @@ use colored::Colorize;
 
 /// Displays version information and other project details
 pub fn execute() {
+    println!("  {:<14}{}", "Version".dimmed(), VERSION);
+    println!("  {:<14}@hahwul", "Author".dimmed());
     println!(
-        "  {:<14}{}",
-        "Version".dimmed(),
-        VERSION
+        "  {:<14}https://github.com/hahwul/jwt-hack",
+        "Repository".dimmed()
     );
-    println!(
-        "  {:<14}{}",
-        "Author".dimmed(),
-        "@hahwul"
-    );
-    println!(
-        "  {:<14}{}",
-        "Repository".dimmed(),
-        "https://github.com/hahwul/jwt-hack"
-    );
-    println!(
-        "  {:<14}{}",
-        "License".dimmed(),
-        "MIT"
-    );
+    println!("  {:<14}MIT", "License".dimmed());
 }
 
 #[cfg(test)]

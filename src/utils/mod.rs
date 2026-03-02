@@ -53,12 +53,7 @@ pub fn format_jwt_token(token: &str) -> String {
     }
 
     // Full JWT with signature
-    format!(
-        "{}.{}.{}",
-        parts[0].cyan(),
-        parts[1],
-        parts[2].yellow()
-    )
+    format!("{}.{}.{}", parts[0].cyan(), parts[1], parts[2].yellow())
 }
 
 /// Creates an animated spinner with a custom color to indicate ongoing operations
@@ -127,12 +122,7 @@ mod tests {
     #[test]
     fn test_format_jwt_token_full() {
         let token = "header.payload.signature";
-        let expected = format!(
-            "{}.{}.{}",
-            "header".cyan(),
-            "payload",
-            "signature".yellow()
-        );
+        let expected = format!("{}.{}.{}", "header".cyan(), "payload", "signature".yellow());
         assert_eq!(format_jwt_token(token), expected);
     }
 

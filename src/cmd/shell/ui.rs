@@ -13,7 +13,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
     let chunks = Layout::vertical([
-        Constraint::Length(1),  // title bar
+        Constraint::Length(1), // title bar
         Constraint::Min(3),    // output area
         Constraint::Length(3), // input area
         Constraint::Length(1), // status bar
@@ -92,18 +92,12 @@ fn render_title_bar(frame: &mut Frame, app: &App, area: Rect) {
 
     let title_line = Line::from(vec![
         left,
-        Span::styled(
-            " ",
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled(" ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             "─".repeat(padding_len.saturating_sub(2) as usize),
             Style::default().fg(Color::DarkGray),
         ),
-        Span::styled(
-            " ",
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled(" ", Style::default().fg(Color::DarkGray)),
         alg,
         sep1,
         token_indicator,
@@ -192,13 +186,7 @@ fn render_completion_popup(
 ) {
     let max_visible = 8.min(state.candidates.len());
     let popup_height = max_visible as u16 + 2; // +2 for borders
-    let popup_width = state
-        .candidates
-        .iter()
-        .map(|c| c.len())
-        .max()
-        .unwrap_or(10) as u16
-        + 4; // +4 for borders and padding
+    let popup_width = state.candidates.iter().map(|c| c.len()).max().unwrap_or(10) as u16 + 4; // +4 for borders and padding
     let popup_width = popup_width.min(input_area.width);
 
     // Position popup above the input area

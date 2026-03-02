@@ -66,10 +66,7 @@ where
         .into_text()
         .unwrap_or_else(|_| Text::raw(cleaned.clone()));
 
-    CapturedOutput {
-        text,
-        raw: cleaned,
-    }
+    CapturedOutput { text, raw: cleaned }
 }
 
 /// Strip non-SGR ANSI escape sequences (cursor movement, erase, etc.)

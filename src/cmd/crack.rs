@@ -212,7 +212,9 @@ fn run_parallel_crack(
                 match jwt::verify(token, candidate) {
                     Ok(true) => {
                         if verbose {
-                            info!("Found! Token signature secret is {candidate} Signature=Verified");
+                            info!(
+                                "Found! Token signature secret is {candidate} Signature=Verified"
+                            );
                         }
 
                         local_found = true;
@@ -239,7 +241,10 @@ fn run_parallel_crack(
     });
 }
 
-fn cleanup_crack_progress(pb: Option<ProgressBar>, update_thread: Option<std::thread::JoinHandle<()>>) {
+fn cleanup_crack_progress(
+    pb: Option<ProgressBar>,
+    update_thread: Option<std::thread::JoinHandle<()>>,
+) {
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }

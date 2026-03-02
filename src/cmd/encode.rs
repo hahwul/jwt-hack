@@ -37,22 +37,20 @@ pub fn execute(
             utils::log_error(format!("JWE Encode Error: {e}"));
             utils::log_error("e.g jwt-hack encode {JSON} --jwe --secret={YOUR_SECRET}");
         }
-    } else {
-        if let Err(e) = encode_json(
-            json_str,
-            secret,
-            private_key_path,
-            algorithm,
-            no_signature,
-            headers,
-            compress,
-        ) {
-            utils::log_error(format!("JSON Encode Error: {e}"));
-            utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
-            utils::log_error(
-                "or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256",
-            );
-        }
+    } else if let Err(e) = encode_json(
+        json_str,
+        secret,
+        private_key_path,
+        algorithm,
+        no_signature,
+        headers,
+        compress,
+    ) {
+        utils::log_error(format!("JSON Encode Error: {e}"));
+        utils::log_error("e.g jwt-hack encode {JSON} --secret={YOUR_SECRET}");
+        utils::log_error(
+            "or with RSA: jwt-hack encode {JSON} --private-key=private.pem --algorithm=RS256",
+        );
     }
 }
 
@@ -82,7 +80,7 @@ fn display_encoding_result(
     if !headers.is_empty() {
         println!("\n  {}", "Headers".bold());
         for (key, value) in headers {
-            println!("  {:<14}{}", format!("{key}").dimmed(), value);
+            println!("  {:<14}{}", key.to_string().dimmed(), value);
         }
     }
 
@@ -130,11 +128,7 @@ fn encode_json(
         // Encode JWT immediately while private key content is in scope
         let token = jwt::encode_with_options(&claims, &options)?;
 
-        let key_info = format!(
-            "{} ({})",
-            path.display(),
-            "Private Key".dimmed()
-        );
+        let key_info = format!("{} ({})", path.display(), "Private Key".dimmed());
         display_encoding_result(&token, algorithm, &key_info, headers);
 
         return Ok(());
