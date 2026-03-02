@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>Verify Command - JWT-HACK</title>
+  <meta property="og:title" content="Verify Command">
+<meta property="og:type" content="article">
+<meta property="og:url" content="http://localhost:3000/usage/commands/verify/">
+<meta property="og:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Verify Command">
+<meta name="twitter:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="http://localhost:3000/favicon.ico">
+  <link rel="stylesheet" href="http://localhost:3000/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="http://localhost:3000/" class="header-logo">
+      <img src="http://localhost:3000/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="http://localhost:3000/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="http://localhost:3000/get_started/introduction/">Docs</a>
+      <a href="http://localhost:3000/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<aside class="docs-sidebar">
+  <!-- Get Started -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/get_started/introduction/">Introduction</a></li>
+      <li><a href="http://localhost:3000/get_started/installation/">Installation</a></li>
+      <li><a href="http://localhost:3000/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <!-- Usage -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="http://localhost:3000/usage/commands/decode/">decode</a></li>
+        <li><a href="http://localhost:3000/usage/commands/encode/">encode</a></li>
+        <li><a href="http://localhost:3000/usage/commands/verify/">verify</a></li>
+        <li><a href="http://localhost:3000/usage/commands/crack/">crack</a></li>
+        <li><a href="http://localhost:3000/usage/commands/payload/">payload</a></li>
+        <li><a href="http://localhost:3000/usage/commands/scan/">scan</a></li>
+        <li><a href="http://localhost:3000/usage/commands/server/">server</a></li>
+        <li><a href="http://localhost:3000/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="http://localhost:3000/usage/examples/">Examples</a></li>
+      <li><a href="http://localhost:3000/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <!-- Advanced -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="http://localhost:3000/advanced/scripting-automation/">Scripting & Automation</a></li>
+    </ul>
+  </div>
+
+  <!-- Reference -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <!-- Support -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="http://localhost:3000/support/faq/">FAQ</a></li>
+      <li><a href="http://localhost:3000/support/community/">Community</a></li>
+      <li><a href="http://localhost:3000/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main class="docs-main">
+    <div class="docs-content">
+      <h1>Verify Command</h1>
+      <p>The <code>verify</code> command validates JWT token signatures and optionally checks expiration claims.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre><code class="language-bash hljs">jwt-hack verify &lt;TOKEN&gt; [OPTIONS]
+</code></pre>
+<h2 id="secret-based-verification-hmac">Secret-Based Verification (HMAC)</h2>
+<p>Verify HMAC-signed tokens with a shared secret:</p>
+<pre><code class="language-bash hljs"># Verify HS256 token
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA --secret=test
+
+# Try different secrets
+jwt-hack verify &lt;TOKEN&gt; --secret=secret123
+jwt-hack verify &lt;TOKEN&gt; --secret=password
+</code></pre>
+<h2 id="key-based-verification-rsaecdsa">Key-Based Verification (RSA/ECDSA)</h2>
+<p>Verify asymmetric tokens using public keys:</p>
+<pre><code class="language-bash hljs"># Verify RSA-signed token
+jwt-hack verify &lt;RSA_TOKEN&gt; --private-key=public.pem
+
+# Verify ECDSA-signed token
+jwt-hack verify &lt;ECDSA_TOKEN&gt; --private-key=ec-public.pem
+</code></pre>
+<h2 id="expiration-validation">Expiration Validation</h2>
+<p>Check if the token has expired:</p>
+<pre><code class="language-bash hljs"># Enable expiration validation
+jwt-hack verify &lt;TOKEN&gt; --secret=test --validate-exp
+</code></pre>
+<p>With <code>--validate-exp</code>, the command will:</p>
+<ul>
+<li>Check the <code>exp</code> (expiration) claim</li>
+<li>Validate against current timestamp</li>
+<li>Report if the token is expired</li>
+<li>Show time remaining or time since expiration</li>
+</ul>
+<h2 id="command-options">Command Options</h2>
+<h3 id="required">Required</h3>
+<ul>
+<li><code>&lt;TOKEN&gt;</code> - The JWT token to verify</li>
+</ul>
+<h3 id="authentication-options">Authentication Options</h3>
+<ul>
+<li><code>--secret &lt;SECRET&gt;</code> - Secret for HMAC token verification</li>
+<li><code>--private-key &lt;PATH&gt;</code> - Path to public key file for RSA/ECDSA verification</li>
+</ul>
+<h3 id="validation-options">Validation Options</h3>
+<ul>
+<li><code>--validate-exp</code> - Enable expiration time validation</li>
+</ul>
+<h2 id="verification-results">Verification Results</h2>
+<p>The verify command provides detailed output:</p>
+<h3 id="successful-verification">Successful Verification</h3>
+<pre><code>✓ Signature Valid
+✓ Token Structure Valid
+✓ Algorithm: HS256
+✓ Expiration: Valid (expires in 2 hours)
+</code></pre>"failed-verification">Failed Verification</h3>
+<pre><code>✗ Signature Invalid
+✓ Token Structure Valid
+- Algorithm: HS256
+- Reason: Incorrect secret or signature tampering
+</code></pre> id="expiration-issues">Expiration Issues</h3>
+<pre><code>✓ Signature Valid
+✓ Token Structure Valid
+✗ Expiration: Token expired 30 minutes ago
+</code></pre>d="examples">Examples</h2>
+<h3 id="basic-hmac-verification">Basic HMAC Verification</h3>
+<pre><code class="language-bash hljs"># Verify with correct secret
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=correct-secret
+
+# Try with wrong secret (will fail)
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=wrong-secret
+</code></pre>
+<h3 id="rsa-token-verification">RSA Token Verification</h3>
+<pre><code class="language-bash hljs"># Verify RSA256 token with public key
+jwt-hack verify &lt;RSA_TOKEN&gt; --private-key=rsa-public.pem
+</code></pre>
+<h3 id="complete-validation">Complete Validation</h3>
+<pre><code class="language-bash hljs"># Verify signature and check expiration
+jwt-hack verify &lt;TOKEN&gt; --secret=mysecret --validate-exp
+</code></pre>
+<h2 id="key-file-requirements">Key File Requirements</h2>
+<h3 id="for-rsaecdsa-verification">For RSA/ECDSA Verification</h3>
+<p>You need the <strong>public key</strong> corresponding to the private key used for signing:</p>
+<pre><code class="language-bash hljs"># Extract public key from private key
+openssl rsa -in private.pem -pubout -out public.pem
+
+# Use public key for verification
+jwt-hack verify &lt;TOKEN&gt; --private-key=public.pem
+</code></pre>
+<h3 id="supported-public-key-formats">Supported Public Key Formats</h3>
+<ul>
+<li><strong>X.509 SubjectPublicKeyInfo</strong> - <code>-----BEGIN PUBLIC KEY-----</code></li>
+<li><strong>PKCS#1 RSA Public Key</strong> - <code>-----BEGIN RSA PUBLIC KEY-----</code></li>
+</ul>
+<h2 id="security-testing">Security Testing</h2>
+<p>The verify command is useful for security testing:</p>
+<h3 id="test-different-secrets">Test Different Secrets</h3>
+<pre><code class="language-bash hljs"># Test common weak secrets
+jwt-hack verify &lt;TOKEN&gt; --secret=secret
+jwt-hack verify &lt;TOKEN&gt; --secret=password
+jwt-hack verify &lt;TOKEN&gt; --secret=123456
+jwt-hack verify &lt;TOKEN&gt; --secret=test
+</code></pre>
+<h3 id="algorithm-confusion-testing">Algorithm Confusion Testing</h3>
+<pre><code class="language-bash hljs"># Test if RSA token accepts HMAC verification (algorithm confusion)
+jwt-hack verify &lt;RSA_TOKEN&gt; --secret=&lt;PUBLIC_KEY_CONTENT&gt;
+</code></pre>
+<h3 id="none-algorithm-testing">None Algorithm Testing</h3>
+<pre><code class="language-bash hljs"># Test unsigned tokens (none algorithm)
+jwt-hack verify &lt;NONE_TOKEN&gt;
+</code></pre>
+<h2 id="return-codes">Return Codes</h2>
+<p>The verify command uses exit codes for scripting:</p>
+<ul>
+<li><strong>0</strong> - Verification successful</li>
+<li><strong>1</strong> - Verification failed</li>
+<li><strong>2</strong> - Token format error</li>
+<li><strong>3</strong> - Expiration validation failed</li>
+</ul>
+<p>Example usage in scripts:</p>
+<pre><code class="language-bash hljs">if jwt-hack verify &quot;$TOKEN&quot; --secret=&quot;$SECRET&quot;; then
+    echo &quot;Token is valid&quot;
+else
+    echo &quot;Token verification failed&quot;
+fi
+</code></pre>
+
+    </div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

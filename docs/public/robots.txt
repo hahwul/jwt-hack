@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /admin
+Disallow: /private
+
+User-agent: GPTBot
+Disallow: /
+
+Sitemap: http://localhost:3000/sitemap.xml

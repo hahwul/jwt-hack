@@ -1,6 +1,12 @@
+alias ds := docs-serve
+
 default:
     @echo "Listing available tasks..."
     @just --list
+
+docs-serve:
+    @echo "Serving the documentation site at http://localhost:3000/ ..."
+    hwaro serve -i docs --base-url="http://localhost:3000"
 
 test:
     cargo test

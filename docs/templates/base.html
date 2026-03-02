@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="{{ page.description }}">
+  <title>{% block title %}{{ page.title }} - {{ site.title }}{% endblock %}</title>
+  {{ og_all_tags }}
+  <link rel="icon" href="{{ base_url }}/favicon.ico">
+  <link rel="stylesheet" href="{{ base_url }}/css/style.css">
+  {{ highlight_css }}
+  {{ auto_includes_css }}
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+{% include "header.html" %}
+{% block body %}{% endblock %}
+{% include "footer.html" %}
+{{ highlight_js }}
+{{ auto_includes_js }}
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

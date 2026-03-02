@@ -2,8 +2,6 @@
 title = "Commands"
 weight = 1
 sort_by = "weight"
-
-[extra]
 +++
 
 JWT-HACK provides a comprehensive set of commands for JWT security testing and analysis. Each command is designed for specific tasks in the JWT testing workflow.

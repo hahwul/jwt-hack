@@ -1,67 +1,123 @@
-# The URL the site will be built for
-base_url = "https://jwt-hack.hahwul.com"
+# =============================================================================
+# Site Configuration
+# =============================================================================
+
 title = "JWT-HACK"
-theme = "goyo"
 description = "A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens"
+base_url = "https://jwt-hack.hahwul.com"
 
-# Whether to automatically compile all Sass files in the sass directory
-compile_sass = false
+# =============================================================================
+# Plugins
+# =============================================================================
 
-# Whether to build a search index to be used later on by a JavaScript library
-build_search_index = true
+[plugins]
+processors = ["markdown"]
 
-[markdown]
-bottom_footnotes = true
+# =============================================================================
+# Content Files
+# =============================================================================
 
-[markdown.highlighting]
-theme = "github-dark"
+[content.files]
+allow_extensions = ["jpg", "jpeg", "png", "gif", "svg", "webp"]
 
-[extra]
-badge = "v2.5.0"
-default_thumbnail = "images/preview.jpg"
-footer_html = "<div style='display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;'><a href='https://www.hahwul.com' target='_blank' rel='noopener noreferrer' style='display: inline-flex; align-items: center;'><img src='https://www.hahwul.com/images/logo-gray.png' alt='HAHWUL' style='height: 30px' /></a><span style='opacity: 0.6;'>•</span><span>Powered by <a href='https://www.getzola.org' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Zola</a> and <a href='https://github.com/hahwul/goyo' class='font-medium text-base-content/70 hover:text-base-content transition-colors duration-200'>Goyo</a></span></div>"
+# =============================================================================
+# Syntax Highlighting
+# =============================================================================
 
-nav = [
-    { name = "Documents", url = "/get_started/installation", type = "url", icon = "fa-solid fa-book" },
-    { name = "GitHub", url = "https://github.com/hahwul/jwt-hack", type = "url", icon = "fa-brands fa-github" },
-    { name = "Links", type = "dropdown", icon = "fa-solid fa-link", members = [
-        { name = "Crates", url = "https://crates.io/crates/jwt-hack", type = "url", icon = "fa-solid fa-box" },
-        { name = "Creator Blog", url = "https://www.hahwul.com", type = "url", icon = "fa-solid fa-fire-flame-curved" },
-    ] },
+[highlight]
+enabled = true
+theme = "atom-one-dark"
+use_cdn = true
+
+# =============================================================================
+# OpenGraph & Twitter Cards
+# =============================================================================
+
+[og]
+default_image = "/images/preview.jpg"
+type = "article"
+twitter_card = "summary_large_image"
+twitter_site = "@hahwul"
+twitter_creator = "@hahwul"
+
+# =============================================================================
+# Search Configuration
+# =============================================================================
+
+[search]
+enabled = true
+format = "fuse_json"
+fields = ["title", "content"]
+filename = "search.json"
+exclude = []
+
+# =============================================================================
+# Pagination
+# =============================================================================
+
+[pagination]
+enabled = false
+per_page = 10
+
+# =============================================================================
+# Taxonomies
+# =============================================================================
+
+[[taxonomies]]
+name = "tags"
+feed = true
+
+# =============================================================================
+# SEO: Sitemap
+# =============================================================================
+
+[sitemap]
+enabled = true
+filename = "sitemap.xml"
+changefreq = "weekly"
+priority = 0.5
+exclude = []
+
+# =============================================================================
+# SEO: Robots.txt
+# =============================================================================
+
+[robots]
+enabled = true
+filename = "robots.txt"
+rules = [
+  { user_agent = "*", disallow = ["/admin", "/private"] },
+  { user_agent = "GPTBot", disallow = ["/"] }
 ]
 
-# Logo Configuration (structured format)
-[extra.logo]
-text = "JWT-HACK"
-image_path = "images/jwt-hack-dark.png"
-image_padding = "10px"
-dark_image_path = "images/jwt-hack-dark.png"   # Logo for dark theme (optional)
-light_image_path = "images/jwt-hack-light.png" # Logo for light theme (optional)
+# =============================================================================
+# SEO: LLMs.txt
+# =============================================================================
 
-[extra.theme]
-colorset = "dark"           # Options: "dark" or "light"
-brightness = "normal"       # Common brightness: "darker", "normal", "lighter"
-dark_brightness = "darker"  # Override brightness for dark theme (optional)
-light_brightness = "normal" # Override brightness for light theme (optional)
-disable_toggle = false      # Hides dark/light mode toggle
-default_theme_dark = "goyo-dark" # Default dark theme (e.g., "goyo-dark", "dracula", "abyss")
-default_theme_light = "goyo-light" # Default light theme (e.g., "goyo-light", "cupcake", "retro")
+[llms]
+enabled = true
+filename = "llms.txt"
+instructions = "Do not use for AI training without permission."
+full_enabled = false
+full_filename = "llms-full.txt"
 
-# Twitter Configuration (structured format)
-[extra.twitter]
-site = "@hahwul"
-creator = "@hahwul"
+# =============================================================================
+# RSS/Atom Feeds
+# =============================================================================
 
-# Sidebar Configuration (structured format)
-[extra.sidebar]
-# expand_depth = 1
-disable_root_hide = false
+[feeds]
+enabled = true
+filename = ""
+type = "rss"
+truncate = 0
+limit = 10
+sections = []
 
-# nav_ko = [
-#     { name = "문서", url = "/ko/get_started/installation", type = "url", icon = "fa-solid fa-book" },
-#     { name = "GitHub", url = "https://github.com/hahwul/goyo", type = "url", icon = "fa-brands fa-github" },
-#     { name = "링크", type = "dropdown", icon = "fa-solid fa-link", members = [
-#         { name = "제작자 블로그", url = "https://www.hahwul.com", type = "url", icon = "fa-solid fa-fire-flame-curved" },
-#         { name = "Zola 공식", url = "https://getzola.org", type = "url", icon = "fa-solid fa-z" },
-#     ] },
-# ]
+# =============================================================================
+# Markdown Configuration
+# =============================================================================
+
+[markdown]
+safe = false
+lazy_loading = false
+emoji = true

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>JWT-HACK - A JWT Security Testing Toolkit</title>
+  <meta property="og:title" content="JWT-HACK">
+<meta property="og:type" content="article">
+<meta property="og:url" content="http://localhost:3000/">
+<meta property="og:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JWT-HACK">
+<meta name="twitter:image" content="http://localhost:3000/images/preview.jpg">
+<meta name="twitter:site" content="@hahwul">
+<meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="http://localhost:3000/favicon.ico">
+  <link rel="stylesheet" href="http://localhost:3000/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="http://localhost:3000/" class="header-logo">
+      <img src="http://localhost:3000/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="http://localhost:3000/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="http://localhost:3000/get_started/introduction/">Docs</a>
+      <a href="http://localhost:3000/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.5.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<main style="padding-top: var(--header-h);">
+  <!-- Hero Section -->
+  <section class="landing-hero">
+    <div class="hero-badge">v2.5.0</div>
+    <h1>Welcome to JWT-HACK!</h1>
+    <p class="hero-desc">A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens</p>
+    <div class="hero-buttons">
+      <a href="/get_started/installation/" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/hahwul/jwt-hack" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+
+    <div class="terminal-mockup">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="prompt">$</span> <span class="cmd">jwt-hack decode eyJhbGciOiJIUzI1...</span></div>
+        <div><span class="comment"># Decode and analyze JWT tokens</span></div>
+        <br>
+        <div><span class="prompt">$</span> <span class="cmd">jwt-hack crack -w wordlist.txt &lt;TOKEN&gt;</span></div>
+        <div><span class="comment"># Crack JWT secrets with dictionary attacks</span></div>
+        <br>
+        <div><span class="prompt">$</span> <span class="cmd">jwt-hack scan &lt;TOKEN&gt;</span></div>
+        <div><span class="comment"># Scan for JWT vulnerabilities</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="landing-features">
+    <div class="section-header">
+      <h2>Essential Features</h2>
+      <p>Discover jwt-hack's essential features for comprehensive attack surface detection and analysis.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3>JWT/JWE Encoding & Decoding</h3>
+        <p>Encode and decode JWT and JWE tokens with support for multiple algorithms, custom headers, and DEFLATE compression.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Signature Verification</h3>
+        <p>Verify JWT signatures using secrets or keys for symmetric and asymmetric algorithms with expiration validation.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <h3>Advanced Cracking</h3>
+        <p>Crack JWT secrets using dictionary attacks or brute force methods with support for compressed tokens.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <h3>Attack Payload Generation</h3>
+        <p>Generate various JWT attack payloads including none algorithm, algorithm confusion, and header manipulation attacks.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3>High Performance</h3>
+        <p>Built with Rust for maximum speed and efficiency, leveraging parallel processing for intensive operations.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+        </div>
+        <h3>MCP Server Support</h3>
+        <p>Integrates with AI models via Model Context Protocol for intelligent JWT analysis and testing.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="landing-cta">
+    <h2>Contributing</h2>
+    <p>JWT-HACK is an open-source project. If you want to contribute to this project, please see CONTRIBUTING.md and submit a pull request!</p>
+    <a href="https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md" class="btn btn-secondary" target="_blank" rel="noopener">View Contributing Guide</a>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>
