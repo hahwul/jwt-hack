@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write # Required to upload release assets
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Linux targets
