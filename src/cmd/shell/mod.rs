@@ -796,15 +796,19 @@ mod tests {
 
     #[test]
     fn test_session_prompt_with_token() {
-        let mut session = Session::default();
-        session.token = Some("eyJ...".to_string());
+        let session = Session {
+            token: Some("eyJ...".to_string()),
+            ..Default::default()
+        };
         assert_eq!(session.prompt(), "jwt-hack(HS256)[JWT]> ");
     }
 
     #[test]
     fn test_session_prompt_custom_algorithm() {
-        let mut session = Session::default();
-        session.algorithm = "RS256".to_string();
+        let session = Session {
+            algorithm: "RS256".to_string(),
+            ..Default::default()
+        };
         assert_eq!(session.prompt(), "jwt-hack(RS256)[---]> ");
     }
 
@@ -951,8 +955,10 @@ mod tests {
 
     #[test]
     fn test_resolve_token_from_session() {
-        let mut session = Session::default();
-        session.token = Some("session_token".to_string());
+        let session = Session {
+            token: Some("session_token".to_string()),
+            ..Default::default()
+        };
         let parts = vec!["decode"];
         assert_eq!(resolve_token(&parts, &session), Some("session_token"));
     }
