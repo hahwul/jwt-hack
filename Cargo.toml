@@ -31,8 +31,8 @@ josekit = "0.10.3"
 openssl = { version = "0.10", features = ["vendored"] }
 rmcp = { version = "1.1.0", features = ["server", "transport-io"] }
 dirs = "6.0"
+crossterm = "0.29"
 ratatui = { version = "0.30", features = ["crossterm"] }
-crossterm = "0.28"
 ansi-to-tui = "8"
 gag = "1.0"
 toml = "1.0"
