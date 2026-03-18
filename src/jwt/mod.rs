@@ -798,16 +798,21 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
     // Check for missing or weak encryption algorithms
     match decoded.encryption.as_str() {
         "A128GCM" => issues.push("⚠️  128-bit encryption - consider using A256GCM".to_string()),
-        "A128CBC-HS256" => issues.push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
-        "A192CBC-HS384" => issues.push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
-        "A256CBC-HS512" => issues.push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        "A128CBC-HS256" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        "A192CBC-HS384" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        "A256CBC-HS512" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
         _ => {}
     }
 
     // Check for compression (CRIME-like attacks)
     if let Some(zip_value) = decoded.header.get("zip") {
         if zip_value.as_str() == Some("DEF") {
-            issues.push("⚠️  Compression enabled - may be vulnerable to CRIME-like attacks".to_string());
+            issues.push(
+                "⚠️  Compression enabled - may be vulnerable to CRIME-like attacks".to_string(),
+            );
         }
     }
 
@@ -816,7 +821,8 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
         match base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv) {
             Ok(iv_bytes) => {
                 if iv_bytes.len() < 12 {
-                    issues.push("⚠️  IV too short - should be at least 96 bits for GCM".to_string());
+                    issues
+                        .push("⚠️  IV too short - should be at least 96 bits for GCM".to_string());
                 }
                 // Check for obviously dummy/test IV
                 if iv_bytes.windows(2).all(|w| w[0] == w[1]) {
@@ -836,7 +842,9 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
                 }
                 // Check for obviously dummy/test tag
                 if tag_bytes.windows(2).all(|w| w[0] == w[1]) {
-                    issues.push("⚠️  Authentication tag appears to be a test/dummy value".to_string());
+                    issues.push(
+                        "⚠️  Authentication tag appears to be a test/dummy value".to_string(),
+                    );
                 }
             }
             Err(_) => issues.push("⚠️  Authentication tag encoding is invalid".to_string()),

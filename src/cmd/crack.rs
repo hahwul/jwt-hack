@@ -285,7 +285,11 @@ fn report_crack_results(
     let rate = attempts_total as f64 / elapsed.as_secs_f64();
 
     if let Some(secret) = found.lock().unwrap().clone() {
-        let label = if is_jwe { "Encryption key found" } else { "Secret found" };
+        let label = if is_jwe {
+            "Encryption key found"
+        } else {
+            "Secret found"
+        };
         let secret_label = if is_jwe { "Key" } else { "Secret" };
 
         eprintln!("\n  {} {}", "✓".green(), label.bold());
@@ -299,7 +303,11 @@ fn report_crack_results(
         );
         println!("  {:<14}{}", "Token".bold(), utils::format_jwt_token(token));
     } else {
-        let label = if is_jwe { "Key not found" } else { "Secret not found" };
+        let label = if is_jwe {
+            "Key not found"
+        } else {
+            "Secret not found"
+        };
         eprintln!(
             "\n  {} {} ({} keys in {}, {:.2} keys/sec)",
             "✗".red(),
@@ -357,7 +365,9 @@ fn crack_dictionary(
     let pool = build_thread_pool(concurrency, power, "dictionary")?;
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
 
-    run_parallel_crack(&pool, &words_vec, token, &found, &attempts, &pb, verbose, is_jwe);
+    run_parallel_crack(
+        &pool, &words_vec, token, &found, &attempts, &pb, verbose, is_jwe,
+    );
     cleanup_crack_progress(pb, update_thread);
 
     let elapsed = start.elapsed();
@@ -412,7 +422,9 @@ fn crack_bruteforce(
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
     let start = Instant::now();
 
-    run_parallel_crack(&pool, &payloads, token, &found, &attempts, &pb, verbose, is_jwe);
+    run_parallel_crack(
+        &pool, &payloads, token, &found, &attempts, &pb, verbose, is_jwe,
+    );
     cleanup_crack_progress(pb, update_thread);
 
     let elapsed = start.elapsed();
