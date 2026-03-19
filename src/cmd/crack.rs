@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -39,6 +40,8 @@ pub struct CrackOptions<'a> {
     pub max: usize,
     pub power: bool,
     pub verbose: bool,
+    pub target_field: &'a Option<String>,
+    pub pattern: &'a Option<String>,
 }
 
 /// Execute the crack command
@@ -53,6 +56,8 @@ pub fn execute(
     max: usize,
     power: bool,
     verbose: bool,
+    target_field: &Option<String>,
+    pattern: &Option<String>,
 ) {
     let options = CrackOptions {
         token,
@@ -64,12 +69,22 @@ pub fn execute(
         max,
         power,
         verbose,
+        target_field,
+        pattern,
     };
     execute_with_options(&options);
 }
 
 /// Execute the crack command with options struct
 fn execute_with_options(options: &CrackOptions) {
+    // Handle targeted field cracking mode
+    if let Some(target_field) = options.target_field {
+        if let Err(e) = crack_target_field(options, target_field) {
+            utils::log_error(format!("Targeted field cracking failed: {e}"));
+        }
+        return;
+    }
+
     // Detect if this is a JWE token
     let token_type = jwt::detect_token_type(options.token);
     let is_jwe = token_type == jwt::TokenType::Jwe;
@@ -129,7 +144,7 @@ fn execute_with_options(options: &CrackOptions) {
     }
 }
 
-const CHUNK_SIZE: usize = 1000;
+const CHUNK_SIZE: usize = 4096;
 
 fn create_crack_progress_bar(
     multi: &MultiProgress,
@@ -170,7 +185,7 @@ fn build_thread_pool(
 }
 
 fn spawn_rate_update_thread(
-    attempts: &Arc<std::sync::atomic::AtomicUsize>,
+    attempts: &Arc<AtomicUsize>,
     pb: &Option<ProgressBar>,
 ) -> Option<std::thread::JoinHandle<()>> {
     let pb_clone = pb.clone();
@@ -183,7 +198,7 @@ fn spawn_rate_update_thread(
 
             while !progress_clone.is_finished() {
                 std::thread::sleep(Duration::from_millis(500));
-                let current_count = attempts_clone.load(std::sync::atomic::Ordering::Relaxed);
+                let current_count = attempts_clone.load(Ordering::Relaxed);
                 let current_time = Instant::now();
                 let time_diff = current_time.duration_since(last_time).as_secs_f64();
 
@@ -206,25 +221,28 @@ fn run_parallel_crack(
     candidates: &[String],
     token: &str,
     found: &Arc<Mutex<Option<String>>>,
-    attempts: &Arc<std::sync::atomic::AtomicUsize>,
+    found_flag: &Arc<AtomicBool>,
+    attempts: &Arc<AtomicUsize>,
     pb: &Option<ProgressBar>,
     verbose: bool,
     is_jwe: bool,
 ) {
     pool.install(|| {
         candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
-            let mut local_found = false;
+            // Fast lock-free check before processing chunk
+            if found_flag.load(Ordering::Relaxed) {
+                return;
+            }
 
             for candidate in chunk {
-                if found.lock().unwrap().is_some() || local_found {
+                // Lock-free early exit check
+                if found_flag.load(Ordering::Relaxed) {
                     break;
                 }
 
                 let verification_result = if is_jwe {
-                    // For JWE, try to decrypt
                     jwt::decrypt_jwe(token, candidate).map(|_| true)
                 } else {
-                    // For JWT, verify signature
                     jwt::verify(token, candidate)
                 };
 
@@ -239,12 +257,13 @@ fn run_parallel_crack(
                             info!("{}", message);
                         }
 
-                        local_found = true;
+                        found_flag.store(true, Ordering::Relaxed);
                         *found.lock().unwrap() = Some(candidate.clone());
 
                         if let Some(pb) = pb {
                             pb.finish_and_clear();
                         }
+                        break;
                     }
                     _ => {
                         if verbose {
@@ -255,7 +274,7 @@ fn run_parallel_crack(
             }
 
             let chunk_len = chunk.len();
-            attempts.fetch_add(chunk_len, std::sync::atomic::Ordering::Relaxed);
+            attempts.fetch_add(chunk_len, Ordering::Relaxed);
             if let Some(ref progress) = pb {
                 progress.inc(chunk_len as u64);
             }
@@ -358,7 +377,8 @@ fn crack_dictionary(
         HumanDuration(start_time.elapsed())
     ));
     let found = Arc::new(Mutex::new(None::<String>));
-    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let found_flag = Arc::new(AtomicBool::new(false));
+    let attempts = Arc::new(AtomicUsize::new(0));
     let start = Instant::now();
 
     let pb = create_crack_progress_bar(&multi, words_vec.len() as u64, verbose);
@@ -366,17 +386,19 @@ fn crack_dictionary(
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
 
     run_parallel_crack(
-        &pool, &words_vec, token, &found, &attempts, &pb, verbose, is_jwe,
+        &pool, &words_vec, token, &found, &found_flag, &attempts, &pb, verbose, is_jwe,
     );
     cleanup_crack_progress(pb, update_thread);
 
     let elapsed = start.elapsed();
-    let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
+    let attempts_total = attempts.load(Ordering::Relaxed);
     report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
 
     Ok(())
 }
 
+/// Streaming brute-force: generates and cracks simultaneously without pre-allocating all combinations.
+/// This dramatically reduces memory usage and eliminates generation latency.
 fn crack_bruteforce(
     token: &str,
     chars: &str,
@@ -387,51 +409,330 @@ fn crack_bruteforce(
     is_jwe: bool,
 ) -> anyhow::Result<()> {
     let start_time = Instant::now();
-
     let multi = MultiProgress::new();
 
-    let gen_pb = multi.add(ProgressBar::new(100));
-    gen_pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] Generating combinations.. [{bar:40.cyan/blue}] {percent}% {msg}")
-            .unwrap()
-            .progress_chars("█▓▒")
-    );
+    let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
 
     let found = Arc::new(Mutex::new(None::<String>));
-    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let found_flag = Arc::new(AtomicBool::new(false));
+    let attempts = Arc::new(AtomicUsize::new(0));
 
-    let gen_pb_clone = gen_pb.clone();
-    let payloads = crack::generate_bruteforce_payloads_with_progress(
-        chars,
-        max_length,
-        move |progress, elapsed| {
-            gen_pb_clone.set_position((progress as u64).min(100));
-            gen_pb_clone.set_message(format!("({})", HumanDuration(elapsed)));
-        },
-    );
-
-    gen_pb.finish_with_message(format!(
-        "Generated {} potential payloads in {}",
-        payloads.len(),
-        HumanDuration(start_time.elapsed())
-    ));
-
-    let pb = create_crack_progress_bar(&multi, payloads.len() as u64, verbose);
+    let pb = create_crack_progress_bar(&multi, total_combinations, verbose);
     let pool = build_thread_pool(concurrency, power, "bruteforce")?;
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
-    let start = Instant::now();
 
-    run_parallel_crack(
-        &pool, &payloads, token, &found, &attempts, &pb, verbose, is_jwe,
-    );
+    utils::log_info(format!(
+        "Streaming brute-force: {} total combinations (length 1..{})",
+        total_combinations, max_length
+    ));
+
+    // Stream through each length, generating chunks and cracking them immediately
+    const GEN_CHUNK_SIZE: usize = 10000;
+
+    for length in 1..=max_length {
+        if found_flag.load(Ordering::Relaxed) {
+            break;
+        }
+
+        for chunk in crack::brute::generate_combinations_chunked(chars, length, GEN_CHUNK_SIZE) {
+            if found_flag.load(Ordering::Relaxed) {
+                break;
+            }
+
+            // Crack this chunk immediately using the thread pool
+            run_parallel_crack(
+                &pool, &chunk, token, &found, &found_flag, &attempts, &pb, verbose, is_jwe,
+            );
+        }
+    }
+
     cleanup_crack_progress(pb, update_thread);
 
-    let elapsed = start.elapsed();
-    let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
+    let elapsed = start_time.elapsed();
+    let attempts_total = attempts.load(Ordering::Relaxed);
     report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
 
     Ok(())
+}
+
+/// Targeted field brute-force: modify a specific JWT header/payload field (e.g., kid, jti)
+/// and test each variation against the target. Useful for testing key ID injection,
+/// path traversal in kid, or discovering valid JTI values.
+fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Result<()> {
+    let start_time = Instant::now();
+    let multi = MultiProgress::new();
+
+    // Decode the original token to get header and claims
+    let decoded = jwt::decode(options.token)
+        .map_err(|e| anyhow::anyhow!("Failed to decode token: {e}"))?;
+
+    let header = decoded.header;
+    let claims = decoded.claims;
+
+    // Determine algorithm from header
+    let alg = header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("HS256")
+        .to_string();
+
+    // Determine if field is in header or payload
+    let field_location = if header.contains_key(target_field) {
+        "header"
+    } else if claims.get(target_field).is_some() {
+        "payload"
+    } else {
+        // Default: kid goes in header, jti goes in payload
+        match target_field {
+            "kid" | "jku" | "x5u" | "x5c" | "cty" | "typ" => "header",
+            _ => "payload",
+        }
+    };
+
+    utils::log_info(format!(
+        "Targeted field cracking: field='{}' location='{}' algorithm='{}'",
+        target_field, field_location, alg
+    ));
+
+    // Generate candidates based on mode
+    let candidates: Vec<String> = if options.mode == "dict" {
+        if let Some(wordlist_path) = options.wordlist {
+            let file = File::open(wordlist_path)?;
+            let reader = BufReader::new(file);
+            let mut words: HashSet<String> = HashSet::new();
+            for word in reader.lines().map_while(Result::ok) {
+                words.insert(word);
+            }
+            words.into_iter().collect()
+        } else {
+            return Err(anyhow::anyhow!("Wordlist is required for dictionary mode"));
+        }
+    } else {
+        vec![]
+    };
+
+    let pattern = options.pattern.as_deref();
+    let found = Arc::new(Mutex::new(None::<String>));
+    let found_flag = Arc::new(AtomicBool::new(false));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let pool = build_thread_pool(options.concurrency, options.power, "target-field")?;
+
+    // Convert header HashMap to a shareable form
+    let header_map: std::collections::HashMap<String, String> = header
+        .iter()
+        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+        .collect();
+
+    if options.mode == "brute" {
+        let chars_to_use = if let Some(preset) = options.preset {
+            get_preset_chars(preset).ok_or_else(|| anyhow::anyhow!("Unknown preset: '{}'", preset))?
+        } else {
+            options.chars.to_string()
+        };
+
+        let total = crack::brute::estimate_combinations(chars_to_use.len(), options.max);
+        let pb = create_crack_progress_bar(&multi, total, options.verbose);
+        let update_thread = spawn_rate_update_thread(&attempts, &pb);
+
+        for length in 1..=options.max {
+            if found_flag.load(Ordering::Relaxed) {
+                break;
+            }
+            for chunk in crack::brute::generate_combinations_chunked(&chars_to_use, length, 10000) {
+                if found_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                let expanded: Vec<String> = chunk
+                    .into_iter()
+                    .map(|v| apply_pattern(pattern, &v))
+                    .collect();
+
+                run_target_field_crack(
+                    &pool,
+                    &expanded,
+                    &header_map,
+                    &claims,
+                    target_field,
+                    field_location,
+                    &alg,
+                    options.token,
+                    &found,
+                    &found_flag,
+                    &attempts,
+                    &pb,
+                    options.verbose,
+                );
+            }
+        }
+
+        cleanup_crack_progress(pb, update_thread);
+    } else {
+        let pb = create_crack_progress_bar(&multi, candidates.len() as u64, options.verbose);
+        let update_thread = spawn_rate_update_thread(&attempts, &pb);
+
+        let expanded: Vec<String> = candidates
+            .into_iter()
+            .map(|v| apply_pattern(pattern, &v))
+            .collect();
+
+        run_target_field_crack(
+            &pool,
+            &expanded,
+            &header_map,
+            &claims,
+            target_field,
+            field_location,
+            &alg,
+            options.token,
+            &found,
+            &found_flag,
+            &attempts,
+            &pb,
+            options.verbose,
+        );
+
+        cleanup_crack_progress(pb, update_thread);
+    }
+
+    let elapsed = start_time.elapsed();
+    let attempts_total = attempts.load(Ordering::Relaxed);
+    let rate = if elapsed.as_secs_f64() > 0.0 {
+        attempts_total as f64 / elapsed.as_secs_f64()
+    } else {
+        0.0
+    };
+
+    if let Some(value) = found.lock().unwrap().clone() {
+        eprintln!("\n  {} {}", "✓".green(), "Matching field value found".bold());
+        println!();
+        println!("  {:<14}{}", "Field".bold(), target_field.bold());
+        println!("  {:<14}{}", "Value".bold(), value.bold());
+        println!(
+            "  {:<14}{} ({:.2} attempts/sec)",
+            "Time".bold(),
+            HumanDuration(elapsed),
+            rate
+        );
+    } else {
+        eprintln!(
+            "\n  {} {} ({} attempts in {}, {:.2} attempts/sec)",
+            "✗".red(),
+            "No matching field value found".bold(),
+            attempts_total,
+            HumanDuration(elapsed),
+            rate
+        );
+    }
+
+    Ok(())
+}
+
+/// Apply a pattern template to a value. If pattern contains `{}`, replace it.
+/// Otherwise, use the value as-is.
+fn apply_pattern(pattern: Option<&str>, value: &str) -> String {
+    match pattern {
+        Some(p) if p.contains("{}") => p.replace("{}", value),
+        _ => value.to_string(),
+    }
+}
+
+/// Run parallel cracking for targeted field brute-force
+fn run_target_field_crack(
+    pool: &rayon::ThreadPool,
+    candidates: &[String],
+    header_map: &std::collections::HashMap<String, String>,
+    claims: &serde_json::Value,
+    target_field: &str,
+    field_location: &str,
+    alg: &str,
+    original_token: &str,
+    found: &Arc<Mutex<Option<String>>>,
+    found_flag: &Arc<AtomicBool>,
+    attempts: &Arc<AtomicUsize>,
+    pb: &Option<ProgressBar>,
+    verbose: bool,
+) {
+    pool.install(|| {
+        candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
+            if found_flag.load(Ordering::Relaxed) {
+                return;
+            }
+
+            for candidate in chunk {
+                if found_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                // Build modified header params and claims
+                let mut extra_headers: std::collections::HashMap<&str, &str> =
+                    std::collections::HashMap::new();
+                let mut modified_claims = claims.clone();
+
+                // Add existing non-standard header params
+                for (k, v) in header_map.iter() {
+                    if k != "alg" && k != "typ" {
+                        extra_headers.insert(k.as_str(), v.as_str());
+                    }
+                }
+
+                if field_location == "header" {
+                    extra_headers.insert(target_field, candidate.as_str());
+                } else {
+                    modified_claims[target_field] =
+                        serde_json::Value::String(candidate.clone());
+                }
+
+                let encode_options = jwt::EncodeOptions {
+                    algorithm: alg,
+                    key_data: jwt::KeyData::Secret(""),
+                    header_params: if extra_headers.is_empty() {
+                        None
+                    } else {
+                        Some(extra_headers)
+                    },
+                    compress_payload: false,
+                };
+
+                match jwt::encode_with_options(&modified_claims, &encode_options) {
+                    Ok(new_token) => {
+                        // Check if the token with this field value produces a matching signature
+                        let original_parts: Vec<&str> = original_token.split('.').collect();
+                        let new_parts: Vec<&str> = new_token.split('.').collect();
+
+                        if original_parts.len() >= 3 && new_parts.len() >= 3
+                            && original_parts[2] == new_parts[2]
+                        {
+                            if verbose {
+                                info!(
+                                    "Match found! {}={} produces matching token",
+                                    target_field, candidate
+                                );
+                            }
+
+                            found_flag.store(true, Ordering::Relaxed);
+                            *found.lock().unwrap() = Some(candidate.clone());
+
+                            if let Some(pb) = pb {
+                                pb.finish_and_clear();
+                            }
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        if verbose {
+                            info!("Failed to encode with {}={}", target_field, candidate);
+                        }
+                    }
+                }
+            }
+
+            let chunk_len = chunk.len();
+            attempts.fetch_add(chunk_len, Ordering::Relaxed);
+            if let Some(ref progress) = pb {
+                progress.inc(chunk_len as u64);
+            }
+        });
+    });
 }
 
 #[cfg(test)]
@@ -490,6 +791,8 @@ mod tests {
                 4,
                 false,
                 false,
+                &None, // target_field
+                &None, // pattern
             );
         });
 
@@ -515,6 +818,8 @@ mod tests {
             max: 4,
             power: false,
             verbose: false,
+            target_field: &None,
+            pattern: &None,
         };
 
         // Execute should handle the missing wordlist without panicking
@@ -544,6 +849,8 @@ mod tests {
             max: 4,
             power: false,
             verbose: false,
+            target_field: &None,
+            pattern: &None,
         };
 
         // Execute should handle the invalid mode without panicking
@@ -700,6 +1007,8 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            target_field: &None,
+            pattern: &None,
         };
 
         // This should execute without panicking
@@ -728,6 +1037,8 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            target_field: &None,
+            pattern: &None,
         };
 
         // This should execute without panicking (but will print error)
@@ -755,6 +1066,8 @@ mod tests {
             max: 2,
             power: false,
             verbose: false,
+            target_field: &None,
+            pattern: &None,
         };
 
         // This should execute without panicking

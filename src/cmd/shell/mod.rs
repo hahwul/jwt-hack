@@ -729,6 +729,8 @@ fn handle_crack(parts: &[&str], app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
                 4,
                 false,
                 false,
+                &None,
+                &None,
             );
         });
         let _ = tx.send(AsyncResult {

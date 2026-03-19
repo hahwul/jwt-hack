@@ -129,6 +129,14 @@ pub enum Commands {
         /// Show testing log
         #[arg(long)]
         verbose: bool,
+
+        /// Target a specific JWT field for brute-force (e.g., kid, jti)
+        #[arg(long)]
+        target_field: Option<String>,
+
+        /// Pattern template for targeted field values (use {} as placeholder, e.g., "../../keys/{}")
+        #[arg(long)]
+        pattern: Option<String>,
     },
 
     /// Generates various JWT attack payloads for security testing
@@ -261,6 +269,8 @@ pub fn execute() {
             max,
             power,
             verbose,
+            target_field,
+            pattern,
         }) => {
             crack::execute(
                 token,
@@ -272,6 +282,8 @@ pub fn execute() {
                 *max,
                 *power,
                 *verbose,
+                target_field,
+                pattern,
             );
         }
         Some(Commands::Payload {
