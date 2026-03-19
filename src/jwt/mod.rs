@@ -690,6 +690,172 @@ fn verify_with_public_key_der(
     handle_verification_result(result)
 }
 
+/// Attempt to decrypt JWE token with a candidate key (for brute forcing)
+pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
+    use aes_gcm::aead::{Aead, KeyInit, Payload};
+    use aes_gcm::{Aes128Gcm, Aes256Gcm};
+
+    // Parse the JWE token to validate structure
+    let decoded = decode_jwe(token)?;
+
+    // Only support direct encryption mode for now
+    if decoded.algorithm != "dir" {
+        return Err(anyhow!(
+            "Only 'dir' (direct encryption) is currently supported for JWE cracking"
+        ));
+    }
+
+    // Decode the components
+    let iv_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(&decoded.iv)
+        .map_err(|_| anyhow!("Invalid IV"))?;
+
+    let ciphertext_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(&decoded.ciphertext)
+        .map_err(|_| anyhow!("Invalid ciphertext"))?;
+
+    let tag_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(&decoded.tag)
+        .map_err(|_| anyhow!("Invalid authentication tag"))?;
+
+    // Combine ciphertext and tag for AES-GCM
+    let mut ciphertext_with_tag = ciphertext_bytes.clone();
+    ciphertext_with_tag.extend_from_slice(&tag_bytes);
+
+    // Get the header as AAD (Additional Authenticated Data)
+    let parts: Vec<&str> = token.split('.').collect();
+    let aad = parts[0].as_bytes();
+
+    // Try different encryption algorithms based on the "enc" field
+    let key_bytes = key.as_bytes();
+
+    match decoded.encryption.as_str() {
+        "A128GCM" => {
+            if key_bytes.len() != 16 {
+                return Err(anyhow!("A128GCM requires a 16-byte key, got {}", key_bytes.len()));
+            }
+            let key_128: [u8; 16] = key_bytes.try_into().unwrap();
+
+            let cipher = Aes128Gcm::new(&key_128.into());
+            let payload = Payload {
+                msg: &ciphertext_with_tag,
+                aad,
+            };
+
+            cipher
+                .decrypt((&iv_bytes[..]).into(), payload)
+                .map_err(|_| anyhow!("Decryption failed - incorrect key"))
+                .and_then(|plaintext| {
+                    String::from_utf8(plaintext)
+                        .map_err(|_| anyhow!("Decrypted payload is not valid UTF-8"))
+                })
+        }
+        "A192GCM" => {
+            // A192GCM (192-bit) is not supported in aes-gcm crate
+            Err(anyhow!(
+                "A192GCM is not supported. Use A128GCM or A256GCM instead."
+            ))
+        }
+        "A256GCM" => {
+            if key_bytes.len() != 32 {
+                return Err(anyhow!("A256GCM requires a 32-byte key, got {}", key_bytes.len()));
+            }
+            let key_256: [u8; 32] = key_bytes.try_into().unwrap();
+
+            let cipher = Aes256Gcm::new(&key_256.into());
+            let payload = Payload {
+                msg: &ciphertext_with_tag,
+                aad,
+            };
+
+            cipher
+                .decrypt((&iv_bytes[..]).into(), payload)
+                .map_err(|_| anyhow!("Decryption failed - incorrect key"))
+                .and_then(|plaintext| {
+                    String::from_utf8(plaintext)
+                        .map_err(|_| anyhow!("Decrypted payload is not valid UTF-8"))
+                })
+        }
+        _ => Err(anyhow!(
+            "Unsupported encryption algorithm: {}. Supported: A128GCM, A256GCM",
+            decoded.encryption
+        )),
+    }
+}
+
+/// Detect potential JWE misconfigurations
+pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
+    let mut issues = Vec::new();
+
+    // Check for weak algorithms
+    if decoded.algorithm == "none" {
+        issues.push("⚠️  Algorithm set to 'none' - encryption bypass possible".to_string());
+    }
+
+    // Check for direct encryption with potentially weak keys
+    if decoded.algorithm == "dir" && decoded.encrypted_key.is_empty() {
+        issues.push("ℹ️  Direct encryption mode - vulnerable to key brute force".to_string());
+    }
+
+    // Check for missing or weak encryption algorithms
+    match decoded.encryption.as_str() {
+        "A128GCM" => issues.push("⚠️  128-bit encryption - consider using A256GCM".to_string()),
+        "A128CBC-HS256" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        "A192CBC-HS384" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        "A256CBC-HS512" => issues
+            .push("⚠️  CBC mode - potentially vulnerable to padding oracle attacks".to_string()),
+        _ => {}
+    }
+
+    // Check for compression (CRIME-like attacks)
+    if let Some(zip_value) = decoded.header.get("zip") {
+        if zip_value.as_str() == Some("DEF") {
+            issues.push(
+                "⚠️  Compression enabled - may be vulnerable to CRIME-like attacks".to_string(),
+            );
+        }
+    }
+
+    // Check if IV looks suspicious (too short or reused patterns)
+    if !decoded.iv.is_empty() {
+        match base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv) {
+            Ok(iv_bytes) => {
+                if iv_bytes.len() < 12 {
+                    issues
+                        .push("⚠️  IV too short - should be at least 96 bits for GCM".to_string());
+                }
+                // Check for obviously dummy/test IV (all bytes identical)
+                if iv_bytes.len() >= 2 && iv_bytes.windows(2).all(|w| w[0] == w[1]) {
+                    issues.push("⚠️  IV appears to be a test/dummy value".to_string());
+                }
+            }
+            Err(_) => issues.push("⚠️  IV encoding is invalid".to_string()),
+        }
+    }
+
+    // Check authentication tag
+    if !decoded.tag.is_empty() {
+        match base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.tag) {
+            Ok(tag_bytes) => {
+                if tag_bytes.len() < 16 {
+                    issues.push("⚠️  Authentication tag too short".to_string());
+                }
+                // Check for obviously dummy/test tag (all bytes identical)
+                if tag_bytes.len() >= 2 && tag_bytes.windows(2).all(|w| w[0] == w[1]) {
+                    issues.push(
+                        "⚠️  Authentication tag appears to be a test/dummy value".to_string(),
+                    );
+                }
+            }
+            Err(_) => issues.push("⚠️  Authentication tag encoding is invalid".to_string()),
+        }
+    }
+
+    issues
+}
+
 /// Create a simple JWE token for demonstration purposes
 pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
     // This is a basic demonstration JWE structure for testing purposes

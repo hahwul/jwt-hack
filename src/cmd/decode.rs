@@ -151,6 +151,15 @@ fn decode_jwe_token(token: &str) -> Result<()> {
         "JWE payload is encrypted and cannot be decoded without the appropriate key".dimmed()
     );
 
+    // Check for misconfigurations
+    let misconfigs = jwt::detect_jwe_misconfigurations(&decoded);
+    if !misconfigs.is_empty() {
+        eprintln!("\n  {}", "Security Issues Detected:".yellow().bold());
+        for issue in misconfigs {
+            eprintln!("  {}", issue);
+        }
+    }
+
     Ok(())
 }
 

@@ -70,6 +70,14 @@ pub fn execute(
 
 /// Execute the crack command with options struct
 fn execute_with_options(options: &CrackOptions) {
+    // Detect if this is a JWE token
+    let token_type = jwt::detect_token_type(options.token);
+    let is_jwe = token_type == jwt::TokenType::Jwe;
+
+    if is_jwe {
+        utils::log_info("Detected JWE token - using JWE cracking mode");
+    }
+
     if options.mode == "dict" {
         if let Some(wordlist_path) = options.wordlist {
             if let Err(e) = crack_dictionary(
@@ -78,6 +86,7 @@ fn execute_with_options(options: &CrackOptions) {
                 options.concurrency,
                 options.power,
                 options.verbose,
+                is_jwe,
             ) {
                 utils::log_error(format!("Dictionary cracking failed: {e}"));
             }
@@ -110,6 +119,7 @@ fn execute_with_options(options: &CrackOptions) {
             options.concurrency,
             options.power,
             options.verbose,
+            is_jwe,
         ) {
             utils::log_error(format!("Bruteforce cracking failed: {e}"));
         }
@@ -199,6 +209,7 @@ fn run_parallel_crack(
     attempts: &Arc<std::sync::atomic::AtomicUsize>,
     pb: &Option<ProgressBar>,
     verbose: bool,
+    is_jwe: bool,
 ) {
     pool.install(|| {
         candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
@@ -209,12 +220,23 @@ fn run_parallel_crack(
                     break;
                 }
 
-                match jwt::verify(token, candidate) {
+                let verification_result = if is_jwe {
+                    // For JWE, try to decrypt
+                    jwt::decrypt_jwe(token, candidate).map(|_| true)
+                } else {
+                    // For JWT, verify signature
+                    jwt::verify(token, candidate)
+                };
+
+                match verification_result {
                     Ok(true) => {
                         if verbose {
-                            info!(
-                                "Found! Token signature secret is {candidate} Signature=Verified"
-                            );
+                            let message = if is_jwe {
+                                format!("Found! JWE encryption key is {candidate} Decryption=Success")
+                            } else {
+                                format!("Found! Token signature secret is {candidate} Signature=Verified")
+                            };
+                            info!("{}", message);
                         }
 
                         local_found = true;
@@ -258,13 +280,21 @@ fn report_crack_results(
     elapsed: Duration,
     attempts_total: usize,
     token: &str,
+    is_jwe: bool,
 ) {
     let rate = attempts_total as f64 / elapsed.as_secs_f64();
 
     if let Some(secret) = found.lock().unwrap().clone() {
-        eprintln!("\n  {} {}", "✓".green(), "Secret found".bold());
+        let label = if is_jwe {
+            "Encryption key found"
+        } else {
+            "Secret found"
+        };
+        let secret_label = if is_jwe { "Key" } else { "Secret" };
+
+        eprintln!("\n  {} {}", "✓".green(), label.bold());
         println!();
-        println!("  {:<14}{}", "Secret".bold(), secret.bold());
+        println!("  {:<14}{}", secret_label.bold(), secret.bold());
         println!(
             "  {:<14}{} ({:.2} keys/sec)",
             "Time".bold(),
@@ -273,10 +303,15 @@ fn report_crack_results(
         );
         println!("  {:<14}{}", "Token".bold(), utils::format_jwt_token(token));
     } else {
+        let label = if is_jwe {
+            "Key not found"
+        } else {
+            "Secret not found"
+        };
         eprintln!(
             "\n  {} {} ({} keys in {}, {:.2} keys/sec)",
             "✗".red(),
-            "Secret not found".bold(),
+            label.bold(),
             attempts_total,
             HumanDuration(elapsed),
             rate
@@ -290,6 +325,7 @@ fn crack_dictionary(
     concurrency: usize,
     power: bool,
     verbose: bool,
+    is_jwe: bool,
 ) -> anyhow::Result<()> {
     let start_time = Instant::now();
 
@@ -329,12 +365,14 @@ fn crack_dictionary(
     let pool = build_thread_pool(concurrency, power, "dictionary")?;
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
 
-    run_parallel_crack(&pool, &words_vec, token, &found, &attempts, &pb, verbose);
+    run_parallel_crack(
+        &pool, &words_vec, token, &found, &attempts, &pb, verbose, is_jwe,
+    );
     cleanup_crack_progress(pb, update_thread);
 
     let elapsed = start.elapsed();
     let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
-    report_crack_results(&found, elapsed, attempts_total, token);
+    report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
 
     Ok(())
 }
@@ -346,6 +384,7 @@ fn crack_bruteforce(
     concurrency: usize,
     power: bool,
     verbose: bool,
+    is_jwe: bool,
 ) -> anyhow::Result<()> {
     let start_time = Instant::now();
 
@@ -383,12 +422,14 @@ fn crack_bruteforce(
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
     let start = Instant::now();
 
-    run_parallel_crack(&pool, &payloads, token, &found, &attempts, &pb, verbose);
+    run_parallel_crack(
+        &pool, &payloads, token, &found, &attempts, &pb, verbose, is_jwe,
+    );
     cleanup_crack_progress(pb, update_thread);
 
     let elapsed = start.elapsed();
     let attempts_total = attempts.load(std::sync::atomic::Ordering::Relaxed);
-    report_crack_results(&found, elapsed, attempts_total, token);
+    report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
 
     Ok(())
 }
@@ -534,6 +575,7 @@ mod tests {
             &token, &path_buf, 2,     // Small concurrency for test
             false, // Don't use all cores
             false, // Don't print verbose logs
+            false, // Not a JWE token
         );
 
         assert!(result.is_ok(), "crack_dictionary should not fail");
@@ -555,6 +597,7 @@ mod tests {
             &token, &path_buf, 2,     // Small concurrency for test
             false, // Don't use all cores
             false, // Don't print verbose logs
+            false, // Not a JWE token
         );
 
         assert!(
@@ -578,6 +621,7 @@ mod tests {
             2,     // Small concurrency
             false, // Don't use all cores
             false, // Don't print verbose logs
+            false, // Not a JWE token
         );
 
         assert!(result.is_ok(), "crack_bruteforce should not fail");
@@ -596,6 +640,7 @@ mod tests {
             2,     // Small concurrency
             false, // Don't use all cores
             false, // Don't print verbose logs
+            false, // Not a JWE token
         );
 
         assert!(
