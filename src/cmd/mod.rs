@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod crack;
 mod decode;
 mod encode;
+mod jwks;
 mod mcp;
 mod payload;
 mod scan;
@@ -183,6 +184,12 @@ pub enum Commands {
         max_crack_attempts: usize,
     },
 
+    /// Manages JWKS (JSON Web Key Set) operations: fetch, spoof, verify, and key rotation testing
+    Jwks {
+        #[command(subcommand)]
+        action: JwksAction,
+    },
+
     /// Displays version information and project details
     Version,
 
@@ -205,6 +212,66 @@ pub enum Commands {
         /// API key to secure the REST API (validated against X-API-KEY header)
         #[arg(long)]
         api_key: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum JwksAction {
+    /// Fetches and displays keys from a JWKS endpoint
+    Fetch {
+        /// JWKS endpoint URL (e.g. https://example.com/.well-known/jwks.json)
+        url: String,
+    },
+
+    /// Generates a spoofed JWKS with attacker-controlled keys for jku/x5u attacks
+    Spoof {
+        /// Algorithm for the spoofed key (RS256, RS384, RS512, PS256, PS384, PS512)
+        #[arg(long, default_value = "RS256")]
+        algorithm: String,
+
+        /// Key ID (kid) for the spoofed key
+        #[arg(long)]
+        kid: Option<String>,
+
+        /// JWT token to re-sign with the spoofed key
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Attacker URL for jku/x5u header injection (generates full attack payloads)
+        #[arg(long)]
+        attacker_url: Option<String>,
+
+        /// Output file path for the generated JWKS JSON
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Verifies a JWT token against all keys in a JWKS endpoint or file
+    Verify {
+        /// JWT token to verify
+        token: String,
+
+        /// JWKS endpoint URL
+        #[arg(long)]
+        url: Option<String>,
+
+        /// Path to a local JWKS JSON file
+        #[arg(long)]
+        jwks_file: Option<PathBuf>,
+    },
+
+    /// Tests a JWT token against multiple keys to detect key rotation vulnerabilities
+    Rotate {
+        /// JWT token to test
+        token: String,
+
+        /// Directory containing key files (.pem, .key, .pub, .txt)
+        #[arg(long)]
+        keys_dir: Option<PathBuf>,
+
+        /// Individual key file paths (can be specified multiple times)
+        #[arg(long = "key")]
+        key_files: Vec<PathBuf>,
     },
 }
 
@@ -316,6 +383,40 @@ pub fn execute() {
                 *max_crack_attempts,
             );
         }
+        Some(Commands::Jwks { action }) => match action {
+            JwksAction::Fetch { url } => {
+                jwks::execute_fetch(url);
+            }
+            JwksAction::Spoof {
+                algorithm,
+                kid,
+                token,
+                attacker_url,
+                output,
+            } => {
+                jwks::execute_spoof(
+                    algorithm,
+                    kid.as_deref(),
+                    token.as_deref(),
+                    attacker_url.as_deref(),
+                    output.as_ref(),
+                );
+            }
+            JwksAction::Verify {
+                token,
+                url,
+                jwks_file,
+            } => {
+                jwks::execute_verify(token, url.as_deref(), jwks_file.as_ref());
+            }
+            JwksAction::Rotate {
+                token,
+                keys_dir,
+                key_files,
+            } => {
+                jwks::execute_rotate(token, keys_dir.as_ref(), key_files);
+            }
+        },
         Some(Commands::Version) => {
             version::execute();
         }
