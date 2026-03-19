@@ -731,9 +731,10 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
 
     match decoded.encryption.as_str() {
         "A128GCM" => {
-            let mut key_128 = [0u8; 16];
-            let len = key_bytes.len().min(16);
-            key_128[..len].copy_from_slice(&key_bytes[..len]);
+            if key_bytes.len() != 16 {
+                return Err(anyhow!("A128GCM requires a 16-byte key, got {}", key_bytes.len()));
+            }
+            let key_128: [u8; 16] = key_bytes.try_into().unwrap();
 
             let cipher = Aes128Gcm::new(&key_128.into());
             let payload = Payload {
@@ -756,9 +757,10 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
             ))
         }
         "A256GCM" => {
-            let mut key_256 = [0u8; 32];
-            let len = key_bytes.len().min(32);
-            key_256[..len].copy_from_slice(&key_bytes[..len]);
+            if key_bytes.len() != 32 {
+                return Err(anyhow!("A256GCM requires a 32-byte key, got {}", key_bytes.len()));
+            }
+            let key_256: [u8; 32] = key_bytes.try_into().unwrap();
 
             let cipher = Aes256Gcm::new(&key_256.into());
             let payload = Payload {
@@ -824,8 +826,8 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
                     issues
                         .push("⚠️  IV too short - should be at least 96 bits for GCM".to_string());
                 }
-                // Check for obviously dummy/test IV
-                if iv_bytes.windows(2).all(|w| w[0] == w[1]) {
+                // Check for obviously dummy/test IV (all bytes identical)
+                if iv_bytes.len() >= 2 && iv_bytes.windows(2).all(|w| w[0] == w[1]) {
                     issues.push("⚠️  IV appears to be a test/dummy value".to_string());
                 }
             }
@@ -840,8 +842,8 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
                 if tag_bytes.len() < 16 {
                     issues.push("⚠️  Authentication tag too short".to_string());
                 }
-                // Check for obviously dummy/test tag
-                if tag_bytes.windows(2).all(|w| w[0] == w[1]) {
+                // Check for obviously dummy/test tag (all bytes identical)
+                if tag_bytes.len() >= 2 && tag_bytes.windows(2).all(|w| w[0] == w[1]) {
                     issues.push(
                         "⚠️  Authentication tag appears to be a test/dummy value".to_string(),
                     );

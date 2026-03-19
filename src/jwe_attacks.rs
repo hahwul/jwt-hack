@@ -2,7 +2,6 @@
 use anyhow::{anyhow, Result};
 use base64::Engine;
 use colored::Colorize;
-use serde_json;
 
 /// Detect potential padding oracle vulnerabilities in JWE implementations
 ///
@@ -79,6 +78,10 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
     // Original token for baseline
     payloads.push(token.to_string());
 
+    // Preserve the original header part to avoid re-serialization issues
+    let parts: Vec<&str> = token.split('.').collect();
+    let original_header = parts[0];
+
     // Modify last byte of ciphertext (affects padding)
     if let Ok(mut ciphertext_bytes) =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.ciphertext)
@@ -89,8 +92,7 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
                 base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&ciphertext_bytes);
             let modified_token = format!(
                 "{}.{}.{}.{}.{}",
-                base64::engine::general_purpose::URL_SAFE_NO_PAD
-                    .encode(serde_json::to_string(&decoded.header).unwrap()),
+                original_header,
                 decoded.encrypted_key,
                 decoded.iv,
                 modified_ciphertext,
@@ -110,8 +112,7 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
                 base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&ciphertext_bytes);
             let truncated_token = format!(
                 "{}.{}.{}.{}.{}",
-                base64::engine::general_purpose::URL_SAFE_NO_PAD
-                    .encode(serde_json::to_string(&decoded.header).unwrap()),
+                original_header,
                 decoded.encrypted_key,
                 decoded.iv,
                 truncated_ciphertext,
