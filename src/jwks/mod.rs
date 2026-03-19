@@ -266,10 +266,7 @@ pub fn generate_spoofed_jwks(
 
     // If a token is provided, re-sign it with the spoofed key
     let signed_token = if let Some(token) = token {
-        match sign_token_with_key(token, &private_key_pem, algorithm, Some(&kid_value)) {
-            Ok(t) => Some(t),
-            Err(_) => None,
-        }
+        sign_token_with_key(token, &private_key_pem, algorithm, Some(&kid_value)).ok()
     } else {
         None
     };

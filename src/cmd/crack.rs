@@ -90,7 +90,8 @@ fn execute_with_options(options: &CrackOptions) {
     let is_jwe = token_type == jwt::TokenType::Jwe;
 
     if is_jwe {
-        utils::log_info("Detected JWE token - using JWE cracking mode");
+        utils::log_info("Detected JWE token (5-part structure) - using JWE cracking mode");
+        utils::log_info("JWE cracking attempts direct key decryption instead of signature verification");
     }
 
     if options.mode == "dict" {
@@ -216,6 +217,7 @@ fn spawn_rate_update_thread(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_parallel_crack(
     pool: &rayon::ThreadPool,
     candidates: &[String],
@@ -301,7 +303,12 @@ fn report_crack_results(
     token: &str,
     is_jwe: bool,
 ) {
-    let rate = attempts_total as f64 / elapsed.as_secs_f64();
+    let elapsed_secs = elapsed.as_secs_f64();
+    let rate = if elapsed_secs > 0.0 {
+        attempts_total as f64 / elapsed_secs
+    } else {
+        0.0
+    };
 
     if let Some(secret) = found.lock().unwrap().clone() {
         let label = if is_jwe {
@@ -637,6 +644,7 @@ fn apply_pattern(pattern: Option<&str>, value: &str) -> String {
 }
 
 /// Run parallel cracking for targeted field brute-force
+#[allow(clippy::too_many_arguments)]
 fn run_target_field_crack(
     pool: &rayon::ThreadPool,
     candidates: &[String],

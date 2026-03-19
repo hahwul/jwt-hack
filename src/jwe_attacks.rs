@@ -82,44 +82,56 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
     let parts: Vec<&str> = token.split('.').collect();
     let original_header = parts[0];
 
+    // Decode ciphertext and IV once for all mutations
+    let ciphertext_bytes =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.ciphertext)?;
+    let iv_bytes =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv)?;
+
+    // Helper to reassemble a JWE token from parts
+    let reassemble = |header: &str, ek: &str, iv: &str, ct: &str, tag: &str| -> String {
+        format!("{header}.{ek}.{iv}.{ct}.{tag}")
+    };
+
     // Modify last byte of ciphertext (affects padding)
-    if let Ok(mut ciphertext_bytes) =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.ciphertext)
-    {
-        if let Some(last_byte) = ciphertext_bytes.last_mut() {
-            *last_byte ^= 0x01; // Flip last bit
-            let modified_ciphertext =
-                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&ciphertext_bytes);
-            let modified_token = format!(
-                "{}.{}.{}.{}.{}",
-                original_header,
-                decoded.encrypted_key,
-                decoded.iv,
-                modified_ciphertext,
-                decoded.tag
-            );
-            payloads.push(modified_token);
-        }
+    if !ciphertext_bytes.is_empty() {
+        let mut modified = ciphertext_bytes.clone();
+        *modified.last_mut().unwrap() ^= 0x01;
+        let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
+        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
     }
 
     // Truncate ciphertext to test padding validation
-    if let Ok(mut ciphertext_bytes) =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.ciphertext)
-    {
-        if ciphertext_bytes.len() > 16 {
-            ciphertext_bytes.truncate(ciphertext_bytes.len() - 8);
-            let truncated_ciphertext =
-                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&ciphertext_bytes);
-            let truncated_token = format!(
-                "{}.{}.{}.{}.{}",
-                original_header,
-                decoded.encrypted_key,
-                decoded.iv,
-                truncated_ciphertext,
-                decoded.tag
-            );
-            payloads.push(truncated_token);
-        }
+    if ciphertext_bytes.len() > 16 {
+        let mut modified = ciphertext_bytes.clone();
+        modified.truncate(modified.len() - 8);
+        let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
+        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+    }
+
+    // Flip first byte of ciphertext (affects first block)
+    if !ciphertext_bytes.is_empty() {
+        let mut modified = ciphertext_bytes.clone();
+        modified[0] ^= 0xFF;
+        let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
+        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+    }
+
+    // Replace entire last block with zeros (16-byte block boundary)
+    if ciphertext_bytes.len() >= 16 {
+        let mut modified = ciphertext_bytes.clone();
+        let start = modified.len() - 16;
+        modified[start..].fill(0x00);
+        let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
+        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+    }
+
+    // Modify IV to test CBC chaining (affects first plaintext block)
+    if !iv_bytes.is_empty() {
+        let mut modified = iv_bytes.clone();
+        modified[0] ^= 0x01;
+        let iv = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
+        payloads.push(reassemble(original_header, &decoded.encrypted_key, &iv, &decoded.ciphertext, &decoded.tag));
     }
 
     Ok(payloads)
@@ -134,14 +146,48 @@ pub fn analyze_response_for_oracle(
     status_code: u16,
     error_message: Option<&str>,
 ) -> Vec<String> {
+    analyze_response_for_oracle_with_baseline(response_time_ms, status_code, error_message, None)
+}
+
+/// Analyze server response patterns with optional baseline timing data.
+///
+/// When `baseline_times_ms` is provided, uses statistical comparison (mean + 2*stddev)
+/// to detect timing anomalies. Otherwise falls back to a fixed 100ms threshold.
+pub fn analyze_response_for_oracle_with_baseline(
+    response_time_ms: u64,
+    status_code: u16,
+    error_message: Option<&str>,
+    baseline_times_ms: Option<&[u64]>,
+) -> Vec<String> {
     let mut indicators = Vec::new();
 
     // Check for timing differences (potential timing side-channel)
-    if response_time_ms > 100 {
-        indicators.push(format!(
-            "⚠️  Slow response ({}ms) - may indicate server-side processing differences",
-            response_time_ms
-        ));
+    match baseline_times_ms {
+        Some(baselines) if baselines.len() >= 2 => {
+            let n = baselines.len() as f64;
+            let mean = baselines.iter().sum::<u64>() as f64 / n;
+            let variance = baselines.iter().map(|&t| {
+                let diff = t as f64 - mean;
+                diff * diff
+            }).sum::<f64>() / n;
+            let stddev = variance.sqrt();
+            let threshold = mean + 2.0 * stddev.max(5.0); // min stddev of 5ms to avoid false positives
+
+            if (response_time_ms as f64) > threshold {
+                indicators.push(format!(
+                    "⚠️  Timing anomaly: {}ms (baseline: {:.1}ms ± {:.1}ms, threshold: {:.1}ms)",
+                    response_time_ms, mean, stddev, threshold
+                ));
+            }
+        }
+        _ => {
+            if response_time_ms > 100 {
+                indicators.push(format!(
+                    "⚠️  Slow response ({}ms) - may indicate server-side processing differences",
+                    response_time_ms
+                ));
+            }
+        }
     }
 
     // Check for detailed error messages that leak information
@@ -210,5 +256,82 @@ mod tests {
     fn test_analyze_response_timing() {
         let indicators = analyze_response_for_oracle(150, 200, None);
         assert!(indicators.iter().any(|i| i.contains("Slow response")));
+    }
+
+    #[test]
+    fn test_detect_gcm_mode_not_vulnerable() {
+        // GCM mode header: {"alg":"dir","enc":"A256GCM"}
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+        let result = detect_padding_oracle_vulnerability(jwe_token);
+        assert!(result.is_ok());
+        let warnings = result.unwrap();
+        assert!(
+            warnings.iter().any(|w| w.contains("GCM") && w.contains("not vulnerable")),
+            "GCM mode should be reported as not vulnerable"
+        );
+    }
+
+    #[test]
+    fn test_generate_padding_oracle_payloads_gcm_rejected() {
+        // GCM mode should be rejected for padding oracle payloads
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+        let result = generate_padding_oracle_payloads(jwe_token);
+        assert!(result.is_err(), "GCM mode should not generate padding oracle payloads");
+    }
+
+    #[test]
+    fn test_generate_padding_oracle_payloads_count() {
+        // CBC token should generate: original + bit flip + truncate + first byte flip + zero block + IV modify = 6
+        let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
+        let result = generate_padding_oracle_payloads(jwe_token);
+        assert!(result.is_ok());
+        let payloads = result.unwrap();
+        assert!(
+            payloads.len() >= 4,
+            "Should generate at least 4 payloads (original + 3 modifications), got {}",
+            payloads.len()
+        );
+    }
+
+    #[test]
+    fn test_analyze_response_mac_error() {
+        let indicators = analyze_response_for_oracle(50, 401, Some("MAC verification failed"));
+        assert!(indicators.iter().any(|i| i.contains("MAC")));
+    }
+
+    #[test]
+    fn test_analyze_response_decrypt_error() {
+        let indicators = analyze_response_for_oracle(50, 500, Some("Decryption failed"));
+        assert!(indicators.iter().any(|i| i.contains("decryption")));
+        assert!(indicators.iter().any(|i| i.contains("500")));
+    }
+
+    #[test]
+    fn test_analyze_response_no_indicators() {
+        let indicators = analyze_response_for_oracle(50, 200, None);
+        assert!(indicators.iter().any(|i| i.contains("No obvious oracle")));
+    }
+
+    #[test]
+    fn test_analyze_response_with_baseline_normal() {
+        let baselines = vec![50, 52, 48, 51, 49];
+        let indicators =
+            analyze_response_for_oracle_with_baseline(55, 200, None, Some(&baselines));
+        // 55ms is within normal range of ~50ms baseline, should not trigger
+        assert!(
+            !indicators.iter().any(|i| i.contains("Timing anomaly")),
+            "Normal response should not trigger timing anomaly"
+        );
+    }
+
+    #[test]
+    fn test_analyze_response_with_baseline_anomaly() {
+        let baselines = vec![50, 52, 48, 51, 49];
+        let indicators =
+            analyze_response_for_oracle_with_baseline(200, 200, None, Some(&baselines));
+        assert!(
+            indicators.iter().any(|i| i.contains("Timing anomaly")),
+            "200ms response against ~50ms baseline should trigger anomaly"
+        );
     }
 }

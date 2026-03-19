@@ -75,7 +75,7 @@ pub fn execute_fetch(url: &str) {
                         );
                     }
                     _ => {
-                        println!("  {:<18}{}", "Details".dimmed(), "(unknown key type)");
+                        println!("  {:<18}(unknown key type)", "Details".dimmed());
                     }
                 }
             }
@@ -120,7 +120,7 @@ pub fn execute_spoof(
                 if let Some(output_path) = output {
                     match std::fs::write(output_path, &result.jwks_json) {
                         Ok(_) => {
-                            utils::log_success(&format!(
+                            utils::log_success(format!(
                                 "JWKS saved to {}",
                                 output_path.display()
                             ));
@@ -174,7 +174,7 @@ pub fn execute_spoof(
             if let Some(output_path) = output {
                 match std::fs::write(output_path, &spoofed.jwks_json) {
                     Ok(_) => {
-                        utils::log_success(&format!(
+                        utils::log_success(format!(
                             "JWKS saved to {}",
                             output_path.display()
                         ));

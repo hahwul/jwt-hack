@@ -8,6 +8,7 @@ repository = "https://github.com/hahwul/jwt-hack"
 license = "MIT"
 keywords = ["jwt", "security", "penetration-testing", "hacking", "cli"]
 categories = ["command-line-utilities", "cryptography"]
+rust-version = "1.87.0"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
