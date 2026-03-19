@@ -91,7 +91,9 @@ fn execute_with_options(options: &CrackOptions) {
 
     if is_jwe {
         utils::log_info("Detected JWE token (5-part structure) - using JWE cracking mode");
-        utils::log_info("JWE cracking attempts direct key decryption instead of signature verification");
+        utils::log_info(
+            "JWE cracking attempts direct key decryption instead of signature verification",
+        );
     }
 
     if options.mode == "dict" {
@@ -393,7 +395,15 @@ fn crack_dictionary(
     let update_thread = spawn_rate_update_thread(&attempts, &pb);
 
     run_parallel_crack(
-        &pool, &words_vec, token, &found, &found_flag, &attempts, &pb, verbose, is_jwe,
+        &pool,
+        &words_vec,
+        token,
+        &found,
+        &found_flag,
+        &attempts,
+        &pb,
+        verbose,
+        is_jwe,
     );
     cleanup_crack_progress(pb, update_thread);
 
@@ -448,7 +458,15 @@ fn crack_bruteforce(
 
             // Crack this chunk immediately using the thread pool
             run_parallel_crack(
-                &pool, &chunk, token, &found, &found_flag, &attempts, &pb, verbose, is_jwe,
+                &pool,
+                &chunk,
+                token,
+                &found,
+                &found_flag,
+                &attempts,
+                &pb,
+                verbose,
+                is_jwe,
             );
         }
     }
@@ -470,8 +488,8 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
     let multi = MultiProgress::new();
 
     // Decode the original token to get header and claims
-    let decoded = jwt::decode(options.token)
-        .map_err(|e| anyhow::anyhow!("Failed to decode token: {e}"))?;
+    let decoded =
+        jwt::decode(options.token).map_err(|e| anyhow::anyhow!("Failed to decode token: {e}"))?;
 
     let header = decoded.header;
     let claims = decoded.claims;
@@ -532,7 +550,8 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
 
     if options.mode == "brute" {
         let chars_to_use = if let Some(preset) = options.preset {
-            get_preset_chars(preset).ok_or_else(|| anyhow::anyhow!("Unknown preset: '{}'", preset))?
+            get_preset_chars(preset)
+                .ok_or_else(|| anyhow::anyhow!("Unknown preset: '{}'", preset))?
         } else {
             options.chars.to_string()
         };
@@ -610,7 +629,11 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
     };
 
     if let Some(value) = found.lock().unwrap().clone() {
-        eprintln!("\n  {} {}", "✓".green(), "Matching field value found".bold());
+        eprintln!(
+            "\n  {} {}",
+            "✓".green(),
+            "Matching field value found".bold()
+        );
         println!();
         println!("  {:<14}{}", "Field".bold(), target_field.bold());
         println!("  {:<14}{}", "Value".bold(), value.bold());
@@ -686,8 +709,7 @@ fn run_target_field_crack(
                 if field_location == "header" {
                     extra_headers.insert(target_field, candidate.as_str());
                 } else {
-                    modified_claims[target_field] =
-                        serde_json::Value::String(candidate.clone());
+                    modified_claims[target_field] = serde_json::Value::String(candidate.clone());
                 }
 
                 let encode_options = jwt::EncodeOptions {
@@ -707,7 +729,8 @@ fn run_target_field_crack(
                         let original_parts: Vec<&str> = original_token.split('.').collect();
                         let new_parts: Vec<&str> = new_token.split('.').collect();
 
-                        if original_parts.len() >= 3 && new_parts.len() >= 3
+                        if original_parts.len() >= 3
+                            && new_parts.len() >= 3
                             && original_parts[2] == new_parts[2]
                         {
                             if verbose {

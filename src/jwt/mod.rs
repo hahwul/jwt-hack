@@ -732,7 +732,10 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
     match decoded.encryption.as_str() {
         "A128GCM" => {
             if key_bytes.len() != 16 {
-                return Err(anyhow!("A128GCM requires a 16-byte key, got {}", key_bytes.len()));
+                return Err(anyhow!(
+                    "A128GCM requires a 16-byte key, got {}",
+                    key_bytes.len()
+                ));
             }
             let key_128: [u8; 16] = key_bytes.try_into().unwrap();
 
@@ -758,7 +761,10 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
         }
         "A256GCM" => {
             if key_bytes.len() != 32 {
-                return Err(anyhow!("A256GCM requires a 32-byte key, got {}", key_bytes.len()));
+                return Err(anyhow!(
+                    "A256GCM requires a 32-byte key, got {}",
+                    key_bytes.len()
+                ));
             }
             let key_256: [u8; 32] = key_bytes.try_into().unwrap();
 

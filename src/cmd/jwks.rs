@@ -1,8 +1,8 @@
 use colored::Colorize;
 use std::path::PathBuf;
 
-use jwt_hack::jwks;
 use crate::utils;
+use jwt_hack::jwks;
 
 /// Execute the JWKS fetch subcommand
 pub fn execute_fetch(url: &str) {
@@ -82,9 +82,7 @@ pub fn execute_fetch(url: &str) {
         }
         Err(e) => {
             utils::log_error(format!("Failed to fetch JWKS: {}", e));
-            utils::log_error(
-                "e.g jwt-hack jwks fetch https://example.com/.well-known/jwks.json",
-            );
+            utils::log_error("e.g jwt-hack jwks fetch https://example.com/.well-known/jwks.json");
         }
     }
 }
@@ -120,10 +118,7 @@ pub fn execute_spoof(
                 if let Some(output_path) = output {
                     match std::fs::write(output_path, &result.jwks_json) {
                         Ok(_) => {
-                            utils::log_success(format!(
-                                "JWKS saved to {}",
-                                output_path.display()
-                            ));
+                            utils::log_success(format!("JWKS saved to {}", output_path.display()));
                         }
                         Err(e) => {
                             utils::log_error(format!(
@@ -145,16 +140,19 @@ pub fn execute_spoof(
                 for payload in &result.payloads {
                     println!(
                         "\n  {}",
-                        format!("{} ({})", payload.header_type.to_uppercase(), payload.description)
-                            .bold()
+                        format!(
+                            "{} ({})",
+                            payload.header_type.to_uppercase(),
+                            payload.description
+                        )
+                        .bold()
                     );
                     println!("  {}", payload.token);
                 }
 
                 println!(
                     "\n  {}",
-                    "Host the JWKS JSON at the attacker URL and use the injection tokens."
-                        .yellow()
+                    "Host the JWKS JSON at the attacker URL and use the injection tokens.".yellow()
                 );
             }
             Err(e) => {
@@ -174,10 +172,7 @@ pub fn execute_spoof(
             if let Some(output_path) = output {
                 match std::fs::write(output_path, &spoofed.jwks_json) {
                     Ok(_) => {
-                        utils::log_success(format!(
-                            "JWKS saved to {}",
-                            output_path.display()
-                        ));
+                        utils::log_success(format!("JWKS saved to {}", output_path.display()));
                     }
                     Err(e) => {
                         utils::log_error(format!(
@@ -202,9 +197,7 @@ pub fn execute_spoof(
         }
         Err(e) => {
             utils::log_error(format!("Failed to generate spoofed JWKS: {}", e));
-            utils::log_error(
-                "e.g jwt-hack jwks spoof --algorithm RS256 --kid my-key-id",
-            );
+            utils::log_error("e.g jwt-hack jwks spoof --algorithm RS256 --kid my-key-id");
         }
     }
 }
@@ -256,11 +249,7 @@ pub fn execute_verify(token: &str, url: Option<&str>, jwks_file: Option<&PathBuf
                     "INVALID".red().to_string()
                 };
 
-                let alg_str = result
-                    .alg
-                    .as_deref()
-                    .unwrap_or("(unspecified)")
-                    .to_string();
+                let alg_str = result.alg.as_deref().unwrap_or("(unspecified)").to_string();
 
                 println!(
                     "\n  {}  {:<12} {:<10} kid={:<20} alg={}",
@@ -312,29 +301,22 @@ pub fn execute_rotate(token: &str, keys_dir: Option<&PathBuf>, key_files: &[Path
                 }
             }
             Err(e) => {
-                utils::log_error(format!(
-                    "Failed to read keys directory {:?}: {}",
-                    dir, e
-                ));
+                utils::log_error(format!("Failed to read keys directory {:?}: {}", dir, e));
                 return;
             }
         }
     }
 
     if all_key_paths.is_empty() {
-        utils::log_error("No key files provided. Use --keys-dir or --key to specify keys.".to_string());
         utils::log_error(
-            "e.g jwt-hack jwks rotate <TOKEN> --keys-dir ./keys/ --key extra.pem",
+            "No key files provided. Use --keys-dir or --key to specify keys.".to_string(),
         );
+        utils::log_error("e.g jwt-hack jwks rotate <TOKEN> --keys-dir ./keys/ --key extra.pem");
         return;
     }
 
     println!("\n  {}", "Key Rotation Test".bold());
-    println!(
-        "  {:<18}{}",
-        "Keys to Test".dimmed(),
-        all_key_paths.len()
-    );
+    println!("  {:<18}{}", "Keys to Test".dimmed(), all_key_paths.len());
 
     match jwks::test_key_rotation(token, &all_key_paths) {
         Ok(results) => {
@@ -368,9 +350,7 @@ pub fn execute_rotate(token: &str, keys_dir: Option<&PathBuf>, key_files: &[Path
                     valid_count
                 ));
             } else if valid_count == 0 {
-                utils::log_error(
-                    "No keys could verify the token.".to_string(),
-                );
+                utils::log_error("No keys could verify the token.".to_string());
             }
         }
         Err(e) => {

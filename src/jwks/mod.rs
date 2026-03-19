@@ -36,11 +36,7 @@ pub struct Jwk {
     pub x5c: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x5t: Option<String>,
-    #[serde(
-        default,
-        rename = "x5t#S256",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, rename = "x5t#S256", skip_serializing_if = "Option::is_none")]
     pub x5t_s256: Option<String>,
     // Catch-all for extra fields
     #[serde(flatten)]
@@ -218,8 +214,8 @@ pub fn generate_spoofed_jwks(
     // Generate RSA key pair
     let mut rng = rsa::rand_core::OsRng;
     let bits = 2048;
-    let private_key =
-        RsaPrivateKey::new(&mut rng, bits).map_err(|e| anyhow!("Failed to generate RSA key: {}", e))?;
+    let private_key = RsaPrivateKey::new(&mut rng, bits)
+        .map_err(|e| anyhow!("Failed to generate RSA key: {}", e))?;
     let public_key = private_key.to_public_key();
 
     // Extract modulus and exponent for JWK
@@ -252,9 +248,7 @@ pub fn generate_spoofed_jwks(
         extra: HashMap::new(),
     };
 
-    let jwks = JwkSet {
-        keys: vec![jwk],
-    };
+    let jwks = JwkSet { keys: vec![jwk] };
 
     let jwks_json = serde_json::to_string_pretty(&jwks)?;
 
@@ -316,50 +310,48 @@ pub fn verify_with_jwks(token: &str, jwks: &JwkSet) -> Result<Vec<KeyVerifyResul
         let kid = jwk.kid.as_deref().unwrap_or("(none)");
 
         match jwk.kty.as_str() {
-            "RSA" => {
-                match jwk_rsa_to_pem(jwk) {
-                    Ok(pem) => {
-                        let options = crate::jwt::VerifyOptions {
-                            key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&pem),
-                            validate_exp: false,
-                            validate_nbf: false,
-                            leeway: 0,
-                        };
-                        match crate::jwt::verify_with_options(token, &options) {
-                            Ok(valid) => {
-                                results.push(KeyVerifyResult {
-                                    key_index: i,
-                                    kid: kid.to_string(),
-                                    kty: jwk.kty.clone(),
-                                    alg: jwk.alg.clone(),
-                                    valid,
-                                    error: None,
-                                });
-                            }
-                            Err(e) => {
-                                results.push(KeyVerifyResult {
-                                    key_index: i,
-                                    kid: kid.to_string(),
-                                    kty: jwk.kty.clone(),
-                                    alg: jwk.alg.clone(),
-                                    valid: false,
-                                    error: Some(e.to_string()),
-                                });
-                            }
+            "RSA" => match jwk_rsa_to_pem(jwk) {
+                Ok(pem) => {
+                    let options = crate::jwt::VerifyOptions {
+                        key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&pem),
+                        validate_exp: false,
+                        validate_nbf: false,
+                        leeway: 0,
+                    };
+                    match crate::jwt::verify_with_options(token, &options) {
+                        Ok(valid) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid,
+                                error: None,
+                            });
+                        }
+                        Err(e) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid: false,
+                                error: Some(e.to_string()),
+                            });
                         }
                     }
-                    Err(e) => {
-                        results.push(KeyVerifyResult {
-                            key_index: i,
-                            kid: kid.to_string(),
-                            kty: jwk.kty.clone(),
-                            alg: jwk.alg.clone(),
-                            valid: false,
-                            error: Some(format!("Key conversion failed: {}", e)),
-                        });
-                    }
                 }
-            }
+                Err(e) => {
+                    results.push(KeyVerifyResult {
+                        key_index: i,
+                        kid: kid.to_string(),
+                        kty: jwk.kty.clone(),
+                        alg: jwk.alg.clone(),
+                        valid: false,
+                        error: Some(format!("Key conversion failed: {}", e)),
+                    });
+                }
+            },
             "oct" => {
                 if let Some(k) = &jwk.k {
                     match URL_SAFE_NO_PAD.decode(k) {
@@ -526,7 +518,10 @@ pub struct InjectionPayload {
 }
 
 /// Test key rotation by verifying a token against multiple key files
-pub fn test_key_rotation(token: &str, key_paths: &[std::path::PathBuf]) -> Result<Vec<KeyRotationResult>> {
+pub fn test_key_rotation(
+    token: &str,
+    key_paths: &[std::path::PathBuf],
+) -> Result<Vec<KeyRotationResult>> {
     let mut results = Vec::new();
 
     for path in key_paths {
@@ -672,7 +667,9 @@ mod tests {
         assert!(jwks.keys[0].e.is_some());
 
         // Verify private key
-        assert!(spoofed.private_key_pem.contains("-----BEGIN PRIVATE KEY-----"));
+        assert!(spoofed
+            .private_key_pem
+            .contains("-----BEGIN PRIVATE KEY-----"));
     }
 
     #[test]

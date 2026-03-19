@@ -85,8 +85,7 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
     // Decode ciphertext and IV once for all mutations
     let ciphertext_bytes =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.ciphertext)?;
-    let iv_bytes =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv)?;
+    let iv_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv)?;
 
     // Helper to reassemble a JWE token from parts
     let reassemble = |header: &str, ek: &str, iv: &str, ct: &str, tag: &str| -> String {
@@ -98,7 +97,13 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
         let mut modified = ciphertext_bytes.clone();
         *modified.last_mut().unwrap() ^= 0x01;
         let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
-        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+        payloads.push(reassemble(
+            original_header,
+            &decoded.encrypted_key,
+            &decoded.iv,
+            &ct,
+            &decoded.tag,
+        ));
     }
 
     // Truncate ciphertext to test padding validation
@@ -106,7 +111,13 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
         let mut modified = ciphertext_bytes.clone();
         modified.truncate(modified.len() - 8);
         let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
-        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+        payloads.push(reassemble(
+            original_header,
+            &decoded.encrypted_key,
+            &decoded.iv,
+            &ct,
+            &decoded.tag,
+        ));
     }
 
     // Flip first byte of ciphertext (affects first block)
@@ -114,7 +125,13 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
         let mut modified = ciphertext_bytes.clone();
         modified[0] ^= 0xFF;
         let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
-        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+        payloads.push(reassemble(
+            original_header,
+            &decoded.encrypted_key,
+            &decoded.iv,
+            &ct,
+            &decoded.tag,
+        ));
     }
 
     // Replace entire last block with zeros (16-byte block boundary)
@@ -123,7 +140,13 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
         let start = modified.len() - 16;
         modified[start..].fill(0x00);
         let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
-        payloads.push(reassemble(original_header, &decoded.encrypted_key, &decoded.iv, &ct, &decoded.tag));
+        payloads.push(reassemble(
+            original_header,
+            &decoded.encrypted_key,
+            &decoded.iv,
+            &ct,
+            &decoded.tag,
+        ));
     }
 
     // Modify IV to test CBC chaining (affects first plaintext block)
@@ -131,7 +154,13 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
         let mut modified = iv_bytes.clone();
         modified[0] ^= 0x01;
         let iv = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
-        payloads.push(reassemble(original_header, &decoded.encrypted_key, &iv, &decoded.ciphertext, &decoded.tag));
+        payloads.push(reassemble(
+            original_header,
+            &decoded.encrypted_key,
+            &iv,
+            &decoded.ciphertext,
+            &decoded.tag,
+        ));
     }
 
     Ok(payloads)
@@ -166,10 +195,14 @@ pub fn analyze_response_for_oracle_with_baseline(
         Some(baselines) if baselines.len() >= 2 => {
             let n = baselines.len() as f64;
             let mean = baselines.iter().sum::<u64>() as f64 / n;
-            let variance = baselines.iter().map(|&t| {
-                let diff = t as f64 - mean;
-                diff * diff
-            }).sum::<f64>() / n;
+            let variance = baselines
+                .iter()
+                .map(|&t| {
+                    let diff = t as f64 - mean;
+                    diff * diff
+                })
+                .sum::<f64>()
+                / n;
             let stddev = variance.sqrt();
             let threshold = mean + 2.0 * stddev.max(5.0); // min stddev of 5ms to avoid false positives
 
@@ -266,7 +299,9 @@ mod tests {
         assert!(result.is_ok());
         let warnings = result.unwrap();
         assert!(
-            warnings.iter().any(|w| w.contains("GCM") && w.contains("not vulnerable")),
+            warnings
+                .iter()
+                .any(|w| w.contains("GCM") && w.contains("not vulnerable")),
             "GCM mode should be reported as not vulnerable"
         );
     }
@@ -276,7 +311,10 @@ mod tests {
         // GCM mode should be rejected for padding oracle payloads
         let jwe_token = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJzdWIiOiJ0ZXN0In0.ZHVtbXlfdGFn";
         let result = generate_padding_oracle_payloads(jwe_token);
-        assert!(result.is_err(), "GCM mode should not generate padding oracle payloads");
+        assert!(
+            result.is_err(),
+            "GCM mode should not generate padding oracle payloads"
+        );
     }
 
     #[test]
@@ -315,8 +353,7 @@ mod tests {
     #[test]
     fn test_analyze_response_with_baseline_normal() {
         let baselines = vec![50, 52, 48, 51, 49];
-        let indicators =
-            analyze_response_for_oracle_with_baseline(55, 200, None, Some(&baselines));
+        let indicators = analyze_response_for_oracle_with_baseline(55, 200, None, Some(&baselines));
         // 55ms is within normal range of ~50ms baseline, should not trigger
         assert!(
             !indicators.iter().any(|i| i.contains("Timing anomaly")),
