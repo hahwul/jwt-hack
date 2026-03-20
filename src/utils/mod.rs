@@ -63,7 +63,7 @@ pub fn start_progress_with_color(message: &str, color: &str) -> indicatif::Progr
     pb.set_style(
         indicatif::ProgressStyle::default_spinner()
             .template(&template)
-            .unwrap()
+            .expect("valid spinner template")
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     pb.set_message(message.to_string());

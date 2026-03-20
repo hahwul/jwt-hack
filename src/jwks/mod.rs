@@ -123,7 +123,10 @@ pub fn jwk_rsa_to_pem(jwk: &Jwk) -> Result<String> {
     let b64 = base64::engine::general_purpose::STANDARD.encode(&der);
     let mut pem = String::from("-----BEGIN PUBLIC KEY-----\n");
     for chunk in b64.as_bytes().chunks(64) {
-        pem.push_str(std::str::from_utf8(chunk).unwrap());
+        pem.push_str(
+            std::str::from_utf8(chunk)
+                .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in base64 chunk: {}", e))?,
+        );
         pem.push('\n');
     }
     pem.push_str("-----END PUBLIC KEY-----\n");

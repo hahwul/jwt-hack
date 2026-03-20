@@ -161,7 +161,7 @@ fn create_crack_progress_bar(
     progress.set_style(
         ProgressStyle::default_bar()
             .template("{spinner:.red} [{elapsed_precise}] Cracking.. [{bar:40.cyan/blue}] {pos}/{len} ({percent}%) {msg}")
-            .unwrap()
+            .expect("valid progress bar template")
             .progress_chars("#>-")
     );
     Some(progress)
@@ -262,7 +262,7 @@ fn run_parallel_crack(
                         }
 
                         found_flag.store(true, Ordering::Relaxed);
-                        *found.lock().unwrap() = Some(candidate.clone());
+                        *found.lock().unwrap_or_else(|e| e.into_inner()) = Some(candidate.clone());
 
                         if let Some(pb) = pb {
                             pb.finish_and_clear();
@@ -312,7 +312,7 @@ fn report_crack_results(
         0.0
     };
 
-    if let Some(secret) = found.lock().unwrap().clone() {
+    if let Some(secret) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
         let label = if is_jwe {
             "Encryption key found"
         } else {
@@ -365,7 +365,7 @@ fn crack_dictionary(
     loading_pb.set_style(
         ProgressStyle::default_spinner()
             .template("{spinner:.blue} {msg}")
-            .unwrap()
+            .expect("valid spinner template")
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     loading_pb.set_message("Reading wordlist...");
@@ -628,7 +628,7 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         0.0
     };
 
-    if let Some(value) = found.lock().unwrap().clone() {
+    if let Some(value) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
         eprintln!(
             "\n  {} {}",
             "✓".green(),
@@ -741,7 +741,7 @@ fn run_target_field_crack(
                             }
 
                             found_flag.store(true, Ordering::Relaxed);
-                            *found.lock().unwrap() = Some(candidate.clone());
+                            *found.lock().unwrap_or_else(|e| e.into_inner()) = Some(candidate.clone());
 
                             if let Some(pb) = pb {
                                 pb.finish_and_clear();

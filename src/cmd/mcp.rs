@@ -385,7 +385,7 @@ impl ServerHandler for JwtHackServer {
 pub fn execute() {
     // Set up async runtime for MCP server
     if let Err(e) = tokio::runtime::Runtime::new()
-        .unwrap()
+        .expect("failed to create tokio runtime")
         .block_on(run_mcp_server())
     {
         crate::utils::log_error(format!("MCP server error: {}", e));

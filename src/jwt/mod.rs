@@ -737,7 +737,9 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                     key_bytes.len()
                 ));
             }
-            let key_128: [u8; 16] = key_bytes.try_into().unwrap();
+            let key_128: [u8; 16] = key_bytes
+                .try_into()
+                .map_err(|_| anyhow!("Failed to convert key to 16-byte array"))?;
 
             let cipher = Aes128Gcm::new(&key_128.into());
             let payload = Payload {
@@ -766,7 +768,9 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                     key_bytes.len()
                 ));
             }
-            let key_256: [u8; 32] = key_bytes.try_into().unwrap();
+            let key_256: [u8; 32] = key_bytes
+                .try_into()
+                .map_err(|_| anyhow!("Failed to convert key to 32-byte array"))?;
 
             let cipher = Aes256Gcm::new(&key_256.into());
             let payload = Payload {

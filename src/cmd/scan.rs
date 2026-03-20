@@ -288,7 +288,7 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
     } else if let Some(exp) = decoded.claims.get("exp").and_then(|v| v.as_i64()) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system clock before UNIX epoch")
             .as_secs() as i64;
 
         if exp < now {

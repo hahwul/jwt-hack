@@ -95,7 +95,9 @@ pub fn generate_padding_oracle_payloads(token: &str) -> Result<Vec<String>> {
     // Modify last byte of ciphertext (affects padding)
     if !ciphertext_bytes.is_empty() {
         let mut modified = ciphertext_bytes.clone();
-        *modified.last_mut().unwrap() ^= 0x01;
+        if let Some(last) = modified.last_mut() {
+            *last ^= 0x01;
+        }
         let ct = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&modified);
         payloads.push(reassemble(
             original_header,

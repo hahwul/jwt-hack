@@ -431,7 +431,8 @@ pub fn execute() {
             port,
             api_key,
         }) => {
-            let runtime = tokio::runtime::Runtime::new().unwrap();
+            let runtime = tokio::runtime::Runtime::new()
+                .expect("failed to create tokio runtime");
             if let Some(key) = api_key.as_deref() {
                 runtime.block_on(server::execute_with_api_key(host, *port, key));
             } else {

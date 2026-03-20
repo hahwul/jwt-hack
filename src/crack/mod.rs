@@ -30,7 +30,7 @@ where
         let mut last_progress = 0.0;
         while last_progress < 100.0 {
             std::thread::sleep(Duration::from_millis(100));
-            let current_progress = *progress_clone.lock().unwrap();
+            let current_progress = *progress_clone.lock().unwrap_or_else(|e| e.into_inner());
             let progress_diff = if current_progress > last_progress {
                 current_progress - last_progress
             } else {
@@ -50,7 +50,7 @@ where
         brute::generate_bruteforce_payloads(chars, max_length, Some(Arc::clone(&progress)));
 
     // Force final progress to 100% to signal completion
-    *progress.lock().unwrap() = 100.0;
+    *progress.lock().unwrap_or_else(|e| e.into_inner()) = 100.0;
     progress_callback(100.0, start_time.elapsed());
 
     // Wait for progress monitor thread to terminate

@@ -119,17 +119,24 @@ pub fn generate_bruteforce_payloads(
                 // Update periodically rather than every chunk to reduce lock contention
                 if prev % 50000 < chunk_size {
                     let percentage = (prev + chunk_size) as f64 / total_combinations as f64 * 100.0;
-                    *progress_tracker.lock().unwrap() = percentage;
+                    *progress_tracker.lock().unwrap_or_else(|e| e.into_inner()) = percentage;
                 }
             }
         }
 
         // Thread-safe update of the shared result collection
-        let mut main_result = local_result.lock().unwrap();
+        let mut main_result = local_result.lock().unwrap_or_else(|e| e.into_inner());
         main_result.extend(combinations);
     });
 
-    Arc::try_unwrap(result).unwrap().into_inner().unwrap()
+    Arc::try_unwrap(result)
+        .unwrap_or_else(|arc| {
+            // If other references exist, clone the inner data
+            let guard = arc.lock().unwrap_or_else(|e| e.into_inner());
+            return std::sync::Mutex::new(guard.clone());
+        })
+        .into_inner()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 /// Calculates the total number of possible combinations based on charset length and maximum word length
