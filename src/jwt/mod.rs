@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+use zeroize::Zeroize;
 
 use crate::utils::compression;
 
@@ -304,10 +305,13 @@ fn encode_compressed_jwt(
     let message = format!("{encoded_header}.{encoded_payload}");
 
     // Sign the message
-    let signature = match &options.key_data {
+    let mut signature = match &options.key_data {
         KeyData::Secret(secret) => match algorithm {
             Algorithm::HS256 => {
-                hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes()).to_vec()
+                let mut mac = hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes());
+                let sig = mac.to_vec();
+                mac.zeroize();
+                sig
             }
             Algorithm::HS384 | Algorithm::HS512 => {
                 // For HS384/HS512, we need to use the jsonwebtoken library
@@ -338,6 +342,7 @@ fn encode_compressed_jwt(
 
     // Encode signature
     let encoded_signature = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&signature);
+    signature.zeroize();
 
     Ok(format!(
         "{encoded_header}.{encoded_payload}.{encoded_signature}"
@@ -592,9 +597,11 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
             match decoded_token.algorithm {
                 Algorithm::HS256 => {
                     // Manual signature check
-                    let calculated_sig =
+                    let mut calculated_sig =
                         hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes());
-                    if signature != calculated_sig.as_slice() {
+                    let sig_matches = signature == calculated_sig.as_slice();
+                    calculated_sig.zeroize();
+                    if !sig_matches {
                         return Ok(false); // Signature mismatch
                     }
 
@@ -737,11 +744,12 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                     key_bytes.len()
                 ));
             }
-            let key_128: [u8; 16] = key_bytes
+            let mut key_128: [u8; 16] = key_bytes
                 .try_into()
                 .map_err(|_| anyhow!("Failed to convert key to 16-byte array"))?;
 
             let cipher = Aes128Gcm::new(&key_128.into());
+            key_128.zeroize();
             let payload = Payload {
                 msg: &ciphertext_with_tag,
                 aad,
@@ -768,11 +776,12 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                     key_bytes.len()
                 ));
             }
-            let key_256: [u8; 32] = key_bytes
+            let mut key_256: [u8; 32] = key_bytes
                 .try_into()
                 .map_err(|_| anyhow!("Failed to convert key to 32-byte array"))?;
 
             let cipher = Aes256Gcm::new(&key_256.into());
+            key_256.zeroize();
             let payload = Payload {
                 msg: &ciphertext_with_tag,
                 aad,

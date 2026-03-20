@@ -44,6 +44,7 @@ aes-gcm = "0.10"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 rsa = { version = "0.9", features = ["pem"] }
 num-bigint = "0.4"
+zeroize = { version = "1.8.2", features = ["zeroize_derive"] }
 
 [profile.release]
 opt-level = 3

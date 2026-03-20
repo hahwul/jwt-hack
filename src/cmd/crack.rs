@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use zeroize::Zeroize;
 
 use crate::crack;
 use crate::jwt;
@@ -406,6 +407,12 @@ fn crack_dictionary(
         is_jwe,
     );
     cleanup_crack_progress(pb, update_thread);
+
+    // Zeroize wordlist candidates from memory
+    let mut words_vec = words_vec;
+    for word in &mut words_vec {
+        word.zeroize();
+    }
 
     let elapsed = start.elapsed();
     let attempts_total = attempts.load(Ordering::Relaxed);
