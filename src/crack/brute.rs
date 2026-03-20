@@ -133,7 +133,7 @@ pub fn generate_bruteforce_payloads(
         .unwrap_or_else(|arc| {
             // If other references exist, clone the inner data
             let guard = arc.lock().unwrap_or_else(|e| e.into_inner());
-            return std::sync::Mutex::new(guard.clone());
+            std::sync::Mutex::new(guard.clone())
         })
         .into_inner()
         .unwrap_or_else(|e| e.into_inner())

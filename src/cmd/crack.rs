@@ -458,7 +458,8 @@ fn crack_bruteforce(
             break;
         }
 
-        for chunk in crack::brute::generate_combinations_chunked(chars, length, GEN_CHUNK_SIZE) {
+        for mut chunk in crack::brute::generate_combinations_chunked(chars, length, GEN_CHUNK_SIZE)
+        {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
@@ -475,6 +476,11 @@ fn crack_bruteforce(
                 verbose,
                 is_jwe,
             );
+
+            // Zeroize brute-force candidates from memory
+            for candidate in &mut chunk {
+                candidate.zeroize();
+            }
         }
     }
 
