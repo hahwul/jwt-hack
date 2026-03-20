@@ -274,6 +274,39 @@ You can connect jwt-hack’s MCP server to popular MCP-enabled clients. Make sur
 }
 ```
 
+## Supported Algorithms
+
+### Signature Algorithms (JWS)
+
+| Algorithm | Description | Type |
+|-----------|-------------|------|
+| HS256 | HMAC using SHA-256 | Symmetric |
+| HS384 | HMAC using SHA-384 | Symmetric |
+| HS512 | HMAC using SHA-512 | Symmetric |
+| RS256 | RSASSA-PKCS1-v1_5 using SHA-256 | Asymmetric |
+| RS384 | RSASSA-PKCS1-v1_5 using SHA-384 | Asymmetric |
+| RS512 | RSASSA-PKCS1-v1_5 using SHA-512 | Asymmetric |
+| ES256 | ECDSA using P-256 and SHA-256 | Asymmetric |
+| ES384 | ECDSA using P-384 and SHA-384 | Asymmetric |
+| PS256 | RSASSA-PSS using SHA-256 | Asymmetric |
+| PS384 | RSASSA-PSS using SHA-384 | Asymmetric |
+| PS512 | RSASSA-PSS using SHA-512 | Asymmetric |
+| EdDSA | Edwards-curve Digital Signature Algorithm | Asymmetric |
+| none | No digital signature | - |
+
+### Encryption Algorithms (JWE)
+
+| Algorithm | Description |
+|-----------|-------------|
+| A128GCM | AES-GCM using 128-bit key |
+| A256GCM | AES-GCM using 256-bit key |
+
+### Key Management Algorithms (JWE)
+
+| Algorithm | Description |
+|-----------|-------------|
+| dir | Direct use of shared symmetric key |
+
 ## DEFLATE Compression Support
 
 > **DEFLATE Compression Support**
