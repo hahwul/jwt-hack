@@ -1,62 +1,16 @@
 pub mod brute;
 
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-/// Creates all possible character combinations up to the specified maximum length
+/// Creates all possible character combinations up to the specified maximum length.
+///
+/// **Deprecated**: Prefer `brute::generate_combinations_chunked()` for streaming/chunked
+/// generation that avoids loading all combinations into memory at once.
 #[allow(dead_code)]
 pub fn generate_bruteforce_payloads(chars: &str, max_length: usize) -> Vec<String> {
-    // Delegate to the optimized implementation in the brute module
     let progress = Arc::new(Mutex::new(0.0));
     brute::generate_bruteforce_payloads(chars, max_length, Some(progress))
-}
-
-/// Creates all possible character combinations with real-time progress reporting
-pub fn generate_bruteforce_payloads_with_progress<F>(
-    chars: &str,
-    max_length: usize,
-    progress_callback: F,
-) -> Vec<String>
-where
-    F: Fn(f64, Duration) + Send + Sync + Clone + 'static,
-{
-    let progress = Arc::new(Mutex::new(0.0));
-    let start_time = Instant::now();
-
-    // Start a background thread that monitors and reports progress
-    let progress_clone = Arc::clone(&progress);
-    let callback = progress_callback.clone();
-    let monitor_handle = std::thread::spawn(move || {
-        let mut last_progress = 0.0;
-        while last_progress < 100.0 {
-            std::thread::sleep(Duration::from_millis(100));
-            let current_progress = *progress_clone.lock().unwrap_or_else(|e| e.into_inner());
-            let progress_diff = if current_progress > last_progress {
-                current_progress - last_progress
-            } else {
-                last_progress - current_progress
-            };
-
-            if progress_diff > 0.1 {
-                // Call progress callback only when there's a significant change
-                callback(current_progress, start_time.elapsed());
-                last_progress = current_progress;
-            }
-        }
-    });
-
-    // Generate all possible combinations using parallel processing
-    let result =
-        brute::generate_bruteforce_payloads(chars, max_length, Some(Arc::clone(&progress)));
-
-    // Force final progress to 100% to signal completion
-    *progress.lock().unwrap_or_else(|e| e.into_inner()) = 100.0;
-    progress_callback(100.0, start_time.elapsed());
-
-    // Wait for progress monitor thread to terminate
-    let _ = monitor_handle.join();
-
-    result
 }
 
 /// Generates combinations in manageable chunks to optimize memory usage

@@ -291,12 +291,15 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
 
 /// Helper function to crack JWT using brute force
 fn crack_brute(token: &str, chars: &str, max_length: usize) -> anyhow::Result<Option<String>> {
-    // Generate all combinations up to max_length
-    let payloads = crack::generate_bruteforce_payloads(chars, max_length);
-
-    for word in payloads {
-        if let Ok(true) = jwt::verify(token, &word) {
-            return Ok(Some(word));
+    // Stream combinations chunk by chunk instead of loading all into memory
+    const CHUNK_SIZE: usize = 10000;
+    for length in 1..=max_length {
+        for chunk in crack::brute::generate_combinations_chunked(chars, length, CHUNK_SIZE) {
+            for word in chunk {
+                if let Ok(true) = jwt::verify(token, &word) {
+                    return Ok(Some(word));
+                }
+            }
         }
     }
 
