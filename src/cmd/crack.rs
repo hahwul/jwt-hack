@@ -754,7 +754,8 @@ fn run_target_field_crack(
                             }
 
                             found_flag.store(true, Ordering::Relaxed);
-                            *found.lock().unwrap_or_else(|e| e.into_inner()) = Some(candidate.clone());
+                            *found.lock().unwrap_or_else(|e| e.into_inner()) =
+                                Some(candidate.clone());
 
                             if let Some(pb) = pb {
                                 pb.finish_and_clear();
