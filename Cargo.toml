@@ -41,7 +41,7 @@ axum = "0.8"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors"] }
 aes-gcm = "0.10"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.13", features = ["blocking", "json"] }
 rsa = { version = "0.9", features = ["pem"] }
 num-bigint = "0.4"
 zeroize = "1.8.2"
