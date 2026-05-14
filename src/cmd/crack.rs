@@ -2,7 +2,6 @@ use colored::Colorize;
 use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{error, info};
 use rayon::prelude::*;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -232,6 +231,15 @@ fn run_parallel_crack(
     verbose: bool,
     is_jwe: bool,
 ) {
+    // Precompute HS256 verifier so the hot loop avoids re-decoding the token
+    // on every candidate. Falls back to the full verify path when the token
+    // is not HS256 (or is malformed / JWE).
+    let fast_verifier = if is_jwe {
+        None
+    } else {
+        jwt::prepare_hs256_verifier(token).ok()
+    };
+
     pool.install(|| {
         candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
             // Fast lock-free check before processing chunk
@@ -247,6 +255,8 @@ fn run_parallel_crack(
 
                 let verification_result = if is_jwe {
                     jwt::decrypt_jwe(token, candidate).map(|_| true)
+                } else if let Some(ref v) = fast_verifier {
+                    Ok(v.verify(candidate.as_bytes()))
                 } else {
                     jwt::verify(token, candidate)
                 };
@@ -372,17 +382,19 @@ fn crack_dictionary(
     loading_pb.set_message("Reading wordlist...");
     loading_pb.enable_steady_tick(Duration::from_millis(100));
 
-    let mut words: HashSet<String> = HashSet::new();
+    // Read straight into a Vec — wordlists are typically already deduped and
+    // routing them through a HashSet doubles peak memory on multi-million
+    // entry lists (rockyou et al.) for negligible savings.
+    let mut words_vec: Vec<String> = Vec::new();
     for word in reader.lines().map_while(Result::ok) {
-        words.insert(word);
-        if words.len().is_multiple_of(10000) {
-            loading_pb.set_message(format!("Reading wordlist... ({} words)", words.len()));
+        words_vec.push(word);
+        if words_vec.len().is_multiple_of(10000) {
+            loading_pb.set_message(format!("Reading wordlist... ({} words)", words_vec.len()));
         }
     }
 
-    let words_vec: Vec<String> = words.into_iter().collect();
     loading_pb.finish_with_message(format!(
-        "Loaded {} unique words in {}",
+        "Loaded {} words in {}",
         words_vec.len(),
         HumanDuration(start_time.elapsed())
     ));
@@ -409,7 +421,6 @@ fn crack_dictionary(
     cleanup_crack_progress(pb, update_thread);
 
     // Zeroize wordlist candidates from memory
-    let mut words_vec = words_vec;
     for word in &mut words_vec {
         word.zeroize();
     }
@@ -421,8 +432,9 @@ fn crack_dictionary(
     Ok(())
 }
 
-/// Streaming brute-force: generates and cracks simultaneously without pre-allocating all combinations.
-/// This dramatically reduces memory usage and eliminates generation latency.
+/// Streaming brute-force: each rayon worker materializes candidates from an
+/// integer index into a reusable byte buffer, avoiding the per-candidate
+/// `String` allocation of the legacy `Vec<String>` chunk path.
 fn crack_bruteforce(
     token: &str,
     chars: &str,
@@ -432,6 +444,14 @@ fn crack_bruteforce(
     verbose: bool,
     is_jwe: bool,
 ) -> anyhow::Result<()> {
+    if max_length > crack::brute::MAX_BRUTE_LENGTH {
+        anyhow::bail!(
+            "max length {} exceeds supported brute-force limit of {}",
+            max_length,
+            crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
+
     let start_time = Instant::now();
     let multi = MultiProgress::new();
 
@@ -450,39 +470,97 @@ fn crack_bruteforce(
         total_combinations, max_length
     ));
 
-    // Stream through each length, generating chunks and cracking them immediately
-    const GEN_CHUNK_SIZE: usize = 10000;
+    // Precompute HS256 verifier once. JWE / non-HS256 fall back per-candidate.
+    let fast_verifier = if is_jwe {
+        None
+    } else {
+        jwt::prepare_hs256_verifier(token).ok()
+    };
 
-    for length in 1..=max_length {
-        if found_flag.load(Ordering::Relaxed) {
-            break;
-        }
+    let char_bytes = crack::brute::charset_bytes(chars);
+    let charset_size = char_bytes.len() as u64;
+    const BRUTE_CHUNK: u64 = 4096;
 
-        for mut chunk in crack::brute::generate_combinations_chunked(chars, length, GEN_CHUNK_SIZE)
-        {
+    pool.install(|| {
+        for length in 1..=max_length {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
-
-            // Crack this chunk immediately using the thread pool
-            run_parallel_crack(
-                &pool,
-                &chunk,
-                token,
-                &found,
-                &found_flag,
-                &attempts,
-                &pb,
-                verbose,
-                is_jwe,
-            );
-
-            // Zeroize brute-force candidates from memory
-            for candidate in &mut chunk {
-                candidate.zeroize();
+            let total: u64 = charset_size.pow(length as u32);
+            if total == 0 {
+                continue;
             }
+            let num_chunks = total.div_ceil(BRUTE_CHUNK);
+
+            (0..num_chunks).into_par_iter().for_each_init(
+                || Vec::<u8>::with_capacity(length * 4),
+                |buf, chunk_idx| {
+                    if found_flag.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let start = chunk_idx * BRUTE_CHUNK;
+                    let end = (start + BRUTE_CHUNK).min(total);
+                    let mut hit: Option<Vec<u8>> = None;
+
+                    for idx in start..end {
+                        if found_flag.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        crack::brute::write_candidate_bytes(idx, &char_bytes, length, buf);
+
+                        let matched = if let Some(ref v) = fast_verifier {
+                            v.verify(buf)
+                        } else if is_jwe {
+                            std::str::from_utf8(buf)
+                                .ok()
+                                .map(|s| jwt::decrypt_jwe(token, s).is_ok())
+                                .unwrap_or(false)
+                        } else {
+                            std::str::from_utf8(buf)
+                                .ok()
+                                .map(|s| jwt::verify(token, s).unwrap_or(false))
+                                .unwrap_or(false)
+                        };
+
+                        if matched {
+                            hit = Some(buf.clone());
+                            found_flag.store(true, Ordering::Relaxed);
+                            break;
+                        }
+                    }
+
+                    let processed = end - start;
+                    attempts.fetch_add(processed as usize, Ordering::Relaxed);
+                    if let Some(ref progress) = pb {
+                        progress.inc(processed);
+                    }
+
+                    if let Some(bytes) = hit {
+                        // charset_bytes only produces valid UTF-8, so each
+                        // candidate buffer is guaranteed valid UTF-8 too.
+                        let secret = String::from_utf8(bytes)
+                            .expect("candidate built from char-encoded bytes is valid UTF-8");
+                        if verbose {
+                            let message = if is_jwe {
+                                format!("Found! JWE encryption key is {secret} Decryption=Success")
+                            } else {
+                                format!(
+                                    "Found! Token signature secret is {secret} Signature=Verified"
+                                )
+                            };
+                            info!("{}", message);
+                        }
+                        *found.lock().unwrap_or_else(|e| e.into_inner()) = Some(secret);
+                        if let Some(ref progress) = pb {
+                            progress.finish_and_clear();
+                        }
+                    }
+
+                    buf.zeroize();
+                },
+            );
         }
-    }
+    });
 
     cleanup_crack_progress(pb, update_thread);
 
@@ -537,11 +615,7 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         if let Some(wordlist_path) = options.wordlist {
             let file = File::open(wordlist_path)?;
             let reader = BufReader::new(file);
-            let mut words: HashSet<String> = HashSet::new();
-            for word in reader.lines().map_while(Result::ok) {
-                words.insert(word);
-            }
-            words.into_iter().collect()
+            reader.lines().map_while(Result::ok).collect()
         } else {
             return Err(anyhow::anyhow!("Wordlist is required for dictionary mode"));
         }
@@ -697,86 +771,90 @@ fn run_target_field_crack(
     verbose: bool,
 ) {
     pool.install(|| {
-        candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
-            if found_flag.load(Ordering::Relaxed) {
-                return;
-            }
-
-            for candidate in chunk {
-                if found_flag.load(Ordering::Relaxed) {
-                    break;
-                }
-
-                // Build modified header params and claims
-                let mut extra_headers: std::collections::HashMap<&str, &str> =
+        candidates.par_chunks(CHUNK_SIZE).for_each_init(
+            || {
+                // Per-worker state: one claims clone and one base header map,
+                // amortized across every candidate the worker processes instead
+                // of being rebuilt on each iteration.
+                let mut base_headers: std::collections::HashMap<&str, &str> =
                     std::collections::HashMap::new();
-                let mut modified_claims = claims.clone();
-
-                // Add existing non-standard header params
                 for (k, v) in header_map.iter() {
                     if k != "alg" && k != "typ" {
-                        extra_headers.insert(k.as_str(), v.as_str());
+                        base_headers.insert(k.as_str(), v.as_str());
                     }
                 }
-
-                if field_location == "header" {
-                    extra_headers.insert(target_field, candidate.as_str());
-                } else {
-                    modified_claims[target_field] = serde_json::Value::String(candidate.clone());
+                (base_headers, claims.clone())
+            },
+            |(extra_headers, modified_claims), chunk| {
+                if found_flag.load(Ordering::Relaxed) {
+                    return;
                 }
 
-                let encode_options = jwt::EncodeOptions {
-                    algorithm: alg,
-                    key_data: jwt::KeyData::Secret(""),
-                    header_params: if extra_headers.is_empty() {
-                        None
+                for candidate in chunk {
+                    if found_flag.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    if field_location == "header" {
+                        extra_headers.insert(target_field, candidate.as_str());
                     } else {
-                        Some(extra_headers)
-                    },
-                    compress_payload: false,
-                };
-
-                match jwt::encode_with_options(&modified_claims, &encode_options) {
-                    Ok(new_token) => {
-                        // Check if the token with this field value produces a matching signature
-                        let original_parts: Vec<&str> = original_token.split('.').collect();
-                        let new_parts: Vec<&str> = new_token.split('.').collect();
-
-                        if original_parts.len() >= 3
-                            && new_parts.len() >= 3
-                            && original_parts[2] == new_parts[2]
-                        {
-                            if verbose {
-                                info!(
-                                    "Match found! {}={} produces matching token",
-                                    target_field, candidate
-                                );
-                            }
-
-                            found_flag.store(true, Ordering::Relaxed);
-                            *found.lock().unwrap_or_else(|e| e.into_inner()) =
-                                Some(candidate.clone());
-
-                            if let Some(pb) = pb {
-                                pb.finish_and_clear();
-                            }
-                            break;
-                        }
+                        modified_claims[target_field] =
+                            serde_json::Value::String(candidate.clone());
                     }
-                    Err(_) => {
-                        if verbose {
-                            info!("Failed to encode with {}={}", target_field, candidate);
+
+                    let encode_options = jwt::EncodeOptions {
+                        algorithm: alg,
+                        key_data: jwt::KeyData::Secret(""),
+                        header_params: if extra_headers.is_empty() {
+                            None
+                        } else {
+                            Some(extra_headers.clone())
+                        },
+                        compress_payload: false,
+                    };
+
+                    match jwt::encode_with_options(modified_claims, &encode_options) {
+                        Ok(new_token) => {
+                            // Check if the token with this field value produces a matching signature
+                            let original_parts: Vec<&str> = original_token.split('.').collect();
+                            let new_parts: Vec<&str> = new_token.split('.').collect();
+
+                            if original_parts.len() >= 3
+                                && new_parts.len() >= 3
+                                && original_parts[2] == new_parts[2]
+                            {
+                                if verbose {
+                                    info!(
+                                        "Match found! {}={} produces matching token",
+                                        target_field, candidate
+                                    );
+                                }
+
+                                found_flag.store(true, Ordering::Relaxed);
+                                *found.lock().unwrap_or_else(|e| e.into_inner()) =
+                                    Some(candidate.clone());
+
+                                if let Some(pb) = pb {
+                                    pb.finish_and_clear();
+                                }
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            if verbose {
+                                info!("Failed to encode with {}={}", target_field, candidate);
+                            }
                         }
                     }
                 }
-            }
 
-            let chunk_len = chunk.len();
-            attempts.fetch_add(chunk_len, Ordering::Relaxed);
-            if let Some(ref progress) = pb {
-                progress.inc(chunk_len as u64);
-            }
-        });
+                let chunk_len = chunk.len();
+                attempts.fetch_add(chunk_len, Ordering::Relaxed);
+                if let Some(ref progress) = pb {
+                    progress.inc(chunk_len as u64);
+                }
+            },
+        );
     });
 }
 
@@ -977,6 +1055,36 @@ mod tests {
         );
 
         assert!(result.is_ok(), "crack_bruteforce should not fail");
+    }
+
+    /// Regression test for the brute-force hot path: walk every index with
+    /// `write_candidate_bytes` and confirm `Hs256Verifier` accepts the secret
+    /// at exactly the expected position. Together these are the kernel of
+    /// `crack_bruteforce`; the function itself only reports via stdout so we
+    /// exercise the underlying primitives instead.
+    #[test]
+    fn test_bruteforce_hot_path_finds_secret() {
+        use crate::crack::brute::{charset_bytes, write_candidate_bytes};
+        use crate::jwt::prepare_hs256_verifier;
+
+        let secret = "cab";
+        let token = create_test_token(secret);
+        let verifier = prepare_hs256_verifier(&token).expect("HS256 token");
+
+        let chars = "abc";
+        let char_bytes = charset_bytes(chars);
+        let length = secret.len();
+        let total = (char_bytes.len() as u64).pow(length as u32);
+
+        let mut buf = Vec::with_capacity(length);
+        let mut hits: Vec<String> = Vec::new();
+        for idx in 0..total {
+            write_candidate_bytes(idx, &char_bytes, length, &mut buf);
+            if verifier.verify(&buf) {
+                hits.push(std::str::from_utf8(&buf).unwrap().to_string());
+            }
+        }
+        assert_eq!(hits, vec![secret.to_string()]);
     }
 
     #[test]

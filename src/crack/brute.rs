@@ -139,6 +139,43 @@ pub fn generate_bruteforce_payloads(
         .unwrap_or_else(|e| e.into_inner())
 }
 
+/// Convert a charset string into a vector of per-character UTF-8 byte slices.
+///
+/// Used by the index-based brute force path so each candidate can be assembled
+/// directly into a reusable byte buffer without allocating a fresh String.
+pub fn charset_bytes(chars: &str) -> Vec<Vec<u8>> {
+    chars
+        .chars()
+        .map(|c| {
+            let mut buf = [0u8; 4];
+            c.encode_utf8(&mut buf).as_bytes().to_vec()
+        })
+        .collect()
+}
+
+/// Maximum candidate length supported by [`write_candidate_bytes`].
+/// Brute-forcing past this is computationally infeasible anyway.
+pub const MAX_BRUTE_LENGTH: usize = 64;
+
+/// Write the `idx`-th combination of `length` characters from `char_bytes`
+/// into `out`. `out` is cleared first; no allocation occurs once `out` has
+/// sufficient capacity. Iteration order matches the original
+/// [`generate_combinations_chunked`] (lexicographic over charset indices).
+pub fn write_candidate_bytes(idx: u64, char_bytes: &[Vec<u8>], length: usize, out: &mut Vec<u8>) {
+    debug_assert!(length <= MAX_BRUTE_LENGTH);
+    out.clear();
+    let charset_size = char_bytes.len() as u64;
+    let mut indices = [0u32; MAX_BRUTE_LENGTH];
+    let mut n = idx;
+    for i in (0..length).rev() {
+        indices[i] = (n % charset_size) as u32;
+        n /= charset_size;
+    }
+    for &i in indices.iter().take(length) {
+        out.extend_from_slice(&char_bytes[i as usize]);
+    }
+}
+
 /// Calculates the total number of possible combinations based on charset length and maximum word length
 pub fn estimate_combinations(charset_len: usize, max_len: usize) -> u64 {
     let mut total: u64 = 0;
@@ -226,6 +263,42 @@ mod tests {
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>()
         );
+    }
+
+    #[test]
+    fn test_write_candidate_bytes_matches_chunked() {
+        // Reference output from the legacy chunked iterator.
+        let chars = "abc";
+        let length = 3;
+        let mut reference: Vec<String> = Vec::new();
+        for chunk in generate_combinations_chunked(chars, length, 1) {
+            reference.extend(chunk);
+        }
+
+        // New byte-based path must produce identical candidates in the same order.
+        let char_bytes = charset_bytes(chars);
+        let total = (char_bytes.len() as u64).pow(length as u32);
+        let mut buf = Vec::with_capacity(length * 4);
+        let mut produced: Vec<String> = Vec::new();
+        for idx in 0..total {
+            write_candidate_bytes(idx, &char_bytes, length, &mut buf);
+            produced.push(std::str::from_utf8(&buf).unwrap().to_string());
+        }
+        assert_eq!(reference, produced);
+    }
+
+    #[test]
+    fn test_write_candidate_bytes_multibyte() {
+        let chars = "한글";
+        let char_bytes = charset_bytes(chars);
+        let mut buf = Vec::new();
+        write_candidate_bytes(0, &char_bytes, 1, &mut buf);
+        assert_eq!(buf.as_slice(), "한".as_bytes());
+        write_candidate_bytes(1, &char_bytes, 1, &mut buf);
+        assert_eq!(buf.as_slice(), "글".as_bytes());
+        write_candidate_bytes(3, &char_bytes, 2, &mut buf);
+        // idx 3 = 11 in base-2 → "글글"
+        assert_eq!(buf.as_slice(), "글글".as_bytes());
     }
 
     #[test]
