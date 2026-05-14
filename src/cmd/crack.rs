@@ -232,6 +232,15 @@ fn run_parallel_crack(
     verbose: bool,
     is_jwe: bool,
 ) {
+    // Precompute HS256 verifier so the hot loop avoids re-decoding the token
+    // on every candidate. Falls back to the full verify path when the token
+    // is not HS256 (or is malformed / JWE).
+    let fast_verifier = if is_jwe {
+        None
+    } else {
+        jwt::prepare_hs256_verifier(token).ok()
+    };
+
     pool.install(|| {
         candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
             // Fast lock-free check before processing chunk
@@ -247,6 +256,8 @@ fn run_parallel_crack(
 
                 let verification_result = if is_jwe {
                     jwt::decrypt_jwe(token, candidate).map(|_| true)
+                } else if let Some(ref v) = fast_verifier {
+                    Ok(v.verify(candidate.as_bytes()))
                 } else {
                     jwt::verify(token, candidate)
                 };

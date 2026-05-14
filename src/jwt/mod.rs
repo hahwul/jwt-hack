@@ -527,6 +527,55 @@ pub fn verify(token: &str, secret: &str) -> Result<bool> {
     verify_with_options(token, &options)
 }
 
+/// Precomputed material for fast HS256 signature verification.
+///
+/// Use [`prepare_hs256_verifier`] to build once, then call
+/// [`Hs256Verifier::verify`] for each candidate secret without re-parsing the
+/// token. Intended for tight cracking loops.
+pub struct Hs256Verifier {
+    signing_input: Vec<u8>,
+    expected_sig: Vec<u8>,
+}
+
+impl Hs256Verifier {
+    /// Return true if `secret` produces the token's signature.
+    pub fn verify(&self, secret: &[u8]) -> bool {
+        let mut calculated = hmac_sha256::HMAC::mac(&self.signing_input, secret);
+        let matches = calculated.as_slice() == self.expected_sig.as_slice();
+        calculated.zeroize();
+        matches
+    }
+}
+
+/// Build an [`Hs256Verifier`] from a JWT.
+///
+/// Returns `Err` when the token is malformed, not HS256, or has an empty
+/// signature. Callers should fall back to [`verify`] in that case.
+pub fn prepare_hs256_verifier(token: &str) -> Result<Hs256Verifier> {
+    let decoded = decode(token)?;
+    if decoded.algorithm != Algorithm::HS256 {
+        return Err(anyhow!("token is not HS256"));
+    }
+    let mut parts = token.splitn(3, '.');
+    let header_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
+    let payload_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
+    let signature_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
+    if signature_b64.is_empty() {
+        return Err(anyhow!("Empty signature"));
+    }
+    let mut signing_input = Vec::with_capacity(header_b64.len() + 1 + payload_b64.len());
+    signing_input.extend_from_slice(header_b64.as_bytes());
+    signing_input.push(b'.');
+    signing_input.extend_from_slice(payload_b64.as_bytes());
+    let expected_sig = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(signature_b64)
+        .map_err(|_| anyhow!("Invalid signature encoding"))?;
+    Ok(Hs256Verifier {
+        signing_input,
+        expected_sig,
+    })
+}
+
 /// Helper function to create validation configuration
 fn create_validation(algorithm: Algorithm, options: &VerifyOptions) -> Validation {
     let mut validation = Validation::new(algorithm);
@@ -1428,6 +1477,45 @@ mod tests {
             !result.unwrap(),
             "Verification returned true for incorrect secret"
         );
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_matches_verify() {
+        let claims = json!({"user": "fast_path"});
+        let options_encode = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret("s3cret"),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&claims, &options_encode).expect("encode");
+
+        let v = prepare_hs256_verifier(&token).expect("prepare");
+        assert!(v.verify(b"s3cret"));
+        assert!(!v.verify(b"wrong"));
+        assert!(!v.verify(b""));
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_rejects_non_hs256() {
+        // Hand-craft a header that claims HS384.
+        let header = json!({"alg": "HS384", "typ": "JWT"});
+        let claims = json!({"u": 1});
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+        let sig = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("x");
+        let token = format!("{h}.{c}.{sig}");
+        assert!(prepare_hs256_verifier(&token).is_err());
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_rejects_empty_signature() {
+        let header = json!({"alg": "HS256", "typ": "JWT"});
+        let claims = json!({"u": 1});
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+        let token = format!("{h}.{c}.");
+        assert!(prepare_hs256_verifier(&token).is_err());
     }
 
     #[test]
