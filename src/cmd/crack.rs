@@ -432,8 +432,9 @@ fn crack_dictionary(
     Ok(())
 }
 
-/// Streaming brute-force: generates and cracks simultaneously without pre-allocating all combinations.
-/// This dramatically reduces memory usage and eliminates generation latency.
+/// Streaming brute-force: each rayon worker materializes candidates from an
+/// integer index into a reusable byte buffer, avoiding the per-candidate
+/// `String` allocation of the legacy `Vec<String>` chunk path.
 fn crack_bruteforce(
     token: &str,
     chars: &str,
@@ -461,39 +462,104 @@ fn crack_bruteforce(
         total_combinations, max_length
     ));
 
-    // Stream through each length, generating chunks and cracking them immediately
-    const GEN_CHUNK_SIZE: usize = 10000;
+    if max_length > crack::brute::MAX_BRUTE_LENGTH {
+        anyhow::bail!(
+            "max length {} exceeds supported brute-force limit of {}",
+            max_length,
+            crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
 
-    for length in 1..=max_length {
-        if found_flag.load(Ordering::Relaxed) {
-            break;
-        }
+    // Precompute HS256 verifier once. JWE / non-HS256 fall back per-candidate.
+    let fast_verifier = if is_jwe {
+        None
+    } else {
+        jwt::prepare_hs256_verifier(token).ok()
+    };
 
-        for mut chunk in crack::brute::generate_combinations_chunked(chars, length, GEN_CHUNK_SIZE)
-        {
+    let char_bytes = crack::brute::charset_bytes(chars);
+    let charset_size = char_bytes.len() as u64;
+    const BRUTE_CHUNK: u64 = 4096;
+
+    pool.install(|| {
+        for length in 1..=max_length {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
-
-            // Crack this chunk immediately using the thread pool
-            run_parallel_crack(
-                &pool,
-                &chunk,
-                token,
-                &found,
-                &found_flag,
-                &attempts,
-                &pb,
-                verbose,
-                is_jwe,
-            );
-
-            // Zeroize brute-force candidates from memory
-            for candidate in &mut chunk {
-                candidate.zeroize();
+            let total: u64 = charset_size.pow(length as u32);
+            if total == 0 {
+                continue;
             }
+            let num_chunks = total.div_ceil(BRUTE_CHUNK);
+
+            (0..num_chunks).into_par_iter().for_each_init(
+                || Vec::<u8>::with_capacity(length * 4),
+                |buf, chunk_idx| {
+                    if found_flag.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let start = chunk_idx * BRUTE_CHUNK;
+                    let end = (start + BRUTE_CHUNK).min(total);
+                    let mut hit: Option<Vec<u8>> = None;
+
+                    for idx in start..end {
+                        if found_flag.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        crack::brute::write_candidate_bytes(idx, &char_bytes, length, buf);
+
+                        let matched = if let Some(ref v) = fast_verifier {
+                            v.verify(buf)
+                        } else if is_jwe {
+                            std::str::from_utf8(buf)
+                                .ok()
+                                .map(|s| jwt::decrypt_jwe(token, s).is_ok())
+                                .unwrap_or(false)
+                        } else {
+                            std::str::from_utf8(buf)
+                                .ok()
+                                .map(|s| jwt::verify(token, s).unwrap_or(false))
+                                .unwrap_or(false)
+                        };
+
+                        if matched {
+                            hit = Some(buf.clone());
+                            found_flag.store(true, Ordering::Relaxed);
+                            break;
+                        }
+                    }
+
+                    let processed = end - start;
+                    attempts.fetch_add(processed as usize, Ordering::Relaxed);
+                    if let Some(ref progress) = pb {
+                        progress.inc(processed);
+                    }
+
+                    if let Some(bytes) = hit {
+                        let secret = String::from_utf8_lossy(&bytes).into_owned();
+                        if verbose {
+                            let message = if is_jwe {
+                                format!(
+                                    "Found! JWE encryption key is {secret} Decryption=Success"
+                                )
+                            } else {
+                                format!(
+                                    "Found! Token signature secret is {secret} Signature=Verified"
+                                )
+                            };
+                            info!("{}", message);
+                        }
+                        *found.lock().unwrap_or_else(|e| e.into_inner()) = Some(secret);
+                        if let Some(ref progress) = pb {
+                            progress.finish_and_clear();
+                        }
+                    }
+
+                    buf.zeroize();
+                },
+            );
         }
-    }
+    });
 
     cleanup_crack_progress(pb, update_thread);
 
