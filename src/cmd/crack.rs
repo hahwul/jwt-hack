@@ -774,7 +774,21 @@ fn run_target_field_crack(
     verbose: bool,
 ) {
     pool.install(|| {
-        candidates.par_chunks(CHUNK_SIZE).for_each(|chunk| {
+        candidates.par_chunks(CHUNK_SIZE).for_each_init(
+            || {
+                // Per-worker state: one claims clone and one base header map,
+                // amortized across every candidate the worker processes instead
+                // of being rebuilt on each iteration.
+                let mut base_headers: std::collections::HashMap<&str, &str> =
+                    std::collections::HashMap::new();
+                for (k, v) in header_map.iter() {
+                    if k != "alg" && k != "typ" {
+                        base_headers.insert(k.as_str(), v.as_str());
+                    }
+                }
+                (base_headers, claims.clone())
+            },
+            |(extra_headers, modified_claims), chunk| {
             if found_flag.load(Ordering::Relaxed) {
                 return;
             }
@@ -782,18 +796,6 @@ fn run_target_field_crack(
             for candidate in chunk {
                 if found_flag.load(Ordering::Relaxed) {
                     break;
-                }
-
-                // Build modified header params and claims
-                let mut extra_headers: std::collections::HashMap<&str, &str> =
-                    std::collections::HashMap::new();
-                let mut modified_claims = claims.clone();
-
-                // Add existing non-standard header params
-                for (k, v) in header_map.iter() {
-                    if k != "alg" && k != "typ" {
-                        extra_headers.insert(k.as_str(), v.as_str());
-                    }
                 }
 
                 if field_location == "header" {
@@ -808,12 +810,12 @@ fn run_target_field_crack(
                     header_params: if extra_headers.is_empty() {
                         None
                     } else {
-                        Some(extra_headers)
+                        Some(extra_headers.clone())
                     },
                     compress_payload: false,
                 };
 
-                match jwt::encode_with_options(&modified_claims, &encode_options) {
+                match jwt::encode_with_options(modified_claims, &encode_options) {
                     Ok(new_token) => {
                         // Check if the token with this field value produces a matching signature
                         let original_parts: Vec<&str> = original_token.split('.').collect();
@@ -853,7 +855,8 @@ fn run_target_field_crack(
             if let Some(ref progress) = pb {
                 progress.inc(chunk_len as u64);
             }
-        });
+            },
+        );
     });
 }
 
