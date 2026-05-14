@@ -2,7 +2,6 @@ use colored::Colorize;
 use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{error, info};
 use rayon::prelude::*;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -383,17 +382,19 @@ fn crack_dictionary(
     loading_pb.set_message("Reading wordlist...");
     loading_pb.enable_steady_tick(Duration::from_millis(100));
 
-    let mut words: HashSet<String> = HashSet::new();
+    // Read straight into a Vec — wordlists are typically already deduped and
+    // routing them through a HashSet doubles peak memory on multi-million
+    // entry lists (rockyou et al.) for negligible savings.
+    let mut words_vec: Vec<String> = Vec::new();
     for word in reader.lines().map_while(Result::ok) {
-        words.insert(word);
-        if words.len().is_multiple_of(10000) {
-            loading_pb.set_message(format!("Reading wordlist... ({} words)", words.len()));
+        words_vec.push(word);
+        if words_vec.len().is_multiple_of(10000) {
+            loading_pb.set_message(format!("Reading wordlist... ({} words)", words_vec.len()));
         }
     }
 
-    let words_vec: Vec<String> = words.into_iter().collect();
     loading_pb.finish_with_message(format!(
-        "Loaded {} unique words in {}",
+        "Loaded {} words in {}",
         words_vec.len(),
         HumanDuration(start_time.elapsed())
     ));
@@ -614,11 +615,7 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         if let Some(wordlist_path) = options.wordlist {
             let file = File::open(wordlist_path)?;
             let reader = BufReader::new(file);
-            let mut words: HashSet<String> = HashSet::new();
-            for word in reader.lines().map_while(Result::ok) {
-                words.insert(word);
-            }
-            words.into_iter().collect()
+            reader.lines().map_while(Result::ok).collect()
         } else {
             return Err(anyhow::anyhow!("Wordlist is required for dictionary mode"));
         }
