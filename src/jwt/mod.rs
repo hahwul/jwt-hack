@@ -557,9 +557,15 @@ pub fn prepare_hs256_verifier(token: &str) -> Result<Hs256Verifier> {
         return Err(anyhow!("token is not HS256"));
     }
     let mut parts = token.splitn(3, '.');
-    let header_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
-    let payload_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
-    let signature_b64 = parts.next().ok_or_else(|| anyhow!("Invalid token format"))?;
+    let header_b64 = parts
+        .next()
+        .ok_or_else(|| anyhow!("Invalid token format"))?;
+    let payload_b64 = parts
+        .next()
+        .ok_or_else(|| anyhow!("Invalid token format"))?;
+    let signature_b64 = parts
+        .next()
+        .ok_or_else(|| anyhow!("Invalid token format"))?;
     if signature_b64.is_empty() {
         return Err(anyhow!("Empty signature"));
     }
@@ -1515,6 +1521,25 @@ mod tests {
         let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
         let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
         let token = format!("{h}.{c}.");
+        assert!(prepare_hs256_verifier(&token).is_err());
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_rejects_malformed_token() {
+        // Fewer than three segments.
+        assert!(prepare_hs256_verifier("not.a-jwt").is_err());
+        // Garbage that cannot be decoded as a JWT header.
+        assert!(prepare_hs256_verifier("aaa.bbb.ccc").is_err());
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_rejects_invalid_signature_base64() {
+        let header = json!({"alg": "HS256", "typ": "JWT"});
+        let claims = json!({"u": 1});
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.to_string());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+        // '!' is not a valid URL-safe-base64 character.
+        let token = format!("{h}.{c}.!!!not-base64!!!");
         assert!(prepare_hs256_verifier(&token).is_err());
     }
 

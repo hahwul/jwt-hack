@@ -421,7 +421,6 @@ fn crack_dictionary(
     cleanup_crack_progress(pb, update_thread);
 
     // Zeroize wordlist candidates from memory
-    let mut words_vec = words_vec;
     for word in &mut words_vec {
         word.zeroize();
     }
@@ -445,6 +444,14 @@ fn crack_bruteforce(
     verbose: bool,
     is_jwe: bool,
 ) -> anyhow::Result<()> {
+    if max_length > crack::brute::MAX_BRUTE_LENGTH {
+        anyhow::bail!(
+            "max length {} exceeds supported brute-force limit of {}",
+            max_length,
+            crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
+
     let start_time = Instant::now();
     let multi = MultiProgress::new();
 
@@ -462,14 +469,6 @@ fn crack_bruteforce(
         "Streaming brute-force: {} total combinations (length 1..{})",
         total_combinations, max_length
     ));
-
-    if max_length > crack::brute::MAX_BRUTE_LENGTH {
-        anyhow::bail!(
-            "max length {} exceeds supported brute-force limit of {}",
-            max_length,
-            crack::brute::MAX_BRUTE_LENGTH
-        );
-    }
 
     // Precompute HS256 verifier once. JWE / non-HS256 fall back per-candidate.
     let fast_verifier = if is_jwe {
@@ -537,12 +536,13 @@ fn crack_bruteforce(
                     }
 
                     if let Some(bytes) = hit {
-                        let secret = String::from_utf8_lossy(&bytes).into_owned();
+                        // charset_bytes only produces valid UTF-8, so each
+                        // candidate buffer is guaranteed valid UTF-8 too.
+                        let secret = String::from_utf8(bytes)
+                            .expect("candidate built from char-encoded bytes is valid UTF-8");
                         if verbose {
                             let message = if is_jwe {
-                                format!(
-                                    "Found! JWE encryption key is {secret} Decryption=Success"
-                                )
+                                format!("Found! JWE encryption key is {secret} Decryption=Success")
                             } else {
                                 format!(
                                     "Found! Token signature secret is {secret} Signature=Verified"
@@ -786,72 +786,73 @@ fn run_target_field_crack(
                 (base_headers, claims.clone())
             },
             |(extra_headers, modified_claims), chunk| {
-            if found_flag.load(Ordering::Relaxed) {
-                return;
-            }
-
-            for candidate in chunk {
                 if found_flag.load(Ordering::Relaxed) {
-                    break;
+                    return;
                 }
 
-                if field_location == "header" {
-                    extra_headers.insert(target_field, candidate.as_str());
-                } else {
-                    modified_claims[target_field] = serde_json::Value::String(candidate.clone());
-                }
+                for candidate in chunk {
+                    if found_flag.load(Ordering::Relaxed) {
+                        break;
+                    }
 
-                let encode_options = jwt::EncodeOptions {
-                    algorithm: alg,
-                    key_data: jwt::KeyData::Secret(""),
-                    header_params: if extra_headers.is_empty() {
-                        None
+                    if field_location == "header" {
+                        extra_headers.insert(target_field, candidate.as_str());
                     } else {
-                        Some(extra_headers.clone())
-                    },
-                    compress_payload: false,
-                };
-
-                match jwt::encode_with_options(modified_claims, &encode_options) {
-                    Ok(new_token) => {
-                        // Check if the token with this field value produces a matching signature
-                        let original_parts: Vec<&str> = original_token.split('.').collect();
-                        let new_parts: Vec<&str> = new_token.split('.').collect();
-
-                        if original_parts.len() >= 3
-                            && new_parts.len() >= 3
-                            && original_parts[2] == new_parts[2]
-                        {
-                            if verbose {
-                                info!(
-                                    "Match found! {}={} produces matching token",
-                                    target_field, candidate
-                                );
-                            }
-
-                            found_flag.store(true, Ordering::Relaxed);
-                            *found.lock().unwrap_or_else(|e| e.into_inner()) =
-                                Some(candidate.clone());
-
-                            if let Some(pb) = pb {
-                                pb.finish_and_clear();
-                            }
-                            break;
-                        }
+                        modified_claims[target_field] =
+                            serde_json::Value::String(candidate.clone());
                     }
-                    Err(_) => {
-                        if verbose {
-                            info!("Failed to encode with {}={}", target_field, candidate);
+
+                    let encode_options = jwt::EncodeOptions {
+                        algorithm: alg,
+                        key_data: jwt::KeyData::Secret(""),
+                        header_params: if extra_headers.is_empty() {
+                            None
+                        } else {
+                            Some(extra_headers.clone())
+                        },
+                        compress_payload: false,
+                    };
+
+                    match jwt::encode_with_options(modified_claims, &encode_options) {
+                        Ok(new_token) => {
+                            // Check if the token with this field value produces a matching signature
+                            let original_parts: Vec<&str> = original_token.split('.').collect();
+                            let new_parts: Vec<&str> = new_token.split('.').collect();
+
+                            if original_parts.len() >= 3
+                                && new_parts.len() >= 3
+                                && original_parts[2] == new_parts[2]
+                            {
+                                if verbose {
+                                    info!(
+                                        "Match found! {}={} produces matching token",
+                                        target_field, candidate
+                                    );
+                                }
+
+                                found_flag.store(true, Ordering::Relaxed);
+                                *found.lock().unwrap_or_else(|e| e.into_inner()) =
+                                    Some(candidate.clone());
+
+                                if let Some(pb) = pb {
+                                    pb.finish_and_clear();
+                                }
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            if verbose {
+                                info!("Failed to encode with {}={}", target_field, candidate);
+                            }
                         }
                     }
                 }
-            }
 
-            let chunk_len = chunk.len();
-            attempts.fetch_add(chunk_len, Ordering::Relaxed);
-            if let Some(ref progress) = pb {
-                progress.inc(chunk_len as u64);
-            }
+                let chunk_len = chunk.len();
+                attempts.fetch_add(chunk_len, Ordering::Relaxed);
+                if let Some(ref progress) = pb {
+                    progress.inc(chunk_len as u64);
+                }
             },
         );
     });
@@ -1054,6 +1055,36 @@ mod tests {
         );
 
         assert!(result.is_ok(), "crack_bruteforce should not fail");
+    }
+
+    /// Regression test for the brute-force hot path: walk every index with
+    /// `write_candidate_bytes` and confirm `Hs256Verifier` accepts the secret
+    /// at exactly the expected position. Together these are the kernel of
+    /// `crack_bruteforce`; the function itself only reports via stdout so we
+    /// exercise the underlying primitives instead.
+    #[test]
+    fn test_bruteforce_hot_path_finds_secret() {
+        use crate::crack::brute::{charset_bytes, write_candidate_bytes};
+        use crate::jwt::prepare_hs256_verifier;
+
+        let secret = "cab";
+        let token = create_test_token(secret);
+        let verifier = prepare_hs256_verifier(&token).expect("HS256 token");
+
+        let chars = "abc";
+        let char_bytes = charset_bytes(chars);
+        let length = secret.len();
+        let total = (char_bytes.len() as u64).pow(length as u32);
+
+        let mut buf = Vec::with_capacity(length);
+        let mut hits: Vec<String> = Vec::new();
+        for idx in 0..total {
+            write_candidate_bytes(idx, &char_bytes, length, &mut buf);
+            if verifier.verify(&buf) {
+                hits.push(std::str::from_utf8(&buf).unwrap().to_string());
+            }
+        }
+        assert_eq!(hits, vec![secret.to_string()]);
     }
 
     #[test]
