@@ -1,7 +1,6 @@
 +++
 title = "JWT-HACK"
 template = "landing"
-hero_title = "Welcome to JWT-HACK!"
 hero_badge = "v2.5.0"
 hero_description = "A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens"
 features_title = "Essential Features"

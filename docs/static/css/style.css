@@ -23,8 +23,6 @@
     --seg-header: #ff4d8d;     /* signed pink/red */
     --seg-payload: #b18bff;    /* violet */
     --seg-signature: #22d3ee;  /* cyan */
-    --seg-header-soft: rgba(255, 77, 141, 0.14);
-    --seg-payload-soft: rgba(177, 139, 255, 0.14);
     --seg-signature-soft: rgba(34, 211, 238, 0.14);
 
     /* Status */
@@ -90,8 +88,6 @@
     --seg-header: #e23170;
     --seg-payload: #7c5cff;
     --seg-signature: #0aa7c6;
-    --seg-header-soft: rgba(226, 49, 112, 0.1);
-    --seg-payload-soft: rgba(124, 92, 255, 0.1);
     --seg-signature-soft: rgba(10, 167, 198, 0.1);
 
     --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
@@ -1124,15 +1120,15 @@ nav.pagination a:hover {
 
 .token-row.h .tag {
     color: var(--seg-header);
-    border-color: color-mix(in srgb, var(--seg-header) 40%, var(--line-strong));
+    border-color: var(--seg-header);
 }
 .token-row.p .tag {
     color: var(--seg-payload);
-    border-color: color-mix(in srgb, var(--seg-payload) 40%, var(--line-strong));
+    border-color: var(--seg-payload);
 }
 .token-row.s .tag {
     color: var(--seg-signature);
-    border-color: color-mix(in srgb, var(--seg-signature) 40%, var(--line-strong));
+    border-color: var(--seg-signature);
 }
 
 .token-row .val {
@@ -1541,5 +1537,23 @@ nav.pagination a:hover {
     }
     .token-row {
         grid-template-columns: 72px 1fr;
+    }
+}
+
+/* =============================================================================
+   Reduced motion
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    .hero-meta .meta-dot,
+    .token-foot .blink {
+        animation: none;
     }
 }
