@@ -55,12 +55,19 @@ fn generate_payloads(
         "alg_confusion",
         "kid_sql",
         "kid_traversal",
+        "kid_predictable",
         "x5c",
+        "x5c_signed",
         "cty",
         "jwk_embed",
         "crit",
         "b64",
         "empty_sig",
+        "psychic",
+        "typ_confusion",
+        "alg_edge",
+        "ssrf",
+        "zip",
     ];
     for t in &targets {
         if !valid_targets.contains(&t.as_str()) && t != "all" {
@@ -185,6 +192,79 @@ fn generate_payloads(
         if let Ok(payloads) = crate::payload::generate_empty_sig_payload(token) {
             for payload in payloads {
                 println!("\n  {}", "Empty/Stripped Signature".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate self-signed x5c (real signed token)
+    if should_generate_all || targets.contains("x5c_signed") {
+        match crate::payload::generate_x5c_signed_payload(token) {
+            Ok(payload) => {
+                println!("\n  {}", "x5c Self-signed Cert (signed)".bold());
+                println!("  {payload}");
+            }
+            Err(e) => {
+                utils::log_warning(format!("Failed to generate x5c_signed payload: {e}"));
+            }
+        }
+    }
+
+    // Generate ECDSA psychic signatures (CVE-2022-21449)
+    if should_generate_all || targets.contains("psychic") {
+        if let Ok(payloads) = crate::payload::generate_psychic_signature_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "ECDSA Psychic Signature (CVE-2022-21449)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate typ confusion payloads
+    if should_generate_all || targets.contains("typ_confusion") {
+        if let Ok(payloads) = crate::payload::generate_typ_confusion_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "typ Confusion".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate alg edge-value payloads
+    if should_generate_all || targets.contains("alg_edge") {
+        if let Ok(payloads) = crate::payload::generate_alg_edge_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "alg Edge Value".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate jku/x5u SSRF probes
+    if should_generate_all || targets.contains("ssrf") {
+        if let Ok(payloads) = crate::payload::generate_jku_x5u_ssrf_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "jku/x5u SSRF Probe".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate zip variant + bomb payloads
+    if should_generate_all || targets.contains("zip") {
+        if let Ok(payloads) = crate::payload::generate_zip_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "zip Variant / Decompression Bomb".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate kid predictable-path payloads
+    if should_generate_all || targets.contains("kid_predictable") {
+        if let Ok(payloads) = crate::payload::generate_kid_predictable_payload(token, None) {
+            for payload in payloads {
+                println!("\n  {}", "kid Predictable Path".bold());
                 println!("  {payload}");
             }
         }
