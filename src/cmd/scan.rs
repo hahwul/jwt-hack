@@ -91,14 +91,48 @@ pub fn execute(
     }
 }
 
+/// Build a best-effort `DecodedToken` from the raw header bytes for tokens that
+/// `jwt::decode` rejects. Claims are left null and `algorithm` is a sentinel —
+/// only header-shape checks should consume the result.
+fn parse_header_only(token: &str) -> Result<jwt::DecodedToken> {
+    use base64::Engine;
+    use std::collections::HashMap;
+    let parts: Vec<&str> = token.split('.').collect();
+    let header_b64 = parts.first().copied().unwrap_or("");
+    let header_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(header_b64)
+        .map_err(|e| anyhow::anyhow!("token header is not base64url: {e}"))?;
+    let header: HashMap<String, serde_json::Value> = serde_json::from_slice(&header_bytes)
+        .map_err(|e| anyhow::anyhow!("token header is not JSON: {e}"))?;
+    Ok(jwt::DecodedToken {
+        header,
+        claims: serde_json::Value::Null,
+        algorithm: jsonwebtoken::Algorithm::HS256, // sentinel; do not trust
+    })
+}
+
 /// Run comprehensive vulnerability scan
 fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
     let mut results: Vec<VulnerabilityResult> = Vec::new();
 
-    // Decode token first to get basic info
-    let decoded = jwt::decode(token)?;
+    // Try strict decode first. If it fails, fall back to a header-only view so
+    // the shape checks (which the malformed-token detectors below depend on)
+    // still run — that's the whole point of catching invalid `alg`, `zip`,
+    // psychic signatures, etc.
+    let (decoded, strict_ok, decode_err) = match jwt::decode(token) {
+        Ok(d) => (d, true, None),
+        Err(e) => {
+            let err_str = e.to_string();
+            let fallback = parse_header_only(token)?;
+            (fallback, false, Some(err_str))
+        }
+    };
 
-    let alg_str = format!("{:?}", decoded.algorithm);
+    let header_alg_display = decoded
+        .header
+        .get("alg")
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "<missing>".to_string());
     let typ = decoded
         .header
         .get("typ")
@@ -106,46 +140,43 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
         .unwrap_or("JWT");
 
     println!("  {}", "Token".bold());
-    println!("  {:<18}{}", "Algorithm".dimmed(), alg_str.cyan());
+    println!(
+        "  {:<18}{}",
+        "Algorithm".dimmed(),
+        header_alg_display.cyan()
+    );
     println!("  {:<18}{}", "Type".dimmed(), typ);
-
-    // Check 1: None Algorithm Vulnerability
-    results.push(check_none_algorithm(token, &decoded)?);
-
-    // Check 2: Weak Secret (if not skipped)
-    if !options.skip_crack {
-        results.push(check_weak_secret(token, &decoded, options)?);
+    if let Some(err) = &decode_err {
+        println!(
+            "  {:<18}{}",
+            "Strict decode".dimmed(),
+            format!("rejected: {err}").yellow()
+        );
     }
 
-    // Check 3: Algorithm Confusion
+    // Header-shape / raw-bytes checks — always run.
+    results.push(check_none_algorithm(token, &decoded)?);
     results.push(check_algorithm_confusion(token, &decoded)?);
-
-    // Check 4: Token Expiration
-    results.push(check_token_expiration(&decoded)?);
-
-    // Check 5: Missing Claims
-    results.push(check_missing_claims(&decoded)?);
-
-    // Check 6: Kid Header Vulnerabilities
     results.push(check_kid_vulnerabilities(&decoded)?);
-
-    // Check 7: JKU/X5U Header Vulnerabilities
     results.push(check_jku_x5u_vulnerabilities(&decoded)?);
-
-    // Check 8: Embedded JWK Header
     results.push(check_jwk_header(&decoded)?);
-
-    // Check 9: crit Header
     results.push(check_crit_header(&decoded)?);
-
-    // Check 10: RFC 7797 b64 Header
     results.push(check_b64_header(&decoded)?);
-
-    // Check 11: Empty / suspicious signature
     results.push(check_signature_segment(token, &decoded)?);
+    results.push(check_typ_confusion(&decoded)?);
+    results.push(check_alg_edge(token, &decoded)?);
+    results.push(check_psychic_signature(token, &decoded)?);
+    results.push(check_zip_header(&decoded)?);
 
-    // Check 12: Sensitive claim data (PII)
-    results.push(check_sensitive_claims(&decoded)?);
+    // Claim-dependent checks — skip when strict decode failed (claims aren't trustworthy).
+    if strict_ok {
+        if !options.skip_crack {
+            results.push(check_weak_secret(token, &decoded, options)?);
+        }
+        results.push(check_token_expiration(&decoded)?);
+        results.push(check_missing_claims(&decoded)?);
+        results.push(check_sensitive_claims(&decoded)?);
+    }
 
     // Display results summary
     display_results(&results);
@@ -195,7 +226,12 @@ fn check_weak_secret(
     options: &ScanOptions,
 ) -> Result<VulnerabilityResult> {
     // Only check HMAC algorithms
-    let alg_str = format!("{:?}", decoded.algorithm);
+    let alg_str = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_uppercase())
+        .unwrap_or_else(|| format!("{:?}", decoded.algorithm));
     if !alg_str.starts_with("HS") {
         return Ok(VulnerabilityResult {
             name: "Weak Secret".to_string(),
@@ -260,13 +296,20 @@ fn check_algorithm_confusion(
     _token: &str,
     decoded: &jwt::DecodedToken,
 ) -> Result<VulnerabilityResult> {
-    let alg_str = format!("{:?}", decoded.algorithm);
+    // Pull alg from the raw header so this still works on tokens that fail
+    // strict decode and only have a synthetic DecodedToken.
+    let alg_str = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("{:?}", decoded.algorithm));
+    let alg_upper = alg_str.to_uppercase();
 
-    // Check if token uses asymmetric algorithm (RS256, ES256, etc.)
-    let uses_asymmetric = alg_str.starts_with("RS")
-        || alg_str.starts_with("ES")
-        || alg_str.starts_with("PS")
-        || alg_str == "EdDSA";
+    let uses_asymmetric = alg_upper.starts_with("RS")
+        || alg_upper.starts_with("ES")
+        || alg_upper.starts_with("PS")
+        || alg_upper == "EDDSA";
 
     let result = if uses_asymmetric {
         VulnerabilityResult {
@@ -731,6 +774,232 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
     Ok(result)
 }
 
+/// Check for `typ` confusion (non-standard or omitted media types).
+fn check_typ_confusion(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let name = "typ Confusion".to_string();
+    let result = match decoded.header.get("typ").and_then(|v| v.as_str()) {
+        Some("JWT") => VulnerabilityResult {
+            name,
+            vulnerable: false,
+            details: "'typ' is JWT".to_string(),
+            severity: Severity::Info,
+        },
+        Some(other) => {
+            let suspicious = matches!(
+                other,
+                "at+jwt" | "JOSE" | "JOSE+JSON" | "application/jwt" | "jwt"
+            ) || other.contains('\0');
+            if suspicious {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: true,
+                    details: format!(
+                        "Non-canonical 'typ': '{}' — verify the server accepts only expected media types",
+                        other
+                    ),
+                    severity: Severity::Medium,
+                }
+            } else {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: false,
+                    details: format!("'typ' is '{}'", other),
+                    severity: Severity::Info,
+                }
+            }
+        }
+        None => VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details:
+                "'typ' header missing — some validators reject, others accept arbitrary tokens"
+                    .to_string(),
+            severity: Severity::Low,
+        },
+    };
+    Ok(result)
+}
+
+/// Check for edge-shape `alg` values (empty, null, array, whitespace).
+fn check_alg_edge(token: &str, _decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    use base64::Engine;
+    let name = "alg Edge Value".to_string();
+    let parts: Vec<&str> = token.split('.').collect();
+    let header_b64 = parts.first().copied().unwrap_or("");
+    let raw = match base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(header_b64) {
+        Ok(b) => b,
+        Err(_) => {
+            return Ok(VulnerabilityResult {
+                name,
+                vulnerable: false,
+                details: "Header not base64url".to_string(),
+                severity: Severity::Info,
+            });
+        }
+    };
+    let val: serde_json::Value = match serde_json::from_slice(&raw) {
+        Ok(v) => v,
+        Err(_) => {
+            return Ok(VulnerabilityResult {
+                name,
+                vulnerable: false,
+                details: "Header not JSON".to_string(),
+                severity: Severity::Info,
+            });
+        }
+    };
+    let alg = val.get("alg");
+    let result = match alg {
+        None => VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details: "'alg' header is missing".to_string(),
+            severity: Severity::High,
+        },
+        Some(serde_json::Value::Null) => VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details: "'alg' header is null".to_string(),
+            severity: Severity::High,
+        },
+        Some(serde_json::Value::Array(_)) => VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details: "'alg' is an array — parsers disagree on which element to take".to_string(),
+            severity: Severity::High,
+        },
+        Some(serde_json::Value::String(s)) => {
+            let trimmed = s.trim();
+            if s.is_empty() {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: true,
+                    details: "'alg' is an empty string".to_string(),
+                    severity: Severity::High,
+                }
+            } else if trimmed != s {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: true,
+                    details: format!("'alg' has surrounding whitespace: '{}'", s),
+                    severity: Severity::Medium,
+                }
+            } else if s.contains('\0') {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: true,
+                    details: "'alg' contains a NUL byte".to_string(),
+                    severity: Severity::High,
+                }
+            } else {
+                VulnerabilityResult {
+                    name,
+                    vulnerable: false,
+                    details: "'alg' is a plain string".to_string(),
+                    severity: Severity::Info,
+                }
+            }
+        }
+        Some(other) => VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details: format!("'alg' has unexpected JSON type: {}", other),
+            severity: Severity::Medium,
+        },
+    };
+    Ok(result)
+}
+
+/// Detect ECDSA psychic signatures (r=s=0, CVE-2022-21449).
+fn check_psychic_signature(
+    token: &str,
+    decoded: &jwt::DecodedToken,
+) -> Result<VulnerabilityResult> {
+    use base64::Engine;
+    let name = "Psychic Signature".to_string();
+    let alg_str = format!("{:?}", decoded.algorithm).to_uppercase();
+    if !alg_str.starts_with("ES") {
+        return Ok(VulnerabilityResult {
+            name,
+            vulnerable: false,
+            details: format!("Not applicable for {}", alg_str),
+            severity: Severity::Info,
+        });
+    }
+    let parts: Vec<&str> = token.split('.').collect();
+    let sig_b64 = parts.get(2).copied().unwrap_or("");
+    let sig_bytes = match base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(sig_b64) {
+        Ok(b) => b,
+        Err(_) => {
+            return Ok(VulnerabilityResult {
+                name,
+                vulnerable: false,
+                details: "Signature is not base64url".to_string(),
+                severity: Severity::Info,
+            });
+        }
+    };
+    let all_zero = !sig_bytes.is_empty() && sig_bytes.iter().all(|b| *b == 0);
+    let result = if all_zero {
+        VulnerabilityResult {
+            name,
+            vulnerable: true,
+            details: format!(
+                "{} signature is all-zero — accepted by vulnerable Java JDK (CVE-2022-21449)",
+                alg_str
+            ),
+            severity: Severity::Critical,
+        }
+    } else {
+        VulnerabilityResult {
+            name,
+            vulnerable: false,
+            details: "ECDSA signature is non-zero".to_string(),
+            severity: Severity::Info,
+        }
+    };
+    Ok(result)
+}
+
+/// Check for non-standard `zip` (compression) values.
+fn check_zip_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let name = "zip Header".to_string();
+    let result = match decoded.header.get("zip") {
+        None => VulnerabilityResult {
+            name,
+            vulnerable: false,
+            details: "No 'zip' header".to_string(),
+            severity: Severity::Info,
+        },
+        Some(v) => match v.as_str() {
+            // "DEF" is the only RFC 7516 §4.1.3 value.
+            Some("DEF") => VulnerabilityResult {
+                name,
+                vulnerable: true,
+                details: "Token uses DEFLATE compression — verify the decoder enforces a size cap"
+                    .to_string(),
+                severity: Severity::Low,
+            },
+            Some(other) => VulnerabilityResult {
+                name,
+                vulnerable: true,
+                details: format!(
+                    "Non-standard 'zip' value: '{}' — only 'DEF' is defined",
+                    other
+                ),
+                severity: Severity::Medium,
+            },
+            None => VulnerabilityResult {
+                name,
+                vulnerable: true,
+                details: format!("'zip' is not a string: {}", v),
+                severity: Severity::Medium,
+            },
+        },
+    };
+    Ok(result)
+}
+
 /// Display scan results
 fn display_results(results: &[VulnerabilityResult]) {
     println!("\n  {}", "Results".bold());
@@ -832,6 +1101,18 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
             "Signature Segment" => {
                 targets.insert("empty_sig");
             }
+            "typ Confusion" => {
+                targets.insert("typ_confusion");
+            }
+            "alg Edge Value" => {
+                targets.insert("alg_edge");
+            }
+            "Psychic Signature" => {
+                targets.insert("psychic");
+            }
+            "zip Header" => {
+                targets.insert("zip");
+            }
             _ => {}
         }
     }
@@ -902,6 +1183,38 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
             if target_str.contains("empty_sig") {
                 if let Ok(payloads) = payload::generate_empty_sig_payload(token) {
                     for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("typ_confusion") {
+                if let Ok(payloads) = payload::generate_typ_confusion_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("alg_edge") {
+                if let Ok(payloads) = payload::generate_alg_edge_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("psychic") {
+                if let Ok(payloads) = payload::generate_psychic_signature_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("zip") {
+                if let Ok(payloads) = payload::generate_zip_payload(token) {
+                    for p in payloads.iter().take(1) {
                         println!("  {}", p);
                     }
                 }
@@ -1083,6 +1396,19 @@ mod tests {
         format!("{header_b64}.{claims_b64}.fake")
     }
 
+    /// Build a synthetic `DecodedToken` directly from a raw header JSON, with
+    /// null claims and an HS256 sentinel algorithm. Use this for testing
+    /// header-shape checks against headers that `jwt::decode` would reject.
+    fn header_only_decoded(header_json: &str) -> jwt::DecodedToken {
+        let header: std::collections::HashMap<String, serde_json::Value> =
+            serde_json::from_str(header_json).unwrap();
+        jwt::DecodedToken {
+            header,
+            claims: serde_json::Value::Null,
+            algorithm: jsonwebtoken::Algorithm::HS256,
+        }
+    }
+
     #[test]
     fn test_check_b64_header_false_is_high() {
         let token = synthetic_token(json!({ "b64": false }), json!({}));
@@ -1216,5 +1542,123 @@ mod tests {
             !r.vulnerable,
             "alphanumeric IDs must not be classified as credit cards"
         );
+    }
+
+    #[test]
+    fn test_check_typ_confusion_flags_at_jwt_and_missing() {
+        let token1 = synthetic_token(json!({ "typ": "at+jwt" }), json!({}));
+        let r1 = check_typ_confusion(&jwt::decode(&token1).unwrap()).unwrap();
+        assert!(r1.vulnerable);
+        assert_eq!(r1.severity, Severity::Medium);
+
+        let token2 = synthetic_token(json!({}), json!({}));
+        // Drop the typ field — easiest by building header manually.
+        use base64::Engine;
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(r#"{"alg":"HS256"}"#.as_bytes());
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let no_typ = format!("{header_b64}.{claims_b64}.fake");
+        let _ = token2; // silence
+        let r2 = check_typ_confusion(&jwt::decode(&no_typ).unwrap()).unwrap();
+        assert!(r2.vulnerable);
+        assert_eq!(r2.severity, Severity::Low);
+
+        let token3 = synthetic_token(json!({ "typ": "JWT" }), json!({}));
+        let r3 = check_typ_confusion(&jwt::decode(&token3).unwrap()).unwrap();
+        assert!(!r3.vulnerable);
+    }
+
+    #[test]
+    fn test_check_alg_edge_array_value() {
+        use base64::Engine;
+        let raw_header = r#"{"alg":["none","HS256"],"typ":"JWT"}"#;
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw_header.as_bytes());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let token = format!("{h}.{c}.fake");
+        // jwt::decode rejects array alg, so use a synthetic header-only DecodedToken.
+        let decoded = header_only_decoded(raw_header);
+        let r = check_alg_edge(&token, &decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+        assert!(r.details.contains("array"));
+    }
+
+    #[test]
+    fn test_check_alg_edge_whitespace() {
+        use base64::Engine;
+        let raw_header = r#"{"alg":" HS256 ","typ":"JWT"}"#;
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw_header.as_bytes());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let token = format!("{h}.{c}.fake");
+        let decoded = header_only_decoded(raw_header);
+        let r = check_alg_edge(&token, &decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Medium);
+    }
+
+    #[test]
+    fn test_check_psychic_signature_detects_all_zero_es256() {
+        use base64::Engine;
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(r#"{"alg":"ES256","typ":"JWT"}"#.as_bytes());
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([0u8; 64]);
+        let token = format!("{header_b64}.{claims_b64}.{sig_b64}");
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_psychic_signature(&token, &decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_check_psychic_signature_ignores_non_ecdsa() {
+        let token = create_test_token("HS256", "secret");
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_psychic_signature(&token, &decoded).unwrap();
+        assert!(!r.vulnerable);
+    }
+
+    #[test]
+    fn test_check_zip_header_def_is_low() {
+        // zip:DEF requires a compressed claims segment for strict decode, so
+        // call the check directly against a header-only DecodedToken.
+        let decoded = header_only_decoded(r#"{"alg":"HS256","typ":"JWT","zip":"DEF"}"#);
+        let r = check_zip_header(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Low);
+    }
+
+    #[test]
+    fn test_check_zip_header_unknown_is_medium() {
+        let token = synthetic_token(json!({ "zip": "GZIP" }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_zip_header(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Medium);
+    }
+
+    #[test]
+    fn test_check_zip_header_missing_is_info() {
+        let token = synthetic_token(json!({}), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_zip_header(&decoded).unwrap();
+        assert!(!r.vulnerable);
+    }
+
+    #[test]
+    fn test_parse_header_only_supports_array_alg() {
+        // Tokens with array `alg` fail strict decode; parse_header_only must
+        // still succeed so shape checks can run.
+        use base64::Engine;
+        let raw_header = r#"{"alg":["none","HS256"],"typ":"JWT"}"#;
+        let h = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw_header.as_bytes());
+        let c = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let token = format!("{h}.{c}.fake");
+        assert!(
+            jwt::decode(&token).is_err(),
+            "strict decode must reject array alg"
+        );
+        let decoded = parse_header_only(&token).expect("header-only parse should succeed");
+        assert!(decoded.header.get("alg").unwrap().is_array());
     }
 }

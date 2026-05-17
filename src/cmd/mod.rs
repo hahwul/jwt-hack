@@ -157,7 +157,7 @@ pub enum Commands {
         #[arg(long, default_value = "https")]
         jwk_protocol: String,
 
-        /// Target payload types (comma-separated: all,none,jku,x5u,alg_confusion,kid_sql,kid_traversal,x5c,cty,jwk_embed,crit,b64,empty_sig)
+        /// Target payload types (comma-separated: all,none,jku,x5u,ssrf,alg_confusion,alg_edge,kid_sql,kid_traversal,kid_predictable,x5c,x5c_signed,cty,jwk_embed,crit,b64,empty_sig,psychic,typ_confusion,zip)
         #[arg(long, default_value = "all")]
         target: Option<String>,
     },
