@@ -483,23 +483,31 @@ fn check_crit_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult>
 
 /// Check for RFC 7797 `b64: false` (unencoded payload).
 fn check_b64_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let name = "b64 Header (RFC 7797)".to_string();
     let result = match decoded.header.get("b64") {
         Some(v) if v.as_bool() == Some(false) => VulnerabilityResult {
-            name: "b64 Header (RFC 7797)".to_string(),
+            name,
             vulnerable: true,
             details:
                 "Header sets 'b64' to false — implementations that mishandle this may accept unsigned/forged payloads"
                     .to_string(),
             severity: Severity::High,
         },
+        Some(v) if v.as_bool() == Some(true) => VulnerabilityResult {
+            // b64:true is the RFC default; explicit but harmless.
+            name,
+            vulnerable: false,
+            details: "'b64' header is true (RFC default)".to_string(),
+            severity: Severity::Info,
+        },
         Some(v) => VulnerabilityResult {
-            name: "b64 Header (RFC 7797)".to_string(),
+            name,
             vulnerable: true,
             details: format!("Non-standard 'b64' header value: {}", v),
             severity: Severity::Medium,
         },
         None => VulnerabilityResult {
-            name: "b64 Header (RFC 7797)".to_string(),
+            name,
             vulnerable: false,
             details: "No 'b64' header".to_string(),
             severity: Severity::Info,
@@ -575,11 +583,24 @@ fn check_sensitive_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
     }
 
     fn looks_like_credit_card(s: &str) -> bool {
-        let digits: Vec<u32> = s
+        // Reject strings that are mostly non-digit text — order IDs, JWT IDs,
+        // hex hashes can otherwise sneak through Luhn by coincidence.
+        let total = s.chars().count();
+        if total == 0 {
+            return false;
+        }
+        let digit_count = s.chars().filter(|c| c.is_ascii_digit()).count();
+        // Allow only digits, ASCII whitespace, and '-' separators in CC-shaped strings.
+        let allowed = s
             .chars()
-            .filter(|c| !c.is_whitespace() && *c != '-')
-            .filter_map(|c| c.to_digit(10))
-            .collect();
+            .all(|c| c.is_ascii_digit() || c.is_ascii_whitespace() || c == '-');
+        if !allowed {
+            return false;
+        }
+        if (digit_count as f64) / (total as f64) < 0.7 {
+            return false;
+        }
+        let digits: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
         if !(12..=19).contains(&digits.len()) {
             return false;
         }
@@ -1042,5 +1063,158 @@ mod tests {
         assert!(result.vulnerable);
         assert_eq!(result.name, "None Algorithm");
         assert_eq!(result.severity, Severity::Critical);
+    }
+
+    /// Build a synthetic token whose header carries the given extra fields and
+    /// whose claims are the supplied JSON value. The signature is junk — these
+    /// helpers feed checks that only look at parsed header/claims, never verify.
+    fn synthetic_token(extra_header: serde_json::Value, claims: serde_json::Value) -> String {
+        use base64::Engine;
+        let mut header = json!({ "alg": "HS256", "typ": "JWT" });
+        if let Some(map) = extra_header.as_object() {
+            for (k, v) in map {
+                header[k] = v.clone();
+            }
+        }
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_string(&header).unwrap().as_bytes());
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_string(&claims).unwrap().as_bytes());
+        format!("{header_b64}.{claims_b64}.fake")
+    }
+
+    #[test]
+    fn test_check_b64_header_false_is_high() {
+        let token = synthetic_token(json!({ "b64": false }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_b64_header(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+    }
+
+    #[test]
+    fn test_check_b64_header_true_is_info() {
+        // b64:true is the RFC default — must not be reported as a vulnerability.
+        let token = synthetic_token(json!({ "b64": true }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_b64_header(&decoded).unwrap();
+        assert!(!r.vulnerable);
+        assert_eq!(r.severity, Severity::Info);
+    }
+
+    #[test]
+    fn test_check_b64_header_missing_is_info() {
+        let token = synthetic_token(json!({}), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_b64_header(&decoded).unwrap();
+        assert!(!r.vulnerable);
+        assert_eq!(r.severity, Severity::Info);
+    }
+
+    #[test]
+    fn test_check_jwk_header_detects_embedded_jwk() {
+        let token = synthetic_token(
+            json!({ "jwk": { "kty": "RSA", "n": "x", "e": "AQAB" } }),
+            json!({}),
+        );
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_jwk_header(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_check_crit_header_present() {
+        let token = synthetic_token(json!({ "crit": ["b64"] }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_crit_header(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+    }
+
+    #[test]
+    fn test_check_kid_header_classifies_path_traversal() {
+        let token = synthetic_token(json!({ "kid": "../../../../dev/null" }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_kid_vulnerabilities(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+        assert!(r.details.contains("path"));
+    }
+
+    #[test]
+    fn test_check_kid_header_classifies_sqli() {
+        let token = synthetic_token(json!({ "kid": "x' UNION SELECT 1 --" }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_kid_vulnerabilities(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+        assert!(r.details.to_lowercase().contains("sql"));
+    }
+
+    #[test]
+    fn test_check_kid_header_plain_value_is_medium() {
+        let token = synthetic_token(json!({ "kid": "my-signing-key-2024" }), json!({}));
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_kid_vulnerabilities(&decoded).unwrap();
+        assert_eq!(r.severity, Severity::Medium);
+    }
+
+    #[test]
+    fn test_check_signature_segment_empty_with_alg_is_critical() {
+        // Build header.payload. (empty third segment) with alg=HS256.
+        use base64::Engine;
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(r#"{"alg":"HS256","typ":"JWT"}"#.as_bytes());
+        let claims_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r#"{"sub":"x"}"#.as_bytes());
+        let token = format!("{header_b64}.{claims_b64}.");
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_signature_segment(&token, &decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_check_sensitive_claims_finds_pii() {
+        // Valid Luhn CC: 4539148803436467
+        let claims = json!({
+            "sub": "u1",
+            "email": "alice@example.com",
+            "cc": "4539148803436467",
+            "ssn": "078-05-1120",
+        });
+        let token = synthetic_token(json!({}), claims);
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_sensitive_claims(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Medium);
+        assert!(r.details.contains("email at 'email'"));
+        assert!(r.details.contains("credit-card-shaped value at 'cc'"));
+        assert!(r.details.contains("SSN-shaped value at 'ssn'"));
+    }
+
+    #[test]
+    fn test_check_sensitive_claims_clean_token() {
+        let claims = json!({ "sub": "u1", "role": "admin", "iat": 1700000000 });
+        let token = synthetic_token(json!({}), claims);
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_sensitive_claims(&decoded).unwrap();
+        assert!(!r.vulnerable);
+    }
+
+    #[test]
+    fn test_check_sensitive_claims_rejects_alphanumeric_id() {
+        // 16 digits embedded in an order ID — must NOT be Luhn-tested as a CC
+        // because the string contains non-digit / non-separator characters.
+        // (4539148803436467 is Luhn-valid; bracketed by letters it must be ignored.)
+        let claims = json!({ "order": "ORD-4539148803436467-XYZ" });
+        let token = synthetic_token(json!({}), claims);
+        let decoded = jwt::decode(&token).unwrap();
+        let r = check_sensitive_claims(&decoded).unwrap();
+        assert!(
+            !r.vulnerable,
+            "alphanumeric IDs must not be classified as credit cards"
+        );
     }
 }

