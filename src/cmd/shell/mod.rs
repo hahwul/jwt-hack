@@ -301,15 +301,13 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             app.cursor_position = 0;
         }
         // Ctrl+W — delete word backward
-        (KeyModifiers::CONTROL, KeyCode::Char('w')) => {
-            if app.cursor_position > 0 {
-                let before = &app.input[..app.cursor_position];
-                let trimmed = before.trim_end();
-                let new_end = trimmed.rfind(' ').map(|i| i + 1).unwrap_or(0);
-                let after = &app.input[app.cursor_position..];
-                app.input = format!("{}{}", &app.input[..new_end], after);
-                app.cursor_position = new_end;
-            }
+        (KeyModifiers::CONTROL, KeyCode::Char('w')) if app.cursor_position > 0 => {
+            let before = &app.input[..app.cursor_position];
+            let trimmed = before.trim_end();
+            let new_end = trimmed.rfind(' ').map(|i| i + 1).unwrap_or(0);
+            let after = &app.input[app.cursor_position..];
+            app.input = format!("{}{}", &app.input[..new_end], after);
+            app.cursor_position = new_end;
         }
         // Enter — execute command
         (_, KeyCode::Enter) => {
@@ -354,16 +352,12 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             }
         },
         // Left arrow
-        (_, KeyCode::Left) => {
-            if app.cursor_position > 0 {
-                app.cursor_position -= 1;
-            }
+        (_, KeyCode::Left) if app.cursor_position > 0 => {
+            app.cursor_position -= 1;
         }
         // Right arrow
-        (_, KeyCode::Right) => {
-            if app.cursor_position < app.input.len() {
-                app.cursor_position += 1;
-            }
+        (_, KeyCode::Right) if app.cursor_position < app.input.len() => {
+            app.cursor_position += 1;
         }
         // Home
         (_, KeyCode::Home) => {
@@ -383,17 +377,13 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             app.scroll_offset += app.visible_height();
         }
         // Backspace
-        (_, KeyCode::Backspace) => {
-            if app.cursor_position > 0 {
-                app.input.remove(app.cursor_position - 1);
-                app.cursor_position -= 1;
-            }
+        (_, KeyCode::Backspace) if app.cursor_position > 0 => {
+            app.input.remove(app.cursor_position - 1);
+            app.cursor_position -= 1;
         }
         // Delete
-        (_, KeyCode::Delete) => {
-            if app.cursor_position < app.input.len() {
-                app.input.remove(app.cursor_position);
-            }
+        (_, KeyCode::Delete) if app.cursor_position < app.input.len() => {
+            app.input.remove(app.cursor_position);
         }
         // Character input
         (_, KeyCode::Char(c)) => {

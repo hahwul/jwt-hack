@@ -134,6 +134,9 @@ fn default_protocol() -> String {
 
 #[derive(Clone)]
 pub struct JwtHackServer {
+    // Populated by the #[tool_router] macro and consumed by rmcp internally;
+    // direct reads don't appear in this file.
+    #[allow(dead_code)]
     tool_router: ToolRouter<JwtHackServer>,
 }
 
