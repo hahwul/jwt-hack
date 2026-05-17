@@ -132,6 +132,21 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
     // Check 7: JKU/X5U Header Vulnerabilities
     results.push(check_jku_x5u_vulnerabilities(&decoded)?);
 
+    // Check 8: Embedded JWK Header
+    results.push(check_jwk_header(&decoded)?);
+
+    // Check 9: crit Header
+    results.push(check_crit_header(&decoded)?);
+
+    // Check 10: RFC 7797 b64 Header
+    results.push(check_b64_header(&decoded)?);
+
+    // Check 11: Empty / suspicious signature
+    results.push(check_signature_segment(token, &decoded)?);
+
+    // Check 12: Sensitive claim data (PII)
+    results.push(check_sensitive_claims(&decoded)?);
+
     // Display results summary
     display_results(&results);
 
@@ -364,22 +379,303 @@ fn check_missing_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResu
 
 /// Check for kid header vulnerabilities
 fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let result = if let Some(kid) = decoded.header.get("kid") {
-        VulnerabilityResult {
-            name: "Kid Header".to_string(),
-            vulnerable: true,
-            details: format!("Has 'kid' header ({}), may be vulnerable to injection", kid),
-            severity: Severity::Medium,
-        }
-    } else {
-        VulnerabilityResult {
+    let result = match decoded.header.get("kid") {
+        None => VulnerabilityResult {
             name: "Kid Header".to_string(),
             vulnerable: false,
             details: "No 'kid' header".to_string(),
             severity: Severity::Info,
+        },
+        Some(kid_value) => {
+            let kid_str = kid_value.as_str().unwrap_or("").to_string();
+            let lower = kid_str.to_lowercase();
+
+            let looks_like_path = lower.contains("..")
+                || lower.starts_with('/')
+                || lower.starts_with("file:")
+                || lower.contains('\\')
+                || kid_str.contains('\0');
+            let looks_like_sqli = kid_str.contains('\'')
+                || lower.contains(" or ")
+                || lower.contains(" union ")
+                || lower.contains("--");
+
+            let (severity, details) = if looks_like_path {
+                (
+                    Severity::High,
+                    format!(
+                        "'kid' value '{}' resembles a file path — possible path traversal / file load",
+                        kid_str
+                    ),
+                )
+            } else if looks_like_sqli {
+                (
+                    Severity::High,
+                    format!(
+                        "'kid' value '{}' contains SQL meta-characters — possible SQL injection",
+                        kid_str
+                    ),
+                )
+            } else {
+                (
+                    Severity::Medium,
+                    format!(
+                        "Has 'kid' header ('{}') — test for injection (SQLi, path traversal)",
+                        kid_str
+                    ),
+                )
+            };
+
+            VulnerabilityResult {
+                name: "Kid Header".to_string(),
+                vulnerable: true,
+                details,
+                severity,
+            }
         }
     };
 
+    Ok(result)
+}
+
+/// Check for an embedded `jwk` header (attacker can substitute their key).
+fn check_jwk_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let result = if decoded.header.contains_key("jwk") {
+        VulnerabilityResult {
+            name: "Embedded JWK".to_string(),
+            vulnerable: true,
+            details: "Header contains an embedded 'jwk' — verifiers that trust it accept attacker-supplied keys".to_string(),
+            severity: Severity::Critical,
+        }
+    } else {
+        VulnerabilityResult {
+            name: "Embedded JWK".to_string(),
+            vulnerable: false,
+            details: "No embedded 'jwk' header".to_string(),
+            severity: Severity::Info,
+        }
+    };
+    Ok(result)
+}
+
+/// Check for `crit` header (RFC 7515 §4.1.11) misuse.
+fn check_crit_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let result = if let Some(crit) = decoded.header.get("crit") {
+        VulnerabilityResult {
+            name: "crit Header".to_string(),
+            vulnerable: true,
+            details: format!(
+                "Has 'crit' header ({}) — libraries that don't strictly enforce RFC 7515 §4.1.11 may skip validation",
+                crit
+            ),
+            severity: Severity::High,
+        }
+    } else {
+        VulnerabilityResult {
+            name: "crit Header".to_string(),
+            vulnerable: false,
+            details: "No 'crit' header".to_string(),
+            severity: Severity::Info,
+        }
+    };
+    Ok(result)
+}
+
+/// Check for RFC 7797 `b64: false` (unencoded payload).
+fn check_b64_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    let result = match decoded.header.get("b64") {
+        Some(v) if v.as_bool() == Some(false) => VulnerabilityResult {
+            name: "b64 Header (RFC 7797)".to_string(),
+            vulnerable: true,
+            details:
+                "Header sets 'b64' to false — implementations that mishandle this may accept unsigned/forged payloads"
+                    .to_string(),
+            severity: Severity::High,
+        },
+        Some(v) => VulnerabilityResult {
+            name: "b64 Header (RFC 7797)".to_string(),
+            vulnerable: true,
+            details: format!("Non-standard 'b64' header value: {}", v),
+            severity: Severity::Medium,
+        },
+        None => VulnerabilityResult {
+            name: "b64 Header (RFC 7797)".to_string(),
+            vulnerable: false,
+            details: "No 'b64' header".to_string(),
+            severity: Severity::Info,
+        },
+    };
+    Ok(result)
+}
+
+/// Check for an empty / suspiciously short signature segment.
+fn check_signature_segment(
+    token: &str,
+    decoded: &jwt::DecodedToken,
+) -> Result<VulnerabilityResult> {
+    let parts: Vec<&str> = token.split('.').collect();
+    let alg_str = format!("{:?}", decoded.algorithm).to_lowercase();
+    let header_alg = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let is_none = alg_str.contains("none") || header_alg == "none";
+
+    let sig = parts.get(2).copied().unwrap_or("");
+    // The encoder writes `''` for the none-alg sentinel; treat that as empty too.
+    let sig_trim = sig.trim_matches('\'');
+    let is_empty = sig_trim.is_empty();
+
+    let result = if is_empty && !is_none {
+        VulnerabilityResult {
+            name: "Signature Segment".to_string(),
+            vulnerable: true,
+            details: format!(
+                "Signature is empty but 'alg' is '{}' — server may accept unsigned tokens",
+                header_alg
+            ),
+            severity: Severity::Critical,
+        }
+    } else if parts.len() != 3 {
+        VulnerabilityResult {
+            name: "Signature Segment".to_string(),
+            vulnerable: true,
+            details: format!("Unexpected segment count: {}", parts.len()),
+            severity: Severity::High,
+        }
+    } else {
+        VulnerabilityResult {
+            name: "Signature Segment".to_string(),
+            vulnerable: false,
+            details: "Signature segment present".to_string(),
+            severity: Severity::Info,
+        }
+    };
+    Ok(result)
+}
+
+/// Heuristically detect PII / sensitive data inside the claims.
+fn check_sensitive_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
+    fn looks_like_email(s: &str) -> bool {
+        // Minimal email shape: x@y.z with no spaces.
+        if s.len() < 5 || s.contains(' ') {
+            return false;
+        }
+        let Some(at) = s.find('@') else {
+            return false;
+        };
+        let (local, domain) = s.split_at(at);
+        if local.is_empty() {
+            return false;
+        }
+        let domain = &domain[1..];
+        domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
+    }
+
+    fn looks_like_credit_card(s: &str) -> bool {
+        let digits: Vec<u32> = s
+            .chars()
+            .filter(|c| !c.is_whitespace() && *c != '-')
+            .filter_map(|c| c.to_digit(10))
+            .collect();
+        if !(12..=19).contains(&digits.len()) {
+            return false;
+        }
+        // Luhn check.
+        let mut sum = 0u32;
+        let mut alt = false;
+        for d in digits.iter().rev() {
+            let mut n = *d;
+            if alt {
+                n *= 2;
+                if n > 9 {
+                    n -= 9;
+                }
+            }
+            sum += n;
+            alt = !alt;
+        }
+        sum.is_multiple_of(10)
+    }
+
+    fn looks_like_ssn(s: &str) -> bool {
+        // US SSN: 3-2-4 digits, hyphenated.
+        let bytes = s.as_bytes();
+        if bytes.len() != 11 {
+            return false;
+        }
+        bytes[3] == b'-'
+            && bytes[6] == b'-'
+            && bytes
+                .iter()
+                .enumerate()
+                .all(|(i, b)| matches!(i, 3 | 6) || b.is_ascii_digit())
+    }
+
+    fn walk(v: &serde_json::Value, findings: &mut Vec<String>, path: &str) {
+        match v {
+            serde_json::Value::String(s) => {
+                if looks_like_email(s) {
+                    findings.push(format!("email at '{}'", path));
+                } else if looks_like_credit_card(s) {
+                    findings.push(format!("credit-card-shaped value at '{}'", path));
+                } else if looks_like_ssn(s) {
+                    findings.push(format!("SSN-shaped value at '{}'", path));
+                }
+            }
+            serde_json::Value::Object(map) => {
+                for (k, child) in map {
+                    let next = if path.is_empty() {
+                        k.clone()
+                    } else {
+                        format!("{}.{}", path, k)
+                    };
+                    walk(child, findings, &next);
+                }
+            }
+            serde_json::Value::Array(arr) => {
+                for (i, child) in arr.iter().enumerate() {
+                    walk(child, findings, &format!("{}[{}]", path, i));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut findings = Vec::new();
+    walk(&decoded.claims, &mut findings, "");
+
+    let result = if findings.is_empty() {
+        VulnerabilityResult {
+            name: "Sensitive Claims".to_string(),
+            vulnerable: false,
+            details: "No obvious PII patterns in claims".to_string(),
+            severity: Severity::Info,
+        }
+    } else {
+        // De-duplicate and cap output.
+        findings.sort();
+        findings.dedup();
+        let shown = findings
+            .iter()
+            .take(5)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
+        let suffix = if findings.len() > 5 {
+            format!(" (+{} more)", findings.len() - 5)
+        } else {
+            String::new()
+        };
+        VulnerabilityResult {
+            name: "Sensitive Claims".to_string(),
+            vulnerable: true,
+            details: format!("Found PII-like data: {}{}", shown, suffix),
+            severity: Severity::Medium,
+        }
+    };
     Ok(result)
 }
 
@@ -497,10 +793,23 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
             }
             "Kid Header" => {
                 targets.insert("kid_sql");
+                targets.insert("kid_traversal");
             }
             "JKU/X5U Header" => {
                 targets.insert("jku");
                 targets.insert("x5u");
+            }
+            "Embedded JWK" => {
+                targets.insert("jwk_embed");
+            }
+            "crit Header" => {
+                targets.insert("crit");
+            }
+            "b64 Header (RFC 7797)" => {
+                targets.insert("b64");
+            }
+            "Signature Segment" => {
+                targets.insert("empty_sig");
             }
             _ => {}
         }
@@ -533,6 +842,44 @@ fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Res
 
             if target_str.contains("kid_sql") {
                 if let Ok(payloads) = payload::generate_kid_sql_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("kid_traversal") {
+                if let Ok(payloads) = payload::generate_kid_traversal_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("jwk_embed") {
+                if let Ok(p) = payload::generate_jwk_embed_payload(token) {
+                    println!("  {}", p);
+                }
+            }
+
+            if target_str.contains("crit") {
+                if let Ok(payloads) = payload::generate_crit_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("b64") {
+                if let Ok(payloads) = payload::generate_b64_payload(token) {
+                    for p in payloads.iter().take(2) {
+                        println!("  {}", p);
+                    }
+                }
+            }
+
+            if target_str.contains("empty_sig") {
+                if let Ok(payloads) = payload::generate_empty_sig_payload(token) {
                     for p in payloads.iter().take(2) {
                         println!("  {}", p);
                     }

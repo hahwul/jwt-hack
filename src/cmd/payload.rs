@@ -54,8 +54,13 @@ fn generate_payloads(
         "x5u",
         "alg_confusion",
         "kid_sql",
+        "kid_traversal",
         "x5c",
         "cty",
+        "jwk_embed",
+        "crit",
+        "b64",
+        "empty_sig",
     ];
     for t in &targets {
         if !valid_targets.contains(&t.as_str()) && t != "all" {
@@ -127,6 +132,59 @@ fn generate_payloads(
         if let Ok(payloads) = crate::payload::generate_cty_payload(token) {
             for payload in payloads {
                 println!("\n  {}", "cty Header Manipulation".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate embedded-JWK header attack payload (real signed token)
+    if should_generate_all || targets.contains("jwk_embed") {
+        match crate::payload::generate_jwk_embed_payload(token) {
+            Ok(payload) => {
+                println!("\n  {}", "jwk Embedded Header (signed)".bold());
+                println!("  {payload}");
+            }
+            Err(e) => {
+                utils::log_warning(format!("Failed to generate jwk_embed payload: {e}"));
+            }
+        }
+    }
+
+    // Generate kid path-traversal payloads
+    if should_generate_all || targets.contains("kid_traversal") {
+        if let Ok(payloads) = crate::payload::generate_kid_traversal_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "kid Path Traversal".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate crit header bypass payloads
+    if should_generate_all || targets.contains("crit") {
+        if let Ok(payloads) = crate::payload::generate_crit_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "crit Header Bypass".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate RFC 7797 b64=false payloads
+    if should_generate_all || targets.contains("b64") {
+        if let Ok(payloads) = crate::payload::generate_b64_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "b64=false (RFC 7797)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Generate signature-stripped payloads
+    if should_generate_all || targets.contains("empty_sig") {
+        if let Ok(payloads) = crate::payload::generate_empty_sig_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "Empty/Stripped Signature".bold());
                 println!("  {payload}");
             }
         }
