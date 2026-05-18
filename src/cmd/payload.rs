@@ -60,6 +60,7 @@ fn generate_payloads(
         "x5c_signed",
         "cty",
         "jwk_embed",
+        "jwk_embed_ec",
         "crit",
         "b64",
         "empty_sig",
@@ -68,6 +69,13 @@ fn generate_payloads(
         "alg_edge",
         "ssrf",
         "zip",
+        "dup_key",
+        "nested",
+        "jws_json",
+        "alg_family_swap",
+        "none_sig",
+        "header_quirks",
+        "kid_wildcard",
     ];
     for t in &targets {
         if !valid_targets.contains(&t.as_str()) && t != "all" {
@@ -265,6 +273,89 @@ fn generate_payloads(
         if let Ok(payloads) = crate::payload::generate_kid_predictable_payload(token, None) {
             for payload in payloads {
                 println!("\n  {}", "kid Predictable Path".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Duplicate-JSON-key header payloads
+    if should_generate_all || targets.contains("dup_key") {
+        if let Ok(payloads) = crate::payload::generate_duplicate_key_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "Duplicate JSON Key (alg/typ/kid)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Nested JWT (cty=JWT) payloads
+    if should_generate_all || targets.contains("nested") {
+        if let Ok(payloads) = crate::payload::generate_nested_jwt_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "Nested JWT (cty=JWT)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // EC variant of jwk-embed (real signed)
+    if should_generate_all || targets.contains("jwk_embed_ec") {
+        match crate::payload::generate_jwk_embed_ec_payload(token) {
+            Ok(payload) => {
+                println!("\n  {}", "jwk Embedded Header EC (signed ES256)".bold());
+                println!("  {payload}");
+            }
+            Err(e) => {
+                utils::log_warning(format!("Failed to generate jwk_embed_ec payload: {e}"));
+            }
+        }
+    }
+
+    // JWS Flattened JSON serialization
+    if should_generate_all || targets.contains("jws_json") {
+        if let Ok(payloads) = crate::payload::generate_jws_json_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "JWS Flattened JSON Serialization".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // PS↔RS cross-family alg swaps
+    if should_generate_all || targets.contains("alg_family_swap") {
+        if let Ok(payloads) = crate::payload::generate_alg_family_swap_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "alg Cross-family Swap (PS↔RS / ES family)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // alg=none with non-empty signature
+    if should_generate_all || targets.contains("none_sig") {
+        if let Ok(payloads) = crate::payload::generate_none_with_sig_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "alg=none + Non-empty Signature".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Header parser quirks (BOM / whitespace / trailing junk)
+    if should_generate_all || targets.contains("header_quirks") {
+        if let Ok(payloads) = crate::payload::generate_header_quirks_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "Header Quirks (BOM / WS / Trailing Junk)".bold());
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // kid empty/null/wildcard fallback
+    if should_generate_all || targets.contains("kid_wildcard") {
+        if let Ok(payloads) = crate::payload::generate_kid_wildcard_payload(token) {
+            for payload in payloads {
+                println!("\n  {}", "kid Empty/Null/Wildcard Fallback".bold());
                 println!("  {payload}");
             }
         }

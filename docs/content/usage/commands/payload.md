@@ -121,7 +121,12 @@ jwt-hack payload <TOKEN> --target=all --jwk-attack=evil.com --jwk-trust=trusted.
 - `<TOKEN>` - Base JWT token for payload generation
 
 ### Target Selection
-- `--target <TYPE>` - Payload types: `all`, `none`, `jku`, `x5u`, `alg_confusion`, `kid_sql`, `x5c`, `cty`
+- `--target <TYPE>` - Payload types (comma-separated):
+  - **Algorithm tricks**: `none`, `alg_confusion`, `alg_edge`, `alg_family_swap`, `none_sig`
+  - **Header / URL attacks**: `jku`, `x5u`, `ssrf`, `x5c`, `x5c_signed`, `cty`, `crit`, `b64`, `zip`, `typ_confusion`, `header_quirks`, `dup_key`, `nested`, `jws_json`
+  - **Key resolution attacks**: `kid_sql`, `kid_traversal`, `kid_predictable`, `kid_wildcard`, `jwk_embed`, `jwk_embed_ec`
+  - **Signature attacks**: `empty_sig`, `psychic`
+  - **All categories**: `all`
 
 ### JKU/X5U Attack Options
 - `--jwk-trust <DOMAIN>` - Trusted domain for bypass techniques
