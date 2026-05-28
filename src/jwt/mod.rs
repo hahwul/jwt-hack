@@ -981,7 +981,7 @@ fn encode_with_josekit_jwt(claims: &Value, options: &EncodeOptions, alg_str: &st
 }
 
 /// Create a simple JWE token for demonstration purposes
-/// @deprecated Use encode_jwe instead for real encryption
+#[deprecated(note = "Use encode_jwe instead for real encryption")]
 pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
     // This is a basic demonstration JWE structure for testing purposes
     // In a real implementation, you would use proper encryption
@@ -1008,20 +1008,23 @@ pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
     ))
 }
 
-/// JWE key management algorithms supported
+/// JWE key management algorithms supported.
+///
+/// For asymmetric algorithms (RSA, ECDH-ES), use a **public key** for encryption
+/// and the corresponding **private key** for decryption.
 pub enum JweKeyManagement<'a> {
     /// Direct encryption - symmetric key used directly
     Direct(&'a str),
-    /// RSA-OAEP encryption
-    RsaOaep(&'a str),  // PEM-encoded RSA public key
-    /// RSA-OAEP-256 encryption
-    RsaOaep256(&'a str),  // PEM-encoded RSA public key
+    /// RSA-OAEP key encryption
+    RsaOaep(&'a str),
+    /// RSA-OAEP-256 key encryption
+    RsaOaep256(&'a str),
     /// ECDH-ES key agreement
-    EcdhEs(&'a str),  // PEM-encoded EC public key
+    EcdhEs(&'a str),
     /// ECDH-ES+A128KW key agreement with AES key wrap
-    EcdhEsA128kw(&'a str),  // PEM-encoded EC public key
+    EcdhEsA128kw(&'a str),
     /// ECDH-ES+A256KW key agreement with AES key wrap
-    EcdhEsA256kw(&'a str),  // PEM-encoded EC public key
+    EcdhEsA256kw(&'a str),
     /// AES128 Key Wrap
     A128kw(&'a str),  // 16-byte symmetric key
     /// AES256 Key Wrap
@@ -1046,7 +1049,6 @@ pub fn encode_jwe(
 
     // Create header
     let mut header = JweHeader::new();
-    header.set_token_type("JWT");
 
     // Get the encrypter based on key management algorithm
     let (alg_name, encrypter): (&str, Box<dyn josekit::jwe::JweEncrypter>) = match key_mgmt {
@@ -2201,14 +2203,7 @@ mod tests {
     #[test]
     fn test_encode_es512() {
         // Read P-521 EC key
-        let ec_private_key = match fs::read_to_string("src/jwt/test_ec_p521_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                // Skip test if key doesn't exist
-                eprintln!("Skipping ES512 test - key file not found");
-                return;
-            }
-        };
+        let ec_private_key = include_str!("test_ec_p521_private.pem");
 
         let claims = json!({"sub": "test_es512", "iat": 1234567890});
         let options = EncodeOptions {
@@ -2265,21 +2260,8 @@ mod tests {
 
     #[test]
     fn test_jwe_rsa_oaep_round_trip() {
-        // Read RSA keys
-        let rsa_private_key = match fs::read_to_string("src/jwt/test_rsa_2048_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping RSA-OAEP test - key file not found");
-                return;
-            }
-        };
-        let rsa_public_key = match fs::read_to_string("src/jwt/test_rsa_2048_public.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping RSA-OAEP test - key file not found");
-                return;
-            }
-        };
+        let rsa_private_key = include_str!("test_rsa_2048_private.pem");
+        let rsa_public_key = include_str!("test_rsa_2048_public.pem");
 
         let payload = "Test payload for RSA-OAEP encryption";
 
@@ -2305,21 +2287,8 @@ mod tests {
 
     #[test]
     fn test_jwe_rsa_oaep_256_round_trip() {
-        // Read RSA keys
-        let rsa_private_key = match fs::read_to_string("src/jwt/test_rsa_2048_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping RSA-OAEP-256 test - key file not found");
-                return;
-            }
-        };
-        let rsa_public_key = match fs::read_to_string("src/jwt/test_rsa_2048_public.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping RSA-OAEP-256 test - key file not found");
-                return;
-            }
-        };
+        let rsa_private_key = include_str!("test_rsa_2048_private.pem");
+        let rsa_public_key = include_str!("test_rsa_2048_public.pem");
 
         let payload = "Test payload for RSA-OAEP-256 encryption";
 
@@ -2341,21 +2310,8 @@ mod tests {
 
     #[test]
     fn test_jwe_ecdh_es_round_trip() {
-        // Read EC keys
-        let ec_private_key = match fs::read_to_string("src/jwt/test_ec_p256_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES test - key file not found");
-                return;
-            }
-        };
-        let ec_public_key = match fs::read_to_string("src/jwt/test_ec_p256_public.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES test - key file not found");
-                return;
-            }
-        };
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
 
         let payload = "Test payload for ECDH-ES encryption";
 
@@ -2410,21 +2366,8 @@ mod tests {
 
     #[test]
     fn test_jwe_ecdh_es_a128kw_round_trip() {
-        // Read EC keys
-        let ec_private_key = match fs::read_to_string("src/jwt/test_ec_p256_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES+A128KW test - key file not found");
-                return;
-            }
-        };
-        let ec_public_key = match fs::read_to_string("src/jwt/test_ec_p256_public.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES+A128KW test - key file not found");
-                return;
-            }
-        };
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
 
         let payload = "Test payload for ECDH-ES+A128KW encryption";
 
@@ -2448,21 +2391,8 @@ mod tests {
 
     #[test]
     fn test_jwe_ecdh_es_a256kw_round_trip() {
-        // Read EC keys
-        let ec_private_key = match fs::read_to_string("src/jwt/test_ec_p256_private.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES+A256KW test - key file not found");
-                return;
-            }
-        };
-        let ec_public_key = match fs::read_to_string("src/jwt/test_ec_p256_public.pem") {
-            Ok(key) => key,
-            Err(_) => {
-                eprintln!("Skipping ECDH-ES+A256KW test - key file not found");
-                return;
-            }
-        };
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
 
         let payload = "Test payload for ECDH-ES+A256KW encryption";
 
