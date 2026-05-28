@@ -121,13 +121,7 @@ pub fn execute_json(
         pattern,
     };
 
-    match execute_with_options_json(&options) {
-        Ok(report) => Ok(serde_json::to_value(report)?),
-        Err(e) => Ok(serde_json::json!({
-            "success": false,
-            "error": e.to_string()
-        })),
-    }
+    Ok(serde_json::to_value(execute_with_options_json(&options)?)?)
 }
 
 /// Execute the crack command with options struct
@@ -432,16 +426,16 @@ fn report_crack_results(
     is_jwe: bool,
     emit_output: bool,
 ) {
+    if !emit_output {
+        return;
+    }
+
     let elapsed_secs = elapsed.as_secs_f64();
     let rate = if elapsed_secs > 0.0 {
         attempts_total as f64 / elapsed_secs
     } else {
         0.0
     };
-
-    if !emit_output {
-        return;
-    }
 
     if let Some(secret) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
         let label = if is_jwe {
@@ -486,6 +480,7 @@ fn build_crack_report(
     mode: &str,
     target_field: Option<String>,
     field_location: Option<String>,
+    emit_output: bool,
 ) -> CrackReport {
     let elapsed_secs = elapsed.as_secs_f64();
     let rate = if elapsed_secs > 0.0 {
@@ -494,12 +489,15 @@ fn build_crack_report(
         0.0
     };
 
-    let value = found.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let guard = found.lock().unwrap_or_else(|e| e.into_inner());
+    let was_found = guard.is_some();
+    // Only clone the sensitive value for the JSON path; callers in non-JSON mode discard the report.
+    let value = if !emit_output { guard.clone() } else { None };
     CrackReport {
         success: true,
         mode: mode.to_string(),
         token_type: if is_jwe { "jwe" } else { "jwt" }.to_string(),
-        found: value.is_some(),
+        found: was_found,
         value_label: if is_jwe { "key" } else { "secret" }.to_string(),
         value,
         target_field,
@@ -615,6 +613,7 @@ fn crack_dictionary(
         "dict",
         None,
         None,
+        emit_output,
     ))
 }
 
@@ -782,6 +781,7 @@ fn crack_bruteforce(
         "brute",
         None,
         None,
+        emit_output,
     ))
 }
 
@@ -991,12 +991,15 @@ fn crack_target_field(
         }
     }
 
-    let value = found.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let guard = found.lock().unwrap_or_else(|e| e.into_inner());
+    let was_found = guard.is_some();
+    // Only clone the sensitive value for the JSON path; callers in non-JSON mode discard the report.
+    let value = if !emit_output { guard.clone() } else { None };
     Ok(CrackReport {
         success: true,
         mode: format!("target_field:{}", options.mode),
         token_type: "jwt".to_string(),
-        found: value.is_some(),
+        found: was_found,
         value_label: "value".to_string(),
         value,
         target_field: Some(target_field.to_string()),

@@ -226,8 +226,7 @@ fn scan_token(token: &str, options: &ScanOptions, include_payloads: bool) -> Res
     let header_alg_display = decoded
         .header
         .get("alg")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
+        .map(|v| v.as_str().map_or_else(|| v.to_string(), |s| s.to_string()))
         .unwrap_or_else(|| "<missing>".to_string());
     let typ = decoded
         .header

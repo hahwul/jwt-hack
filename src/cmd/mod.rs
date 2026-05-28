@@ -384,8 +384,12 @@ pub fn execute() {
             ),
             Some(Commands::Jwks { action }) => jwks::execute_json(action),
             Some(Commands::Version) => version::execute_json(),
-            Some(Commands::Mcp) => Ok(serde_json::json!({"success": true, "mode": "mcp"})),
-            Some(Commands::Shell) => Ok(serde_json::json!({"success": true, "mode": "shell"})),
+            Some(Commands::Mcp) => Err(anyhow::anyhow!(
+                "--json is not supported with the mcp subcommand"
+            )),
+            Some(Commands::Shell) => Err(anyhow::anyhow!(
+                "--json is not supported with the shell subcommand"
+            )),
             Some(Commands::Server {
                 host,
                 port,
@@ -393,10 +397,9 @@ pub fn execute() {
             }) => Ok(
                 serde_json::json!({"success": true, "mode": "server", "host": host, "port": port}),
             ),
-            None => Ok(serde_json::json!({
-                "success": false,
-                "error": "No command specified. Use --help for usage information."
-            })),
+            None => Err(anyhow::anyhow!(
+                "No command specified. Use --help for usage information."
+            )),
         };
 
         match result {
