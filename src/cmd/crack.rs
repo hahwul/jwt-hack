@@ -621,6 +621,7 @@ fn crack_dictionary(
 /// Streaming brute-force: each rayon worker materializes candidates from an
 /// integer index into a reusable byte buffer, avoiding the per-candidate
 /// `String` allocation of the legacy `Vec<String>` chunk path.
+#[allow(clippy::too_many_arguments)]
 fn crack_bruteforce(
     token: &str,
     chars: &str,

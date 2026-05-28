@@ -31,8 +31,8 @@ pub struct Cli {
     config: Option<PathBuf>,
 
     /// Output JSON to stdout (pipeline-friendly)
-    #[arg(long, global = true)]
-    json: bool,
+    #[arg(long = "json", global = true)]
+    output_json: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -296,7 +296,7 @@ pub fn execute() {
         }
     };
 
-    if cli.json {
+    if cli.output_json {
         let result: anyhow::Result<serde_json::Value> = match &cli.command {
             Some(Commands::Decode { token }) => decode::execute_json(token),
             Some(Commands::Encode {
@@ -646,14 +646,14 @@ mod tests {
     #[test]
     fn test_cli_parses_global_json_flag_before_subcommand() {
         let cli = Cli::try_parse_from(["jwt-hack", "--json", "decode", "a.b.c"]).expect("parse ok");
-        assert!(cli.json);
+        assert!(cli.output_json);
         assert!(matches!(cli.command, Some(Commands::Decode { .. })));
     }
 
     #[test]
     fn test_cli_parses_global_json_flag_after_subcommand() {
         let cli = Cli::try_parse_from(["jwt-hack", "decode", "--json", "a.b.c"]).expect("parse ok");
-        assert!(cli.json);
+        assert!(cli.output_json);
         assert!(matches!(cli.command, Some(Commands::Decode { .. })));
     }
 
