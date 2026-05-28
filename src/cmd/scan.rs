@@ -104,6 +104,7 @@ pub struct ScanSummary {
 /// Execute the scan command
 pub fn execute(
     token: &str,
+    report: Option<&PathBuf>,
     skip_crack: bool,
     skip_payloads: bool,
     wordlist: Option<&PathBuf>,
@@ -116,7 +117,7 @@ pub fn execute(
         max_crack_attempts,
     };
 
-    if let Err(e) = run_scan(token, &options) {
+    if let Err(e) = run_scan(token, &options, report) {
         utils::log_error(format!("Scan failed: {e}"));
         utils::log_error(
             "e.g jwt-hack scan {JWT_CODE} [--skip-crack] [--skip-payloads] [-w wordlist.txt]",
@@ -126,6 +127,7 @@ pub fn execute(
 
 pub fn execute_json(
     token: &str,
+    report: Option<&PathBuf>,
     skip_crack: bool,
     skip_payloads: bool,
     wordlist: Option<&PathBuf>,
@@ -138,8 +140,11 @@ pub fn execute_json(
         max_crack_attempts,
     };
 
-    let report = scan_token(token, &options, !skip_payloads)?;
-    Ok(serde_json::to_value(report)?)
+    let report_value = scan_token(token, &options, !skip_payloads)?;
+    if let Some(path) = report {
+        export_scan_report(&report_value, path)?;
+    }
+    Ok(serde_json::to_value(report_value)?)
 }
 
 /// Build a best-effort `DecodedToken` from the raw header bytes for tokens that
@@ -163,41 +168,13 @@ fn parse_header_only(token: &str) -> Result<jwt::DecodedToken> {
 }
 
 /// Run comprehensive vulnerability scan
-fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
-    let mut results: Vec<VulnerabilityResult> = Vec::new();
-
-    // Try strict decode first. If it fails, fall back to a header-only view so
-    // the shape checks (which the malformed-token detectors below depend on)
-    // still run — that's the whole point of catching invalid `alg`, `zip`,
-    // psychic signatures, etc.
-    let (decoded, strict_ok, decode_err) = match jwt::decode(token) {
-        Ok(d) => (d, true, None),
-        Err(e) => {
-            let err_str = e.to_string();
-            let fallback = parse_header_only(token)?;
-            (fallback, false, Some(err_str))
-        }
-    };
-
-    let header_alg_display = decoded
-        .header
-        .get("alg")
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| "<missing>".to_string());
-    let typ = decoded
-        .header
-        .get("typ")
-        .and_then(|v| v.as_str())
-        .unwrap_or("JWT");
+fn run_scan(token: &str, options: &ScanOptions, report_path: Option<&PathBuf>) -> Result<()> {
+    let report = scan_token(token, options, !options.skip_payloads)?;
 
     println!("  {}", "Token".bold());
-    println!(
-        "  {:<18}{}",
-        "Algorithm".dimmed(),
-        header_alg_display.cyan()
-    );
-    println!("  {:<18}{}", "Type".dimmed(), typ);
-    if let Some(err) = &decode_err {
+    println!("  {:<18}{}", "Algorithm".dimmed(), report.algorithm.cyan());
+    println!("  {:<18}{}", "Type".dimmed(), report.typ);
+    if let Some(err) = &report.strict_decode_error {
         println!(
             "  {:<18}{}",
             "Strict decode".dimmed(),
@@ -205,36 +182,22 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
         );
     }
 
-    // Header-shape / raw-bytes checks — always run.
-    results.push(check_none_algorithm(token, &decoded)?);
-    results.push(check_algorithm_confusion(token, &decoded)?);
-    results.push(check_kid_vulnerabilities(&decoded)?);
-    results.push(check_jku_x5u_vulnerabilities(&decoded)?);
-    results.push(check_jwk_header(&decoded)?);
-    results.push(check_crit_header(&decoded)?);
-    results.push(check_b64_header(&decoded)?);
-    results.push(check_signature_segment(token, &decoded)?);
-    results.push(check_typ_confusion(&decoded)?);
-    results.push(check_alg_edge(token, &decoded)?);
-    results.push(check_psychic_signature(token, &decoded)?);
-    results.push(check_zip_header(&decoded)?);
+    display_results(&report.results);
 
-    // Claim-dependent checks — skip when strict decode failed (claims aren't trustworthy).
-    if strict_ok {
-        if !options.skip_crack {
-            results.push(check_weak_secret(token, &decoded, options)?);
+    if !options.skip_payloads {
+        if let Some(payloads) = &report.attack_payloads {
+            if !payloads.is_empty() {
+                println!("\n  {}", "Attack Payloads".bold());
+                for p in payloads {
+                    println!("  {}", p);
+                }
+            }
         }
-        results.push(check_token_expiration(&decoded)?);
-        results.push(check_missing_claims(&decoded)?);
-        results.push(check_sensitive_claims(&decoded)?);
     }
 
-    // Display results summary
-    display_results(&results);
-
-    // Generate attack payloads if not skipped
-    if !options.skip_payloads {
-        generate_attack_payloads(token, &results)?;
+    if let Some(path) = report_path {
+        export_scan_report(&report, path)?;
+        utils::log_success(format!("Report saved to {}", path.display()));
     }
 
     Ok(())
@@ -1364,170 +1327,143 @@ fn display_results(results: &[VulnerabilityResult]) {
     }
 }
 
-/// Generate attack payloads for discovered vulnerabilities
-fn generate_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Result<()> {
-    let mut targets = HashSet::new();
+fn export_scan_report(report: &ScanReport, path: &PathBuf) -> Result<()> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "json".to_string());
 
-    for result in results {
-        if !result.vulnerable {
-            continue;
+    match ext.as_str() {
+        "json" => {
+            let content = serde_json::to_string_pretty(report)?;
+            std::fs::write(path, content)?;
+            Ok(())
         }
-
-        match result.name.as_str() {
-            "None Algorithm" => {
-                targets.insert("none");
-            }
-            "Algorithm Confusion" => {
-                targets.insert("alg_confusion");
-            }
-            "Kid Header" => {
-                targets.insert("kid_sql");
-                targets.insert("kid_traversal");
-            }
-            "JKU/X5U Header" => {
-                targets.insert("jku");
-                targets.insert("x5u");
-            }
-            "Embedded JWK" => {
-                targets.insert("jwk_embed");
-            }
-            "crit Header" => {
-                targets.insert("crit");
-            }
-            "b64 Header (RFC 7797)" => {
-                targets.insert("b64");
-            }
-            "Signature Segment" => {
-                targets.insert("empty_sig");
-            }
-            "typ Confusion" => {
-                targets.insert("typ_confusion");
-            }
-            "alg Edge Value" => {
-                targets.insert("alg_edge");
-            }
-            "Psychic Signature" => {
-                targets.insert("psychic");
-            }
-            "zip Header" => {
-                targets.insert("zip");
-            }
-            _ => {}
+        "html" | "htm" => {
+            let html = render_scan_report_html(report);
+            std::fs::write(path, html)?;
+            Ok(())
         }
+        _ => anyhow::bail!("Unsupported report extension: .{}. Use .json or .html", ext),
     }
+}
 
-    if targets.is_empty() {
-        return Ok(());
+fn html_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+fn render_scan_report_html(report: &ScanReport) -> String {
+    let mut out = String::new();
+    out.push_str("<!doctype html><html><head><meta charset=\"utf-8\">");
+    out.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    out.push_str("<title>jwt-hack scan report</title>");
+    out.push_str("<style>");
+    out.push_str("body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial,sans-serif;margin:24px;color:#0f172a}");
+    out.push_str(".meta,.summary{display:flex;gap:16px;flex-wrap:wrap}");
+    out.push_str(
+        ".card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}",
+    );
+    out.push_str("table{border-collapse:collapse;width:100%;margin-top:12px}");
+    out.push_str("th,td{border-bottom:1px solid #e2e8f0;text-align:left;padding:10px 8px;vertical-align:top}");
+    out.push_str("th{background:#f8fafc;font-weight:600}");
+    out.push_str(".sev{font-weight:700}");
+    out.push_str(".sev-CRITICAL{color:#b91c1c}.sev-HIGH{color:#b45309}.sev-MEDIUM{color:#a16207}.sev-LOW{color:#1d4ed8}.sev-INFO{color:#0891b2}");
+    out.push_str("pre{white-space:pre-wrap;word-break:break-all;background:#0b1220;color:#e2e8f0;padding:12px;border-radius:10px;overflow:auto}");
+    out.push_str("</style></head><body>");
+
+    out.push_str("<h1>jwt-hack scan report</h1>");
+    out.push_str("<div class=\"meta\">");
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Algorithm</strong></div><div>{}</div></div>",
+        html_escape(&report.algorithm)
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Type</strong></div><div>{}</div></div>",
+        html_escape(&report.typ)
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Strict Decode</strong></div><div>{}</div></div>",
+        if report.strict_decode_ok {
+            "OK"
+        } else {
+            "REJECTED"
+        }
+    ));
+    if let Some(err) = &report.strict_decode_error {
+        out.push_str(&format!(
+            "<div class=\"card\"><div><strong>Strict Decode Error</strong></div><div>{}</div></div>",
+            html_escape(err)
+        ));
     }
+    out.push_str("</div>");
 
-    let target_str = targets.into_iter().collect::<Vec<_>>().join(",");
+    out.push_str("<h2>Summary</h2>");
+    out.push_str("<div class=\"summary\">");
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Vulnerabilities</strong></div><div>{}</div></div>",
+        report.summary.vulnerabilities
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Critical</strong></div><div>{}</div></div>",
+        report.summary.critical
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>High</strong></div><div>{}</div></div>",
+        report.summary.high
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Medium</strong></div><div>{}</div></div>",
+        report.summary.medium
+    ));
+    out.push_str(&format!(
+        "<div class=\"card\"><div><strong>Low</strong></div><div>{}</div></div>",
+        report.summary.low
+    ));
+    out.push_str("</div>");
 
-    if !target_str.is_empty() {
-        let parts: Vec<&str> = token.split('.').collect();
-        if parts.len() >= 2 {
-            println!("\n  {}", "Attack Payloads".bold());
+    out.push_str("<h2>Results</h2>");
+    out.push_str("<table><thead><tr><th>Status</th><th>Check</th><th>Severity</th><th>Details</th></tr></thead><tbody>");
+    for r in &report.results {
+        let status = if r.vulnerable { "VULNERABLE" } else { "OK" };
+        let severity = r.severity.as_str();
+        out.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td class=\"sev sev-{}\">{}</td><td>{}</td></tr>",
+            status,
+            html_escape(&r.name),
+            html_escape(severity),
+            html_escape(severity),
+            html_escape(&r.details)
+        ));
+    }
+    out.push_str("</tbody></table>");
 
-            if target_str.contains("none") {
-                let _ = payload::generate_none_payload(token, "none");
-                let _ = payload::generate_none_payload(token, "None");
-                let _ = payload::generate_none_payload(token, "NONE");
+    if let Some(payloads) = &report.attack_payloads {
+        if !payloads.is_empty() {
+            out.push_str("<h2>Attack Payloads</h2>");
+            out.push_str("<pre>");
+            for p in payloads {
+                out.push_str(&html_escape(p));
+                out.push('\n');
             }
-
-            if target_str.contains("alg_confusion") {
-                if let Ok(payloads) = payload::generate_alg_confusion_payload(token, None) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("kid_sql") {
-                if let Ok(payloads) = payload::generate_kid_sql_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("kid_traversal") {
-                if let Ok(payloads) = payload::generate_kid_traversal_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("jwk_embed") {
-                if let Ok(p) = payload::generate_jwk_embed_payload(token) {
-                    println!("  {}", p);
-                }
-            }
-
-            if target_str.contains("crit") {
-                if let Ok(payloads) = payload::generate_crit_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("b64") {
-                if let Ok(payloads) = payload::generate_b64_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("empty_sig") {
-                if let Ok(payloads) = payload::generate_empty_sig_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("typ_confusion") {
-                if let Ok(payloads) = payload::generate_typ_confusion_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("alg_edge") {
-                if let Ok(payloads) = payload::generate_alg_edge_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("psychic") {
-                if let Ok(payloads) = payload::generate_psychic_signature_payload(token) {
-                    for p in payloads.iter().take(2) {
-                        println!("  {}", p);
-                    }
-                }
-            }
-
-            if target_str.contains("zip") {
-                if let Ok(payloads) = payload::generate_zip_payload(token) {
-                    for p in payloads.iter().take(1) {
-                        println!("  {}", p);
-                    }
-                }
-            }
+            out.push_str("</pre>");
         }
     }
 
-    Ok(())
+    out.push_str("</body></html>");
+    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    use tempfile::tempdir;
 
     fn create_test_token(alg: &str, secret: &str) -> String {
         let claims = json!({
@@ -1545,7 +1481,7 @@ mod tests {
         let token = create_test_token("HS256", "test_secret");
 
         let result = std::panic::catch_unwind(|| {
-            execute(&token, true, true, None, 10);
+            execute(&token, None, true, true, None, 10);
         });
 
         assert!(result.is_ok(), "execute should not panic");
@@ -1959,5 +1895,30 @@ mod tests {
         );
         let decoded = parse_header_only(&token).expect("header-only parse should succeed");
         assert!(decoded.header.get("alg").unwrap().is_array());
+    }
+
+    #[test]
+    fn test_export_scan_report_json_and_html() {
+        let token = create_test_token("HS256", "test_secret");
+        let options = ScanOptions {
+            skip_crack: true,
+            skip_payloads: true,
+            wordlist: None,
+            max_crack_attempts: 10,
+        };
+        let report = scan_token(&token, &options, false).expect("scan report");
+
+        let dir = tempdir().expect("tempdir");
+        let json_path = dir.path().join("report.json");
+        export_scan_report(&report, &json_path).expect("write json report");
+        let json_str = std::fs::read_to_string(&json_path).expect("read json report");
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).expect("valid json");
+        assert_eq!(parsed.get("success").and_then(|v| v.as_bool()), Some(true));
+
+        let html_path = dir.path().join("report.html");
+        export_scan_report(&report, &html_path).expect("write html report");
+        let html = std::fs::read_to_string(&html_path).expect("read html report");
+        assert!(html.contains("<!doctype html>"));
+        assert!(html.contains("jwt-hack scan report"));
     }
 }

@@ -171,6 +171,10 @@ pub enum Commands {
         /// JWT token to scan
         token: String,
 
+        /// Export scan report to a file (JSON/HTML based on file extension)
+        #[arg(long)]
+        report: Option<PathBuf>,
+
         /// Skip dictionary-based secret cracking
         #[arg(long)]
         skip_crack: bool,
@@ -365,12 +369,14 @@ pub fn execute() {
             ),
             Some(Commands::Scan {
                 token,
+                report,
                 skip_crack,
                 skip_payloads,
                 wordlist,
                 max_crack_attempts,
             }) => scan::execute_json(
                 token,
+                report.as_ref(),
                 *skip_crack,
                 *skip_payloads,
                 wordlist.as_ref(),
@@ -516,6 +522,7 @@ pub fn execute() {
         }
         Some(Commands::Scan {
             token,
+            report,
             skip_crack,
             skip_payloads,
             wordlist,
@@ -523,6 +530,7 @@ pub fn execute() {
         }) => {
             scan::execute(
                 token,
+                report.as_ref(),
                 *skip_crack,
                 *skip_payloads,
                 wordlist.as_ref(),
@@ -633,5 +641,32 @@ mod tests {
         let result = parse_key_value("");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "invalid KEY=value: no `=` found in ``");
+    }
+
+    #[test]
+    fn test_cli_parses_global_json_flag_before_subcommand() {
+        let cli = Cli::try_parse_from(["jwt-hack", "--json", "decode", "a.b.c"]).expect("parse ok");
+        assert!(cli.json);
+        assert!(matches!(cli.command, Some(Commands::Decode { .. })));
+    }
+
+    #[test]
+    fn test_cli_parses_global_json_flag_after_subcommand() {
+        let cli = Cli::try_parse_from(["jwt-hack", "decode", "--json", "a.b.c"]).expect("parse ok");
+        assert!(cli.json);
+        assert!(matches!(cli.command, Some(Commands::Decode { .. })));
+    }
+
+    #[test]
+    fn test_cli_parses_scan_report_flag() {
+        let cli = Cli::try_parse_from(["jwt-hack", "scan", "--report", "report.json", "a.b.c"])
+            .expect("parse ok");
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Scan {
+                report: Some(_),
+                ..
+            })
+        ));
     }
 }
