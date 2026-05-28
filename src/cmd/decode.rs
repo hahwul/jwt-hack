@@ -58,6 +58,10 @@ pub fn execute(token: &str) {
     }
 }
 
+pub fn execute_json(token: &str) -> Result<Value> {
+    decode_token_json(token)
+}
+
 fn decode_token(token: &str) -> Result<()> {
     // Detect token type first
     let token_type = jwt::detect_token_type(token);
@@ -65,6 +69,22 @@ fn decode_token(token: &str) -> Result<()> {
     match token_type {
         jwt::TokenType::Jwt => decode_jwt_token(token),
         jwt::TokenType::Jwe => decode_jwe_token(token),
+        jwt::TokenType::Unknown => {
+            let parts: Vec<&str> = token.split('.').collect();
+            Err(anyhow::anyhow!(
+                "Unknown token format: expected 3 parts (JWT) or 5 parts (JWE), got {} parts",
+                parts.len()
+            ))
+        }
+    }
+}
+
+fn decode_token_json(token: &str) -> Result<Value> {
+    let token_type = jwt::detect_token_type(token);
+
+    match token_type {
+        jwt::TokenType::Jwt => decode_jwt_token_json(token),
+        jwt::TokenType::Jwe => decode_jwe_token_json(token),
         jwt::TokenType::Unknown => {
             let parts: Vec<&str> = token.split('.').collect();
             Err(anyhow::anyhow!(
@@ -101,6 +121,30 @@ fn decode_jwt_token(token: &str) -> Result<()> {
     println!("  {}", payload_json.replace('\n', "\n  "));
 
     Ok(())
+}
+
+fn decode_jwt_token_json(token: &str) -> Result<Value> {
+    let decoded = jwt::decode(token)?;
+
+    let alg_str = format!("{:?}", decoded.algorithm);
+    let typ = decoded
+        .header
+        .get("typ")
+        .and_then(|v| v.as_str())
+        .unwrap_or("JWT");
+
+    let mut claims_map: Value = decoded.claims.clone();
+    process_issued_at_claim(&decoded.claims, &mut claims_map);
+    process_expiration_claim(&decoded.claims, &mut claims_map);
+
+    Ok(serde_json::json!({
+        "success": true,
+        "token_type": "jwt",
+        "algorithm": alg_str,
+        "typ": typ,
+        "header": decoded.header,
+        "payload": claims_map
+    }))
 }
 
 fn decode_jwe_token(token: &str) -> Result<()> {
@@ -161,6 +205,26 @@ fn decode_jwe_token(token: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn decode_jwe_token_json(token: &str) -> Result<Value> {
+    let decoded = jwt::decode_jwe(token)?;
+
+    let misconfigs = jwt::detect_jwe_misconfigurations(&decoded);
+
+    Ok(serde_json::json!({
+        "success": true,
+        "token_type": "jwe",
+        "key_mgmt": decoded.algorithm,
+        "encryption": decoded.encryption,
+        "header": decoded.header,
+        "encrypted_key": decoded.encrypted_key,
+        "iv": decoded.iv,
+        "ciphertext": decoded.ciphertext,
+        "auth_tag": decoded.tag,
+        "security_issues": misconfigs,
+        "note": "JWE payload is encrypted and cannot be decoded without the appropriate key"
+    }))
 }
 
 #[cfg(test)]
@@ -268,5 +332,18 @@ mod tests {
             result.is_err(),
             "decode_token should fail for invalid token format"
         );
+    }
+
+    #[test]
+    fn test_execute_json_success() {
+        let claims = json!({ "sub": "u", "iat": 0, "exp": 1 });
+        let token = jwt::encode(&claims, "", "HS256").expect("token");
+        let value = execute_json(&token).expect("json decode");
+        assert_eq!(value.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            value.get("token_type").and_then(|v| v.as_str()),
+            Some("jwt")
+        );
+        assert!(value.get("payload").is_some());
     }
 }

@@ -1,5 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
+use serde::Serialize;
+use serde_json::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -28,7 +30,7 @@ impl<'a> Default for ScanOptions<'a> {
 }
 
 /// Result of a vulnerability check
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct VulnerabilityResult {
     pub name: String,
     pub vulnerable: bool,
@@ -68,6 +70,37 @@ impl Severity {
     }
 }
 
+impl Serialize for Severity {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ScanReport {
+    pub success: bool,
+    pub token_type: String,
+    pub algorithm: String,
+    pub typ: String,
+    pub strict_decode_ok: bool,
+    pub strict_decode_error: Option<String>,
+    pub results: Vec<VulnerabilityResult>,
+    pub summary: ScanSummary,
+    pub attack_payloads: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ScanSummary {
+    pub vulnerabilities: usize,
+    pub critical: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+}
+
 /// Execute the scan command
 pub fn execute(
     token: &str,
@@ -89,6 +122,24 @@ pub fn execute(
             "e.g jwt-hack scan {JWT_CODE} [--skip-crack] [--skip-payloads] [-w wordlist.txt]",
         );
     }
+}
+
+pub fn execute_json(
+    token: &str,
+    skip_crack: bool,
+    skip_payloads: bool,
+    wordlist: Option<&PathBuf>,
+    max_crack_attempts: usize,
+) -> Result<Value> {
+    let options = ScanOptions {
+        skip_crack,
+        skip_payloads,
+        wordlist,
+        max_crack_attempts,
+    };
+
+    let report = scan_token(token, &options, !skip_payloads)?;
+    Ok(serde_json::to_value(report)?)
 }
 
 /// Build a best-effort `DecodedToken` from the raw header bytes for tokens that
@@ -187,6 +238,254 @@ fn run_scan(token: &str, options: &ScanOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn scan_token(token: &str, options: &ScanOptions, include_payloads: bool) -> Result<ScanReport> {
+    let token_type = jwt::detect_token_type(token);
+    let token_type_str = match token_type {
+        jwt::TokenType::Jwt => "jwt",
+        jwt::TokenType::Jwe => "jwe",
+        jwt::TokenType::Unknown => "unknown",
+    }
+    .to_string();
+
+    let mut results: Vec<VulnerabilityResult> = Vec::new();
+
+    let (decoded, strict_ok, decode_err) = match jwt::decode(token) {
+        Ok(d) => (d, true, None),
+        Err(e) => {
+            let err_str = e.to_string();
+            let fallback = parse_header_only(token)?;
+            (fallback, false, Some(err_str))
+        }
+    };
+
+    let header_alg_display = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "<missing>".to_string());
+    let typ = decoded
+        .header
+        .get("typ")
+        .and_then(|v| v.as_str())
+        .unwrap_or("JWT")
+        .to_string();
+
+    results.push(check_none_algorithm(token, &decoded)?);
+    results.push(check_algorithm_confusion(token, &decoded)?);
+    results.push(check_kid_vulnerabilities(&decoded)?);
+    results.push(check_jku_x5u_vulnerabilities(&decoded)?);
+    results.push(check_jwk_header(&decoded)?);
+    results.push(check_crit_header(&decoded)?);
+    results.push(check_b64_header(&decoded)?);
+    results.push(check_signature_segment(token, &decoded)?);
+    results.push(check_typ_confusion(&decoded)?);
+    results.push(check_alg_edge(token, &decoded)?);
+    results.push(check_psychic_signature(token, &decoded)?);
+    results.push(check_zip_header(&decoded)?);
+
+    if strict_ok {
+        if !options.skip_crack {
+            results.push(check_weak_secret(token, &decoded, options)?);
+        }
+        results.push(check_token_expiration(&decoded)?);
+        results.push(check_missing_claims(&decoded)?);
+        results.push(check_sensitive_claims(&decoded)?);
+    }
+
+    let summary = summarize_results(&results);
+    let attack_payloads = if include_payloads {
+        Some(collect_attack_payloads(token, &results)?)
+    } else {
+        None
+    };
+
+    Ok(ScanReport {
+        success: true,
+        token_type: token_type_str,
+        algorithm: header_alg_display,
+        typ,
+        strict_decode_ok: strict_ok,
+        strict_decode_error: decode_err,
+        results,
+        summary,
+        attack_payloads,
+    })
+}
+
+fn summarize_results(results: &[VulnerabilityResult]) -> ScanSummary {
+    let mut vulnerable_count = 0;
+    let mut critical = 0;
+    let mut high = 0;
+    let mut medium = 0;
+    let mut low = 0;
+
+    for result in results {
+        if !result.vulnerable {
+            continue;
+        }
+        vulnerable_count += 1;
+        match result.severity {
+            Severity::Critical => critical += 1,
+            Severity::High => high += 1,
+            Severity::Medium => medium += 1,
+            Severity::Low => low += 1,
+            Severity::Info => {}
+        }
+    }
+
+    ScanSummary {
+        vulnerabilities: vulnerable_count,
+        critical,
+        high,
+        medium,
+        low,
+    }
+}
+
+fn collect_attack_targets(results: &[VulnerabilityResult]) -> HashSet<&'static str> {
+    let mut targets = HashSet::new();
+
+    for result in results {
+        if !result.vulnerable {
+            continue;
+        }
+
+        match result.name.as_str() {
+            "None Algorithm" => {
+                targets.insert("none");
+            }
+            "Algorithm Confusion" => {
+                targets.insert("alg_confusion");
+            }
+            "Kid Header" => {
+                targets.insert("kid_sql");
+                targets.insert("kid_traversal");
+            }
+            "JKU/X5U Header" => {
+                targets.insert("jku");
+                targets.insert("x5u");
+            }
+            "Embedded JWK" => {
+                targets.insert("jwk_embed");
+            }
+            "crit Header" => {
+                targets.insert("crit");
+            }
+            "b64 Header (RFC 7797)" => {
+                targets.insert("b64");
+            }
+            "Signature Segment" => {
+                targets.insert("empty_sig");
+            }
+            "typ Confusion" => {
+                targets.insert("typ_confusion");
+            }
+            "alg Edge Value" => {
+                targets.insert("alg_edge");
+            }
+            "Psychic Signature" => {
+                targets.insert("psychic");
+            }
+            "zip Header" => {
+                targets.insert("zip");
+            }
+            _ => {}
+        }
+    }
+
+    targets
+}
+
+fn collect_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Result<Vec<String>> {
+    let targets = collect_attack_targets(results);
+    if targets.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut payloads_out = Vec::new();
+
+    if targets.contains("none") {
+        if let Ok(p) = payload::generate_none_payload(token, "none") {
+            payloads_out.push(p);
+        }
+        if let Ok(p) = payload::generate_none_payload(token, "None") {
+            payloads_out.push(p);
+        }
+        if let Ok(p) = payload::generate_none_payload(token, "NONE") {
+            payloads_out.push(p);
+        }
+    }
+
+    if targets.contains("alg_confusion") {
+        if let Ok(payloads) = payload::generate_alg_confusion_payload(token, None) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("kid_sql") {
+        if let Ok(payloads) = payload::generate_kid_sql_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("kid_traversal") {
+        if let Ok(payloads) = payload::generate_kid_traversal_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("jwk_embed") {
+        if let Ok(p) = payload::generate_jwk_embed_payload(token) {
+            payloads_out.push(p);
+        }
+    }
+
+    if targets.contains("crit") {
+        if let Ok(payloads) = payload::generate_crit_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("b64") {
+        if let Ok(payloads) = payload::generate_b64_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("empty_sig") {
+        if let Ok(payloads) = payload::generate_empty_sig_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("typ_confusion") {
+        if let Ok(payloads) = payload::generate_typ_confusion_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("alg_edge") {
+        if let Ok(payloads) = payload::generate_alg_edge_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("psychic") {
+        if let Ok(payloads) = payload::generate_psychic_signature_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    if targets.contains("zip") {
+        if let Ok(payloads) = payload::generate_zip_payload(token) {
+            payloads_out.extend(payloads.into_iter().take(1));
+        }
+    }
+
+    Ok(payloads_out)
 }
 
 /// Check for none algorithm vulnerability

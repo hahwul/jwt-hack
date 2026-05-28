@@ -54,6 +54,86 @@ pub fn execute(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn execute_json(
+    json_str: &str,
+    secret: Option<&str>,
+    private_key_path: Option<&PathBuf>,
+    algorithm: &str,
+    no_signature: bool,
+    headers: &[(String, String)],
+    compress: bool,
+    jwe: bool,
+) -> Result<Value> {
+    if jwe {
+        let key = secret.unwrap_or("default_jwe_key");
+        let token = jwt::encode_jwe_demo(json_str, key)?;
+        return Ok(serde_json::json!({
+            "success": true,
+            "token_type": "jwe",
+            "key_mgmt": "dir",
+            "encryption": "A256GCM",
+            "token": token
+        }));
+    }
+
+    let claims: Value = serde_json::from_str(json_str)?;
+    let header_map = create_header_map(headers);
+
+    let (token, key_info, effective_alg) = if no_signature {
+        let options = jwt::EncodeOptions {
+            algorithm: "none",
+            key_data: jwt::KeyData::None,
+            header_params: header_map,
+            compress_payload: compress,
+        };
+        (
+            jwt::encode_with_options(&claims, &options)?,
+            "none".to_string(),
+            "none".to_string(),
+        )
+    } else if let Some(path) = private_key_path {
+        let key_content = fs::read_to_string(path)?;
+        let options = jwt::EncodeOptions {
+            algorithm,
+            key_data: jwt::KeyData::PrivateKeyPem(&key_content),
+            header_params: header_map,
+            compress_payload: compress,
+        };
+        (
+            jwt::encode_with_options(&claims, &options)?,
+            path.display().to_string(),
+            algorithm.to_string(),
+        )
+    } else {
+        let options = jwt::EncodeOptions {
+            algorithm,
+            key_data: jwt::KeyData::Secret(secret.unwrap_or("")),
+            header_params: header_map,
+            compress_payload: compress,
+        };
+        (
+            jwt::encode_with_options(&claims, &options)?,
+            if secret.unwrap_or("").is_empty() {
+                "empty".to_string()
+            } else {
+                "****".to_string()
+            },
+            algorithm.to_string(),
+        )
+    };
+
+    Ok(serde_json::json!({
+        "success": true,
+        "token_type": "jwt",
+        "algorithm": effective_alg,
+        "key": key_info,
+        "headers": headers,
+        "compress": compress,
+        "token": token
+    }))
+}
+
 /// Helper function to convert header vector to optional hashmap
 fn create_header_map(headers: &[(String, String)]) -> Option<HashMap<&str, &str>> {
     if headers.is_empty() {
@@ -387,5 +467,22 @@ mod tests {
 
         let result = encode_jwe(json_str, secret);
         assert!(result.is_ok(), "encode_jwe should succeed with valid JSON");
+    }
+
+    #[test]
+    fn test_execute_json_hs256() {
+        let json_str = r#"{"sub":"123"}"#;
+        let value = execute_json(json_str, Some("s"), None, "HS256", false, &[], false, false)
+            .expect("encode json");
+        assert_eq!(value.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            value.get("token_type").and_then(|v| v.as_str()),
+            Some("jwt")
+        );
+        assert!(value
+            .get("token")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .contains('.'));
     }
 }

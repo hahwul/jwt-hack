@@ -30,6 +30,10 @@ pub struct Cli {
     #[arg(long, global = true)]
     config: Option<PathBuf>,
 
+    /// Output JSON to stdout (pipeline-friendly)
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -287,6 +291,148 @@ pub fn execute() {
             std::process::exit(1);
         }
     };
+
+    if cli.json {
+        let result: anyhow::Result<serde_json::Value> = match &cli.command {
+            Some(Commands::Decode { token }) => decode::execute_json(token),
+            Some(Commands::Encode {
+                json,
+                secret,
+                private_key,
+                algorithm,
+                no_signature,
+                header,
+                compress,
+                jwe,
+            }) => encode::execute_json(
+                json,
+                secret.as_deref(),
+                private_key.as_ref(),
+                algorithm,
+                *no_signature,
+                header,
+                *compress,
+                *jwe,
+            ),
+            Some(Commands::Verify {
+                token,
+                secret,
+                private_key,
+                validate_exp,
+            }) => verify::execute_json(
+                token,
+                secret.as_deref(),
+                private_key.as_ref(),
+                *validate_exp,
+            ),
+            Some(Commands::Crack {
+                token,
+                mode,
+                wordlist,
+                chars,
+                preset,
+                concurrency,
+                max,
+                power,
+                verbose,
+                target_field,
+                pattern,
+            }) => crack::execute_json(
+                token,
+                mode,
+                wordlist,
+                chars,
+                preset,
+                *concurrency,
+                *max,
+                *power,
+                *verbose,
+                target_field,
+                pattern,
+            ),
+            Some(Commands::Payload {
+                token,
+                jwk_trust,
+                jwk_attack,
+                jwk_protocol,
+                target,
+            }) => payload::execute_json(
+                token,
+                jwk_trust.as_deref(),
+                jwk_attack.as_deref(),
+                jwk_protocol,
+                target.as_deref(),
+            ),
+            Some(Commands::Scan {
+                token,
+                skip_crack,
+                skip_payloads,
+                wordlist,
+                max_crack_attempts,
+            }) => scan::execute_json(
+                token,
+                *skip_crack,
+                *skip_payloads,
+                wordlist.as_ref(),
+                *max_crack_attempts,
+            ),
+            Some(Commands::Jwks { action }) => jwks::execute_json(action),
+            Some(Commands::Version) => version::execute_json(),
+            Some(Commands::Mcp) => Ok(serde_json::json!({"success": true, "mode": "mcp"})),
+            Some(Commands::Shell) => Ok(serde_json::json!({"success": true, "mode": "shell"})),
+            Some(Commands::Server {
+                host,
+                port,
+                api_key: _,
+            }) => Ok(
+                serde_json::json!({"success": true, "mode": "server", "host": host, "port": port}),
+            ),
+            None => Ok(serde_json::json!({
+                "success": false,
+                "error": "No command specified. Use --help for usage information."
+            })),
+        };
+
+        match result {
+            Ok(value) => {
+                if let Err(e) = crate::output::print_json(&value) {
+                    error!("Failed to print JSON output: {e}");
+                    std::process::exit(1);
+                }
+
+                // Start long-running commands after emitting the startup JSON
+                if let Some(Commands::Server {
+                    host,
+                    port,
+                    api_key,
+                }) = &cli.command
+                {
+                    let runtime =
+                        tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+                    if let Some(key) = api_key.as_deref() {
+                        runtime.block_on(server::execute_with_api_key(host, *port, key));
+                    } else {
+                        runtime.block_on(server::execute(host, *port));
+                    }
+                }
+
+                if let Some(Commands::Mcp) = &cli.command {
+                    mcp::execute();
+                }
+
+                if let Some(Commands::Shell) = &cli.command {
+                    shell::execute();
+                }
+            }
+            Err(e) => {
+                let err_value = crate::output::ErrorResponse::new(e.to_string());
+                let _ = crate::output::print_json(&err_value);
+                std::process::exit(1);
+            }
+        }
+
+        return;
+    }
 
     match &cli.command {
         Some(Commands::Decode { token }) => {
