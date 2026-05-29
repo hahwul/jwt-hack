@@ -472,6 +472,7 @@ fn report_crack_results(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_crack_report(
     found: &Arc<Mutex<Option<String>>>,
     elapsed: Duration,
