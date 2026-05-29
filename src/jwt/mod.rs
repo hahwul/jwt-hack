@@ -144,6 +144,10 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "RS512" => Algorithm::RS512,
         "ES256" => Algorithm::ES256,
         "ES384" => Algorithm::ES384,
+        "ES512" => {
+            // ES512 requires josekit as jsonwebtoken doesn't support it
+            return encode_with_josekit_jwt(claims, options, "ES512");
+        }
         "PS256" => Algorithm::PS256,
         "PS384" => Algorithm::PS384,
         "PS512" => Algorithm::PS512,
@@ -151,7 +155,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "NONE" => Algorithm::HS256, // Internally we'll use HS256 but with an empty signature
         _ => {
             return Err(anyhow!(
-                "Unsupported algorithm '{}'. Supported algorithms: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, PS256, PS384, PS512, EdDSA, none",
+                "Unsupported algorithm '{}'. Supported algorithms: HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, PS256, PS384, PS512, EdDSA, none",
                 options.algorithm
             ))
         }
@@ -930,7 +934,60 @@ pub fn detect_jwe_misconfigurations(decoded: &DecodedJweToken) -> Vec<String> {
     issues
 }
 
+/// Encode JWT using josekit for algorithms not supported by jsonwebtoken (e.g., ES512)
+fn encode_with_josekit_jwt(
+    claims: &Value,
+    options: &EncodeOptions,
+    alg_str: &str,
+) -> Result<String> {
+    use josekit::jwk::alg::ec::{EcCurve, EcKeyPair};
+    use josekit::jws::{JwsHeader, ES512};
+
+    // Create header
+    let mut header = JwsHeader::new();
+    header.set_algorithm(alg_str);
+    header.set_token_type("JWT");
+
+    // Add custom header parameters if provided
+    if let Some(params) = &options.header_params {
+        for (key, value) in params {
+            header.set_claim(key, Some(serde_json::Value::String(value.to_string())))?;
+        }
+    }
+
+    // Convert claims to payload bytes
+    let payload = serde_json::to_vec(claims)?;
+
+    // Get the signer based on the key data
+    let signer = match &options.key_data {
+        KeyData::PrivateKeyPem(pem_str) => {
+            // Parse PEM as EC key pair for P-521 curve (ES512)
+            let key_pair = EcKeyPair::from_pem(pem_str, Some(EcCurve::P521))?;
+            let jwk = key_pair.to_jwk_key_pair();
+            ES512.signer_from_jwk(&jwk)?
+        }
+        KeyData::PrivateKeyDer(der_bytes) => {
+            // Parse DER as JWK (PKCS8 format)
+            let jwk = EcKeyPair::from_der(der_bytes, Some(EcCurve::P521))?;
+            ES512.signer_from_jwk(&jwk.to_jwk_key_pair())?
+        }
+        KeyData::Secret(_) => {
+            return Err(anyhow!(
+                "ES512 requires an EC private key (PEM or DER), not a secret"
+            ));
+        }
+        KeyData::None => {
+            return Err(anyhow!("ES512 requires an EC private key"));
+        }
+    };
+
+    // Serialize JWT
+    let jwt = josekit::jws::serialize_compact(&payload, &header, &*signer)?;
+    Ok(jwt)
+}
+
 /// Create a simple JWE token for demonstration purposes
+#[deprecated(note = "Use encode_jwe instead for real encryption")]
 pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
     // This is a basic demonstration JWE structure for testing purposes
     // In a real implementation, you would use proper encryption
@@ -955,6 +1012,177 @@ pub fn encode_jwe_demo(payload: &str, _recipient_key: &str) -> Result<String> {
         "{}.{}.{}.{}.{}",
         encoded_header, encrypted_key, iv, ciphertext, tag
     ))
+}
+
+/// JWE key management algorithms supported.
+///
+/// For asymmetric algorithms (RSA, ECDH-ES), use a **public key** for encryption
+/// and the corresponding **private key** for decryption.
+pub enum JweKeyManagement<'a> {
+    /// Direct encryption - symmetric key used directly
+    Direct(&'a str),
+    /// RSA-OAEP key encryption
+    RsaOaep(&'a str),
+    /// RSA-OAEP-256 key encryption
+    RsaOaep256(&'a str),
+    /// ECDH-ES key agreement
+    EcdhEs(&'a str),
+    /// ECDH-ES+A128KW key agreement with AES key wrap
+    EcdhEsA128kw(&'a str),
+    /// ECDH-ES+A256KW key agreement with AES key wrap
+    EcdhEsA256kw(&'a str),
+    /// AES128 Key Wrap
+    A128kw(&'a str), // 16-byte symmetric key
+    /// AES256 Key Wrap
+    A256kw(&'a str), // 32-byte symmetric key
+}
+
+/// JWE content encryption algorithms supported
+pub enum JweContentEncryption {
+    /// AES-128 GCM
+    A128GCM,
+    /// AES-256 GCM
+    A256GCM,
+}
+
+/// Encode payload as JWE token using josekit
+pub fn encode_jwe(
+    payload: &str,
+    key_mgmt: JweKeyManagement,
+    content_enc: JweContentEncryption,
+) -> Result<String> {
+    use josekit::jwe::{serialize_compact, JweHeader};
+
+    // Create header
+    let mut header = JweHeader::new();
+
+    // Get the encrypter based on key management algorithm
+    let (alg_name, encrypter): (&str, Box<dyn josekit::jwe::JweEncrypter>) = match key_mgmt {
+        JweKeyManagement::Direct(key) => {
+            use josekit::jwe::Dir;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = Dir.encrypter_from_bytes(key.as_bytes())?;
+            ("dir", Box::new(encrypter))
+        }
+        JweKeyManagement::RsaOaep(pem) => {
+            use josekit::jwe::RSA_OAEP;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = RSA_OAEP.encrypter_from_pem(pem)?;
+            ("RSA-OAEP", Box::new(encrypter))
+        }
+        JweKeyManagement::RsaOaep256(pem) => {
+            use josekit::jwe::RSA_OAEP_256;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = RSA_OAEP_256.encrypter_from_pem(pem)?;
+            ("RSA-OAEP-256", Box::new(encrypter))
+        }
+        JweKeyManagement::EcdhEs(pem) => {
+            use josekit::jwe::ECDH_ES;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = ECDH_ES.encrypter_from_pem(pem)?;
+            ("ECDH-ES", Box::new(encrypter))
+        }
+        JweKeyManagement::EcdhEsA128kw(pem) => {
+            use josekit::jwe::ECDH_ES_A128KW;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = ECDH_ES_A128KW.encrypter_from_pem(pem)?;
+            ("ECDH-ES+A128KW", Box::new(encrypter))
+        }
+        JweKeyManagement::EcdhEsA256kw(pem) => {
+            use josekit::jwe::ECDH_ES_A256KW;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = ECDH_ES_A256KW.encrypter_from_pem(pem)?;
+            ("ECDH-ES+A256KW", Box::new(encrypter))
+        }
+        JweKeyManagement::A128kw(key) => {
+            use josekit::jwe::A128KW;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = A128KW.encrypter_from_bytes(key.as_bytes())?;
+            ("A128KW", Box::new(encrypter))
+        }
+        JweKeyManagement::A256kw(key) => {
+            use josekit::jwe::A256KW;
+            header.set_content_encryption(match content_enc {
+                JweContentEncryption::A128GCM => "A128GCM",
+                JweContentEncryption::A256GCM => "A256GCM",
+            });
+            let encrypter = A256KW.encrypter_from_bytes(key.as_bytes())?;
+            ("A256KW", Box::new(encrypter))
+        }
+    };
+
+    header.set_algorithm(alg_name);
+
+    // Serialize JWE
+    let jwe = serialize_compact(payload.as_bytes(), &header, &*encrypter)?;
+    Ok(jwe)
+}
+
+/// Decrypt JWE token using josekit (supports all key management algorithms)
+pub fn decrypt_jwe_with_josekit(token: &str, key_mgmt: JweKeyManagement) -> Result<String> {
+    use josekit::jwe::deserialize_compact;
+
+    // Get the decrypter based on key management algorithm
+    let decrypter: Box<dyn josekit::jwe::JweDecrypter> = match key_mgmt {
+        JweKeyManagement::Direct(key) => {
+            use josekit::jwe::Dir;
+            Box::new(Dir.decrypter_from_bytes(key.as_bytes())?)
+        }
+        JweKeyManagement::RsaOaep(pem) => {
+            use josekit::jwe::RSA_OAEP;
+            Box::new(RSA_OAEP.decrypter_from_pem(pem)?)
+        }
+        JweKeyManagement::RsaOaep256(pem) => {
+            use josekit::jwe::RSA_OAEP_256;
+            Box::new(RSA_OAEP_256.decrypter_from_pem(pem)?)
+        }
+        JweKeyManagement::EcdhEs(pem) => {
+            use josekit::jwe::ECDH_ES;
+            Box::new(ECDH_ES.decrypter_from_pem(pem)?)
+        }
+        JweKeyManagement::EcdhEsA128kw(pem) => {
+            use josekit::jwe::ECDH_ES_A128KW;
+            Box::new(ECDH_ES_A128KW.decrypter_from_pem(pem)?)
+        }
+        JweKeyManagement::EcdhEsA256kw(pem) => {
+            use josekit::jwe::ECDH_ES_A256KW;
+            Box::new(ECDH_ES_A256KW.decrypter_from_pem(pem)?)
+        }
+        JweKeyManagement::A128kw(key) => {
+            use josekit::jwe::A128KW;
+            Box::new(A128KW.decrypter_from_bytes(key.as_bytes())?)
+        }
+        JweKeyManagement::A256kw(key) => {
+            use josekit::jwe::A256KW;
+            Box::new(A256KW.decrypter_from_bytes(key.as_bytes())?)
+        }
+    };
+
+    // Deserialize JWE
+    let (payload, _header) = deserialize_compact(token, &*decrypter)?;
+    let plaintext = String::from_utf8(payload)?;
+    Ok(plaintext)
 }
 
 #[cfg(test)]
@@ -1941,6 +2169,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_encode_jwe_demo() {
         let payload = r#"{"sub":"test","name":"JWE User"}"#;
         let result = encode_jwe_demo(payload, "test_key");
@@ -1971,5 +2200,222 @@ mod tests {
             JwtError::Other("test error".to_string()).to_string(),
             "JWT error: test error"
         );
+    }
+
+    // ES512 JWT Tests
+    #[test]
+    fn test_encode_es512() {
+        // Read P-521 EC key
+        let ec_private_key = include_str!("test_ec_p521_private.pem");
+
+        let claims = json!({"sub": "test_es512", "iat": 1234567890});
+        let options = EncodeOptions {
+            algorithm: "ES512",
+            key_data: KeyData::PrivateKeyPem(ec_private_key),
+            header_params: None,
+            compress_payload: false,
+        };
+
+        let result = encode_with_options(&claims, &options);
+        assert!(result.is_ok(), "ES512 encoding should succeed");
+
+        let token = result.unwrap();
+        let parts: Vec<&str> = token.split('.').collect();
+        assert_eq!(parts.len(), 3, "JWT should have 3 parts");
+
+        // Verify the header
+        let header_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(parts[0])
+            .expect("Header should decode");
+        let header_json: serde_json::Value =
+            serde_json::from_slice(&header_bytes).expect("Header should be valid JSON");
+        assert_eq!(
+            header_json["alg"].as_str().unwrap(),
+            "ES512",
+            "Algorithm should be ES512"
+        );
+    }
+
+    // JWE Round-trip Tests
+    #[test]
+    fn test_jwe_direct_encryption_round_trip() {
+        let payload = "Test payload for direct encryption";
+        let key = "01234567890123456789012345678901"; // 32 bytes for A256GCM
+
+        // Encode
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::Direct(key),
+            JweContentEncryption::A256GCM,
+        )
+        .expect("Direct JWE encoding should succeed");
+
+        // Verify structure
+        let parts: Vec<&str> = jwe_token.split('.').collect();
+        assert_eq!(parts.len(), 5, "JWE should have 5 parts");
+
+        // Decrypt
+        let decrypted = decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::Direct(key))
+            .expect("Direct JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    #[test]
+    fn test_jwe_rsa_oaep_round_trip() {
+        let rsa_private_key = include_str!("test_rsa_2048_private.pem");
+        let rsa_public_key = include_str!("test_rsa_2048_public.pem");
+
+        let payload = "Test payload for RSA-OAEP encryption";
+
+        // Encode with public key
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::RsaOaep(rsa_public_key),
+            JweContentEncryption::A256GCM,
+        )
+        .expect("RSA-OAEP JWE encoding should succeed");
+
+        // Verify structure
+        let parts: Vec<&str> = jwe_token.split('.').collect();
+        assert_eq!(parts.len(), 5, "JWE should have 5 parts");
+
+        // Decrypt with private key
+        let decrypted =
+            decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::RsaOaep(rsa_private_key))
+                .expect("RSA-OAEP JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    #[test]
+    fn test_jwe_rsa_oaep_256_round_trip() {
+        let rsa_private_key = include_str!("test_rsa_2048_private.pem");
+        let rsa_public_key = include_str!("test_rsa_2048_public.pem");
+
+        let payload = "Test payload for RSA-OAEP-256 encryption";
+
+        // Encode with public key
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::RsaOaep256(rsa_public_key),
+            JweContentEncryption::A128GCM,
+        )
+        .expect("RSA-OAEP-256 JWE encoding should succeed");
+
+        // Decrypt with private key
+        let decrypted =
+            decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::RsaOaep256(rsa_private_key))
+                .expect("RSA-OAEP-256 JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    #[test]
+    fn test_jwe_ecdh_es_round_trip() {
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
+
+        let payload = "Test payload for ECDH-ES encryption";
+
+        // Encode with public key
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::EcdhEs(ec_public_key),
+            JweContentEncryption::A256GCM,
+        )
+        .expect("ECDH-ES JWE encoding should succeed");
+
+        // Decrypt with private key
+        let decrypted =
+            decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::EcdhEs(ec_private_key))
+                .expect("ECDH-ES JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    #[test]
+    fn test_jwe_aes_key_wrap_round_trip() {
+        let payload = "Test payload for AES key wrap";
+        let key_128 = "0123456789012345"; // 16 bytes for A128KW
+        let key_256 = "01234567890123456789012345678901"; // 32 bytes for A256KW
+
+        // Test A128KW
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::A128kw(key_128),
+            JweContentEncryption::A128GCM,
+        )
+        .expect("A128KW JWE encoding should succeed");
+
+        let decrypted = decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::A128kw(key_128))
+            .expect("A128KW JWE decryption should succeed");
+
+        assert_eq!(
+            decrypted, payload,
+            "A128KW round-trip should preserve payload"
+        );
+
+        // Test A256KW
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::A256kw(key_256),
+            JweContentEncryption::A256GCM,
+        )
+        .expect("A256KW JWE encoding should succeed");
+
+        let decrypted = decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::A256kw(key_256))
+            .expect("A256KW JWE decryption should succeed");
+
+        assert_eq!(
+            decrypted, payload,
+            "A256KW round-trip should preserve payload"
+        );
+    }
+
+    #[test]
+    fn test_jwe_ecdh_es_a128kw_round_trip() {
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
+
+        let payload = "Test payload for ECDH-ES+A128KW encryption";
+
+        // Encode with public key
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::EcdhEsA128kw(ec_public_key),
+            JweContentEncryption::A128GCM,
+        )
+        .expect("ECDH-ES+A128KW JWE encoding should succeed");
+
+        // Decrypt with private key
+        let decrypted =
+            decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::EcdhEsA128kw(ec_private_key))
+                .expect("ECDH-ES+A128KW JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    #[test]
+    fn test_jwe_ecdh_es_a256kw_round_trip() {
+        let ec_private_key = include_str!("test_ec_p256_private.pem");
+        let ec_public_key = include_str!("test_ec_p256_public.pem");
+
+        let payload = "Test payload for ECDH-ES+A256KW encryption";
+
+        // Encode with public key
+        let jwe_token = encode_jwe(
+            payload,
+            JweKeyManagement::EcdhEsA256kw(ec_public_key),
+            JweContentEncryption::A256GCM,
+        )
+        .expect("ECDH-ES+A256KW JWE encoding should succeed");
+
+        // Decrypt with private key
+        let decrypted =
+            decrypt_jwe_with_josekit(&jwe_token, JweKeyManagement::EcdhEsA256kw(ec_private_key))
+                .expect("ECDH-ES+A256KW JWE decryption should succeed");
+
+        assert_eq!(decrypted, payload, "Round-trip should preserve payload");
     }
 }

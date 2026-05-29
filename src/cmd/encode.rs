@@ -237,6 +237,7 @@ fn encode_json(
     Ok(())
 }
 
+#[allow(deprecated)]
 fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
     let _claims: Value = serde_json::from_str(json_str)?;
     let key = secret.unwrap_or("default_jwe_key");
