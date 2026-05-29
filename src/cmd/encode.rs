@@ -54,7 +54,7 @@ pub fn execute(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, deprecated)]
 pub fn execute_json(
     json_str: &str,
     secret: Option<&str>,
