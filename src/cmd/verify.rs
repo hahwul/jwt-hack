@@ -78,6 +78,20 @@ pub fn execute(
     }
 }
 
+pub fn execute_json(
+    token: &str,
+    secret: Option<&str>,
+    private_key_path: Option<&PathBuf>,
+    validate_exp: bool,
+) -> Result<serde_json::Value> {
+    let valid = verify_token(token, secret, private_key_path, validate_exp)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "valid": valid,
+        "validate_exp": validate_exp
+    }))
+}
+
 fn verify_token(
     token: &str,
     secret: Option<&str>,
@@ -299,5 +313,22 @@ mod tests {
 
         // Clean up
         dir.close().expect("Failed to clean up temp directory");
+    }
+
+    #[test]
+    fn test_execute_json_valid() {
+        let claims = json!({"sub": "test"});
+        let secret = "s";
+        let options = jwt::EncodeOptions {
+            algorithm: "HS256",
+            key_data: jwt::KeyData::Secret(secret),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = jwt::encode_with_options(&claims, &options).expect("token");
+
+        let value = execute_json(&token, Some(secret), None, false).expect("json verify");
+        assert_eq!(value.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(value.get("valid").and_then(|v| v.as_bool()), Some(true));
     }
 }

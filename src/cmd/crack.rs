@@ -2,6 +2,8 @@ use colored::Colorize;
 use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{error, info};
 use rayon::prelude::*;
+use serde::Serialize;
+use serde_json::Value;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -44,6 +46,21 @@ pub struct CrackOptions<'a> {
     pub pattern: &'a Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CrackReport {
+    pub success: bool,
+    pub mode: String,
+    pub token_type: String,
+    pub found: bool,
+    pub value_label: String,
+    pub value: Option<String>,
+    pub target_field: Option<String>,
+    pub field_location: Option<String>,
+    pub elapsed_ms: u128,
+    pub attempts: usize,
+    pub rate: f64,
+}
+
 /// Execute the crack command
 #[allow(clippy::too_many_arguments)]
 pub fn execute(
@@ -72,15 +89,49 @@ pub fn execute(
         target_field,
         pattern,
     };
-    execute_with_options(&options);
+    execute_with_options(&options, true);
+}
+
+/// Execute the crack command and return pipeline-friendly JSON output.
+#[allow(clippy::too_many_arguments)]
+pub fn execute_json(
+    token: &str,
+    mode: &str,
+    wordlist: &Option<PathBuf>,
+    chars: &str,
+    preset: &Option<String>,
+    concurrency: usize,
+    max: usize,
+    power: bool,
+    verbose: bool,
+    target_field: &Option<String>,
+    pattern: &Option<String>,
+) -> anyhow::Result<Value> {
+    let options = CrackOptions {
+        token,
+        mode,
+        wordlist,
+        chars,
+        preset,
+        concurrency,
+        max,
+        power,
+        verbose,
+        target_field,
+        pattern,
+    };
+
+    Ok(serde_json::to_value(execute_with_options_json(&options)?)?)
 }
 
 /// Execute the crack command with options struct
-fn execute_with_options(options: &CrackOptions) {
+fn execute_with_options(options: &CrackOptions, emit_output: bool) {
     // Handle targeted field cracking mode
     if let Some(target_field) = options.target_field {
-        if let Err(e) = crack_target_field(options, target_field) {
-            utils::log_error(format!("Targeted field cracking failed: {e}"));
+        if let Err(e) = crack_target_field(options, target_field, emit_output) {
+            if emit_output {
+                utils::log_error(format!("Targeted field cracking failed: {e}"));
+            }
         }
         return;
     }
@@ -89,7 +140,7 @@ fn execute_with_options(options: &CrackOptions) {
     let token_type = jwt::detect_token_type(options.token);
     let is_jwe = token_type == jwt::TokenType::Jwe;
 
-    if is_jwe {
+    if is_jwe && emit_output {
         utils::log_info("Detected JWE token (5-part structure) - using JWE cracking mode");
         utils::log_info(
             "JWE cracking attempts direct key decryption instead of signature verification",
@@ -105,24 +156,33 @@ fn execute_with_options(options: &CrackOptions) {
                 options.power,
                 options.verbose,
                 is_jwe,
+                emit_output,
             ) {
-                utils::log_error(format!("Dictionary cracking failed: {e}"));
+                if emit_output {
+                    utils::log_error(format!("Dictionary cracking failed: {e}"));
+                }
             }
         } else {
-            utils::log_error("Wordlist is required for dictionary mode");
-            utils::log_error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}");
+            if emit_output {
+                utils::log_error("Wordlist is required for dictionary mode");
+                utils::log_error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}");
+            }
         }
     } else if options.mode == "brute" {
         // Resolve the character set to use - preset takes priority over chars
         let chars_to_use = if let Some(preset) = options.preset {
             match get_preset_chars(preset) {
                 Some(preset_chars) => {
-                    utils::log_info(format!("Using preset '{}': {}", preset, preset_chars));
+                    if emit_output {
+                        utils::log_info(format!("Using preset '{}': {}", preset, preset_chars));
+                    }
                     preset_chars
                 }
                 None => {
-                    utils::log_error(format!("Unknown preset: '{}'", preset));
-                    utils::log_error("Available presets: az, AZ, aZ, 19, aZ19, ascii");
+                    if emit_output {
+                        utils::log_error(format!("Unknown preset: '{}'", preset));
+                        utils::log_error("Available presets: az, AZ, aZ, 19, aZ19, ascii");
+                    }
                     return;
                 }
             }
@@ -138,12 +198,61 @@ fn execute_with_options(options: &CrackOptions) {
             options.power,
             options.verbose,
             is_jwe,
+            emit_output,
         ) {
-            utils::log_error(format!("Bruteforce cracking failed: {e}"));
+            if emit_output {
+                utils::log_error(format!("Bruteforce cracking failed: {e}"));
+            }
         }
     } else {
-        utils::log_error(format!("Invalid mode: {}", options.mode));
-        utils::log_error("Supported modes: 'dict' or 'brute'");
+        if emit_output {
+            utils::log_error(format!("Invalid mode: {}", options.mode));
+            utils::log_error("Supported modes: 'dict' or 'brute'");
+        }
+    }
+}
+
+fn execute_with_options_json(options: &CrackOptions) -> anyhow::Result<CrackReport> {
+    let emit_output = false;
+
+    if let Some(target_field) = options.target_field {
+        return crack_target_field(options, target_field, emit_output);
+    }
+
+    let token_type = jwt::detect_token_type(options.token);
+    let is_jwe = token_type == jwt::TokenType::Jwe;
+
+    if options.mode == "dict" {
+        let Some(wordlist_path) = options.wordlist else {
+            anyhow::bail!("Wordlist is required for dictionary mode");
+        };
+        crack_dictionary(
+            options.token,
+            wordlist_path,
+            options.concurrency,
+            options.power,
+            options.verbose,
+            is_jwe,
+            emit_output,
+        )
+    } else if options.mode == "brute" {
+        let chars_to_use = if let Some(preset) = options.preset {
+            get_preset_chars(preset).ok_or_else(|| anyhow::anyhow!("Unknown preset: '{preset}'"))?
+        } else {
+            options.chars.to_string()
+        };
+        crack_bruteforce(
+            options.token,
+            &chars_to_use,
+            options.max,
+            options.concurrency,
+            options.power,
+            options.verbose,
+            is_jwe,
+            emit_output,
+        )
+    } else {
+        anyhow::bail!("Invalid mode: {}", options.mode);
     }
 }
 
@@ -315,7 +424,12 @@ fn report_crack_results(
     attempts_total: usize,
     token: &str,
     is_jwe: bool,
+    emit_output: bool,
 ) {
+    if !emit_output {
+        return;
+    }
+
     let elapsed_secs = elapsed.as_secs_f64();
     let rate = if elapsed_secs > 0.0 {
         attempts_total as f64 / elapsed_secs
@@ -358,6 +472,43 @@ fn report_crack_results(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn build_crack_report(
+    found: &Arc<Mutex<Option<String>>>,
+    elapsed: Duration,
+    attempts_total: usize,
+    is_jwe: bool,
+    mode: &str,
+    target_field: Option<String>,
+    field_location: Option<String>,
+    emit_output: bool,
+) -> CrackReport {
+    let elapsed_secs = elapsed.as_secs_f64();
+    let rate = if elapsed_secs > 0.0 {
+        attempts_total as f64 / elapsed_secs
+    } else {
+        0.0
+    };
+
+    let guard = found.lock().unwrap_or_else(|e| e.into_inner());
+    let was_found = guard.is_some();
+    // Only clone the sensitive value for the JSON path; callers in non-JSON mode discard the report.
+    let value = if !emit_output { guard.clone() } else { None };
+    CrackReport {
+        success: true,
+        mode: mode.to_string(),
+        token_type: if is_jwe { "jwe" } else { "jwt" }.to_string(),
+        found: was_found,
+        value_label: if is_jwe { "key" } else { "secret" }.to_string(),
+        value,
+        target_field,
+        field_location,
+        elapsed_ms: elapsed.as_millis(),
+        attempts: attempts_total,
+        rate,
+    }
+}
+
 fn crack_dictionary(
     token: &str,
     wordlist_path: &PathBuf,
@@ -365,22 +516,32 @@ fn crack_dictionary(
     power: bool,
     verbose: bool,
     is_jwe: bool,
-) -> anyhow::Result<()> {
+    emit_output: bool,
+) -> anyhow::Result<CrackReport> {
     let start_time = Instant::now();
 
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file);
 
-    let multi = MultiProgress::new();
-    let loading_pb = multi.add(ProgressBar::new_spinner());
-    loading_pb.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.blue} {msg}")
-            .expect("valid spinner template")
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
-    loading_pb.set_message("Reading wordlist...");
-    loading_pb.enable_steady_tick(Duration::from_millis(100));
+    let multi = if emit_output {
+        Some(MultiProgress::new())
+    } else {
+        None
+    };
+    let loading_pb = if let Some(ref multi) = multi {
+        let pb = multi.add(ProgressBar::new_spinner());
+        pb.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.blue} {msg}")
+                .expect("valid spinner template")
+                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+        );
+        pb.set_message("Reading wordlist...");
+        pb.enable_steady_tick(Duration::from_millis(100));
+        Some(pb)
+    } else {
+        None
+    };
 
     // Read straight into a Vec — wordlists are typically already deduped and
     // routing them through a HashSet doubles peak memory on multi-million
@@ -388,24 +549,40 @@ fn crack_dictionary(
     let mut words_vec: Vec<String> = Vec::new();
     for word in reader.lines().map_while(Result::ok) {
         words_vec.push(word);
-        if words_vec.len().is_multiple_of(10000) {
-            loading_pb.set_message(format!("Reading wordlist... ({} words)", words_vec.len()));
+        if emit_output && words_vec.len().is_multiple_of(10000) {
+            if let Some(ref pb) = loading_pb {
+                pb.set_message(format!("Reading wordlist... ({} words)", words_vec.len()));
+            }
         }
     }
 
-    loading_pb.finish_with_message(format!(
-        "Loaded {} words in {}",
-        words_vec.len(),
-        HumanDuration(start_time.elapsed())
-    ));
+    if let Some(pb) = loading_pb {
+        pb.finish_with_message(format!(
+            "Loaded {} words in {}",
+            words_vec.len(),
+            HumanDuration(start_time.elapsed())
+        ));
+    }
     let found = Arc::new(Mutex::new(None::<String>));
     let found_flag = Arc::new(AtomicBool::new(false));
     let attempts = Arc::new(AtomicUsize::new(0));
     let start = Instant::now();
 
-    let pb = create_crack_progress_bar(&multi, words_vec.len() as u64, verbose);
+    let pb = if emit_output {
+        create_crack_progress_bar(
+            multi.as_ref().expect("multi exists when emit_output"),
+            words_vec.len() as u64,
+            verbose,
+        )
+    } else {
+        None
+    };
     let pool = build_thread_pool(concurrency, power, "dictionary")?;
-    let update_thread = spawn_rate_update_thread(&attempts, &pb);
+    let update_thread = if emit_output {
+        spawn_rate_update_thread(&attempts, &pb)
+    } else {
+        None
+    };
 
     run_parallel_crack(
         &pool,
@@ -427,14 +604,24 @@ fn crack_dictionary(
 
     let elapsed = start.elapsed();
     let attempts_total = attempts.load(Ordering::Relaxed);
-    report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
+    report_crack_results(&found, elapsed, attempts_total, token, is_jwe, emit_output);
 
-    Ok(())
+    Ok(build_crack_report(
+        &found,
+        elapsed,
+        attempts_total,
+        is_jwe,
+        "dict",
+        None,
+        None,
+        emit_output,
+    ))
 }
 
 /// Streaming brute-force: each rayon worker materializes candidates from an
 /// integer index into a reusable byte buffer, avoiding the per-candidate
 /// `String` allocation of the legacy `Vec<String>` chunk path.
+#[allow(clippy::too_many_arguments)]
 fn crack_bruteforce(
     token: &str,
     chars: &str,
@@ -443,7 +630,8 @@ fn crack_bruteforce(
     power: bool,
     verbose: bool,
     is_jwe: bool,
-) -> anyhow::Result<()> {
+    emit_output: bool,
+) -> anyhow::Result<CrackReport> {
     if max_length > crack::brute::MAX_BRUTE_LENGTH {
         anyhow::bail!(
             "max length {} exceeds supported brute-force limit of {}",
@@ -453,7 +641,11 @@ fn crack_bruteforce(
     }
 
     let start_time = Instant::now();
-    let multi = MultiProgress::new();
+    let multi = if emit_output {
+        Some(MultiProgress::new())
+    } else {
+        None
+    };
 
     let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
 
@@ -461,14 +653,28 @@ fn crack_bruteforce(
     let found_flag = Arc::new(AtomicBool::new(false));
     let attempts = Arc::new(AtomicUsize::new(0));
 
-    let pb = create_crack_progress_bar(&multi, total_combinations, verbose);
+    let pb = if emit_output {
+        create_crack_progress_bar(
+            multi.as_ref().expect("multi exists when emit_output"),
+            total_combinations,
+            verbose,
+        )
+    } else {
+        None
+    };
     let pool = build_thread_pool(concurrency, power, "bruteforce")?;
-    let update_thread = spawn_rate_update_thread(&attempts, &pb);
+    let update_thread = if emit_output {
+        spawn_rate_update_thread(&attempts, &pb)
+    } else {
+        None
+    };
 
-    utils::log_info(format!(
-        "Streaming brute-force: {} total combinations (length 1..{})",
-        total_combinations, max_length
-    ));
+    if emit_output {
+        utils::log_info(format!(
+            "Streaming brute-force: {} total combinations (length 1..{})",
+            total_combinations, max_length
+        ));
+    }
 
     // Precompute HS256 verifier once. JWE / non-HS256 fall back per-candidate.
     let fast_verifier = if is_jwe {
@@ -566,17 +772,34 @@ fn crack_bruteforce(
 
     let elapsed = start_time.elapsed();
     let attempts_total = attempts.load(Ordering::Relaxed);
-    report_crack_results(&found, elapsed, attempts_total, token, is_jwe);
+    report_crack_results(&found, elapsed, attempts_total, token, is_jwe, emit_output);
 
-    Ok(())
+    Ok(build_crack_report(
+        &found,
+        elapsed,
+        attempts_total,
+        is_jwe,
+        "brute",
+        None,
+        None,
+        emit_output,
+    ))
 }
 
 /// Targeted field brute-force: modify a specific JWT header/payload field (e.g., kid, jti)
 /// and test each variation against the target. Useful for testing key ID injection,
 /// path traversal in kid, or discovering valid JTI values.
-fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Result<()> {
+fn crack_target_field(
+    options: &CrackOptions,
+    target_field: &str,
+    emit_output: bool,
+) -> anyhow::Result<CrackReport> {
     let start_time = Instant::now();
-    let multi = MultiProgress::new();
+    let multi = if emit_output {
+        Some(MultiProgress::new())
+    } else {
+        None
+    };
 
     // Decode the original token to get header and claims
     let decoded =
@@ -605,10 +828,12 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         }
     };
 
-    utils::log_info(format!(
-        "Targeted field cracking: field='{}' location='{}' algorithm='{}'",
-        target_field, field_location, alg
-    ));
+    if emit_output {
+        utils::log_info(format!(
+            "Targeted field cracking: field='{}' location='{}' algorithm='{}'",
+            target_field, field_location, alg
+        ));
+    }
 
     // Generate candidates based on mode
     let candidates: Vec<String> = if options.mode == "dict" {
@@ -644,8 +869,20 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         };
 
         let total = crack::brute::estimate_combinations(chars_to_use.len(), options.max);
-        let pb = create_crack_progress_bar(&multi, total, options.verbose);
-        let update_thread = spawn_rate_update_thread(&attempts, &pb);
+        let pb = if emit_output {
+            create_crack_progress_bar(
+                multi.as_ref().expect("multi exists when emit_output"),
+                total,
+                options.verbose,
+            )
+        } else {
+            None
+        };
+        let update_thread = if emit_output {
+            spawn_rate_update_thread(&attempts, &pb)
+        } else {
+            None
+        };
 
         for length in 1..=options.max {
             if found_flag.load(Ordering::Relaxed) {
@@ -680,8 +917,20 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
 
         cleanup_crack_progress(pb, update_thread);
     } else {
-        let pb = create_crack_progress_bar(&multi, candidates.len() as u64, options.verbose);
-        let update_thread = spawn_rate_update_thread(&attempts, &pb);
+        let pb = if emit_output {
+            create_crack_progress_bar(
+                multi.as_ref().expect("multi exists when emit_output"),
+                candidates.len() as u64,
+                options.verbose,
+            )
+        } else {
+            None
+        };
+        let update_thread = if emit_output {
+            spawn_rate_update_thread(&attempts, &pb)
+        } else {
+            None
+        };
 
         let expanded: Vec<String> = candidates
             .into_iter()
@@ -715,33 +964,51 @@ fn crack_target_field(options: &CrackOptions, target_field: &str) -> anyhow::Res
         0.0
     };
 
-    if let Some(value) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
-        eprintln!(
-            "\n  {} {}",
-            "✓".green(),
-            "Matching field value found".bold()
-        );
-        println!();
-        println!("  {:<14}{}", "Field".bold(), target_field.bold());
-        println!("  {:<14}{}", "Value".bold(), value.bold());
-        println!(
-            "  {:<14}{} ({:.2} attempts/sec)",
-            "Time".bold(),
-            HumanDuration(elapsed),
-            rate
-        );
-    } else {
-        eprintln!(
-            "\n  {} {} ({} attempts in {}, {:.2} attempts/sec)",
-            "✗".red(),
-            "No matching field value found".bold(),
-            attempts_total,
-            HumanDuration(elapsed),
-            rate
-        );
+    if emit_output {
+        if let Some(value) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
+            eprintln!(
+                "\n  {} {}",
+                "✓".green(),
+                "Matching field value found".bold()
+            );
+            println!();
+            println!("  {:<14}{}", "Field".bold(), target_field.bold());
+            println!("  {:<14}{}", "Value".bold(), value.bold());
+            println!(
+                "  {:<14}{} ({:.2} attempts/sec)",
+                "Time".bold(),
+                HumanDuration(elapsed),
+                rate
+            );
+        } else {
+            eprintln!(
+                "\n  {} {} ({} attempts in {}, {:.2} attempts/sec)",
+                "✗".red(),
+                "No matching field value found".bold(),
+                attempts_total,
+                HumanDuration(elapsed),
+                rate
+            );
+        }
     }
 
-    Ok(())
+    let guard = found.lock().unwrap_or_else(|e| e.into_inner());
+    let was_found = guard.is_some();
+    // Only clone the sensitive value for the JSON path; callers in non-JSON mode discard the report.
+    let value = if !emit_output { guard.clone() } else { None };
+    Ok(CrackReport {
+        success: true,
+        mode: format!("target_field:{}", options.mode),
+        token_type: "jwt".to_string(),
+        found: was_found,
+        value_label: "value".to_string(),
+        value,
+        target_field: Some(target_field.to_string()),
+        field_location: Some(field_location.to_string()),
+        elapsed_ms: elapsed.as_millis(),
+        attempts: attempts_total,
+        rate,
+    })
 }
 
 /// Apply a pattern template to a value. If pattern contains `{}`, replace it.
@@ -947,7 +1214,7 @@ mod tests {
 
         // Execute should handle the missing wordlist without panicking
         let result = std::panic::catch_unwind(|| {
-            execute_with_options(&options);
+            execute_with_options(&options, false);
         });
 
         assert!(
@@ -978,7 +1245,7 @@ mod tests {
 
         // Execute should handle the invalid mode without panicking
         let result = std::panic::catch_unwind(|| {
-            execute_with_options(&options);
+            execute_with_options(&options, false);
         });
 
         assert!(
@@ -1006,6 +1273,7 @@ mod tests {
             false, // Don't use all cores
             false, // Don't print verbose logs
             false, // Not a JWE token
+            false, // emit_output
         );
 
         assert!(result.is_ok(), "crack_dictionary should not fail");
@@ -1028,6 +1296,7 @@ mod tests {
             false, // Don't use all cores
             false, // Don't print verbose logs
             false, // Not a JWE token
+            false, // emit_output
         );
 
         assert!(
@@ -1052,6 +1321,7 @@ mod tests {
             false, // Don't use all cores
             false, // Don't print verbose logs
             false, // Not a JWE token
+            false, // emit_output
         );
 
         assert!(result.is_ok(), "crack_bruteforce should not fail");
@@ -1101,6 +1371,7 @@ mod tests {
             false, // Don't use all cores
             false, // Don't print verbose logs
             false, // Not a JWE token
+            false, // emit_output
         );
 
         assert!(
@@ -1166,7 +1437,7 @@ mod tests {
 
         // This should execute without panicking
         let result = std::panic::catch_unwind(|| {
-            execute_with_options(&options);
+            execute_with_options(&options, false);
         });
         assert!(
             result.is_ok(),
@@ -1196,7 +1467,7 @@ mod tests {
 
         // This should execute without panicking (but will print error)
         let result = std::panic::catch_unwind(|| {
-            execute_with_options(&options);
+            execute_with_options(&options, false);
         });
         assert!(
             result.is_ok(),
@@ -1225,7 +1496,7 @@ mod tests {
 
         // This should execute without panicking
         let result = std::panic::catch_unwind(|| {
-            execute_with_options(&options);
+            execute_with_options(&options, false);
         });
         assert!(
             result.is_ok(),

@@ -3,6 +3,7 @@ pub mod config;
 pub mod crack;
 pub mod jwe_attacks;
 pub mod jwt;
+pub mod output;
 pub mod payload;
 pub mod printing;
 pub mod utils;

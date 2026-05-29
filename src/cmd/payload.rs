@@ -3,6 +3,7 @@ use base64::{engine::general_purpose, Engine as _};
 use colored::Colorize;
 use log::info;
 use serde_json::json;
+use serde_json::Value;
 use std::collections::HashSet;
 
 use crate::jwt;
@@ -20,6 +21,22 @@ pub fn execute(
         utils::log_error(format!("Error generating payloads: {e}"));
         utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
     }
+}
+
+pub fn execute_json(
+    token: &str,
+    jwk_trust: Option<&str>,
+    jwk_attack: Option<&str>,
+    jwk_protocol: &str,
+    target: Option<&str>,
+) -> Result<Value> {
+    let payloads =
+        crate::payload::generate_all_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "count": payloads.len(),
+        "payloads": payloads
+    }))
 }
 
 fn generate_payloads(

@@ -758,7 +758,7 @@ fn handle_scan(parts: &[&str], app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
     let tx = tx.clone();
     std::thread::spawn(move || {
         let output = capture::capture_command_output(|| {
-            super::scan::execute(&token, false, false, session.wordlist.as_ref(), 100);
+            super::scan::execute(&token, None, false, false, session.wordlist.as_ref(), 100);
         });
         let _ = tx.send(AsyncResult {
             output: output.text,

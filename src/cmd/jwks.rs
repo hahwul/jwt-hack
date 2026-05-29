@@ -1,8 +1,176 @@
 use colored::Colorize;
+use serde_json::Value;
 use std::path::PathBuf;
 
 use crate::utils;
 use jwt_hack::jwks;
+
+pub fn execute_json(action: &super::JwksAction) -> anyhow::Result<Value> {
+    match action {
+        super::JwksAction::Fetch { url } => {
+            let jwk_set = jwks::fetch_jwks(url)?;
+            Ok(serde_json::json!({
+                "success": true,
+                "action": "fetch",
+                "url": url,
+                "keys": jwk_set.keys
+            }))
+        }
+        super::JwksAction::Spoof {
+            algorithm,
+            kid,
+            token,
+            attacker_url,
+            output,
+        } => {
+            if let Some(url) = attacker_url.as_deref() {
+                let token_str = token.as_deref().ok_or_else(|| {
+                    anyhow::anyhow!("Token is required when using --attacker-url")
+                })?;
+
+                let result = jwks::generate_jwks_injection_payloads(token_str, url, algorithm)?;
+                let payloads: Vec<Value> = result
+                    .payloads
+                    .iter()
+                    .map(|p| {
+                        serde_json::json!({
+                            "header_type": p.header_type,
+                            "description": p.description,
+                            "token": p.token
+                        })
+                    })
+                    .collect();
+                let write_result = if let Some(output_path) = output {
+                    Some(std::fs::write(output_path, &result.jwks_json).map(|_| {
+                        serde_json::json!({"path": output_path.display().to_string(), "written": true})
+                    })?)
+                } else {
+                    None
+                };
+
+                Ok(serde_json::json!({
+                    "success": true,
+                    "action": "spoof",
+                    "mode": "injection",
+                    "algorithm": algorithm,
+                    "attacker_url": url,
+                    "jwks_json": result.jwks_json,
+                    "private_key_pem": result.private_key_pem,
+                    "payloads": payloads,
+                    "output_file": write_result
+                }))
+            } else {
+                let spoofed =
+                    jwks::generate_spoofed_jwks(algorithm, kid.as_deref(), token.as_deref())?;
+                let write_result = if let Some(output_path) = output {
+                    Some(std::fs::write(output_path, &spoofed.jwks_json).map(|_| {
+                        serde_json::json!({"path": output_path.display().to_string(), "written": true})
+                    })?)
+                } else {
+                    None
+                };
+
+                Ok(serde_json::json!({
+                    "success": true,
+                    "action": "spoof",
+                    "mode": "simple",
+                    "algorithm": algorithm,
+                    "kid": kid,
+                    "jwks_json": spoofed.jwks_json,
+                    "private_key_pem": spoofed.private_key_pem,
+                    "signed_token": spoofed.signed_token,
+                    "output_file": write_result
+                }))
+            }
+        }
+        super::JwksAction::Verify {
+            token,
+            url,
+            jwks_file,
+        } => {
+            let jwk_set = if let Some(url) = url.as_deref() {
+                jwks::fetch_jwks(url)?
+            } else if let Some(file) = jwks_file {
+                let content = std::fs::read_to_string(file)?;
+                jwks::parse_jwks(&content)?
+            } else {
+                anyhow::bail!("Provide --url or --jwks-file for verification.");
+            };
+
+            let results = jwks::verify_with_jwks(token, &jwk_set)?;
+            let any_valid = results.iter().any(|r| r.valid);
+            let results_json: Vec<Value> = results
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "key_index": r.key_index,
+                        "kty": r.kty,
+                        "kid": r.kid,
+                        "alg": r.alg,
+                        "valid": r.valid,
+                        "error": r.error,
+                    })
+                })
+                .collect();
+            Ok(serde_json::json!({
+                "success": true,
+                "action": "verify",
+                "valid": any_valid,
+                "keys_tested": jwk_set.keys.len(),
+                "results": results_json
+            }))
+        }
+        super::JwksAction::Rotate {
+            token,
+            keys_dir,
+            key_files,
+        } => {
+            let mut all_key_paths: Vec<PathBuf> = key_files.to_vec();
+
+            if let Some(dir) = keys_dir {
+                for entry in std::fs::read_dir(dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if !path.is_file() {
+                        continue;
+                    }
+                    let ext = path
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+                    if matches!(ext.as_str(), "pem" | "key" | "pub" | "txt" | "") {
+                        all_key_paths.push(path);
+                    }
+                }
+            }
+
+            if all_key_paths.is_empty() {
+                anyhow::bail!("No key files provided. Use --keys-dir or --key to specify keys.");
+            }
+
+            let results = jwks::test_key_rotation(token, &all_key_paths)?;
+            let valid_count = results.iter().filter(|r| r.valid).count();
+            let results_json: Vec<Value> = results
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "key_file": r.key_file,
+                        "valid": r.valid,
+                        "error": r.error,
+                    })
+                })
+                .collect();
+            Ok(serde_json::json!({
+                "success": true,
+                "action": "rotate",
+                "keys_tested": results.len(),
+                "valid_keys": valid_count,
+                "possible_rotation_overlap": valid_count > 1,
+                "results": results_json
+            }))
+        }
+    }
+}
 
 /// Execute the JWKS fetch subcommand
 pub fn execute_fetch(url: &str) {
