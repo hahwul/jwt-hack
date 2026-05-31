@@ -1,0 +1,55 @@
+---
+name: AUR Publish
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 2.5.0)"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+jobs:
+  publish-aur:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          # Manual dispatch reads the PKGBUILD from the default branch (latest
+          # recipe); the package source itself is fetched from the v$pkgver tag
+          # tarball at build time, so the recipe need not come from the tag.
+          # Auto runs (after Release) use the released ref.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.event.repository.default_branch }}
+
+      - name: Get Version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_VERSION="${{ github.event.inputs.version }}"
+          else
+            RAW_VERSION="${{ github.event.workflow_run.head_branch }}"
+          fi
+          VERSION="${RAW_VERSION#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Resolved version: $VERSION"
+
+      - name: Update PKGBUILD version
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ env.VERSION }}/" aur/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" aur/PKGBUILD
+          cat aur/PKGBUILD
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: jwt-hack
+          pkgbuild: aur/PKGBUILD
+          commit_username: hahwul
+          commit_email: hahwul@gmail.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
