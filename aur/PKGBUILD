@@ -8,6 +8,11 @@ url="https://github.com/hahwul/jwt-hack"
 license=('MIT')
 depends=('gcc-libs')
 makedepends=('cargo')
+# Disable LTO: makepkg's -flto leaks into the `cc` builds of jwt-hack's C
+# dependencies (aws-lc-sys, ring, vendored openssl), producing objects that
+# fail to link with lld (undefined symbols). Cargo's own `lto = true` for the
+# Rust crate graph is unaffected.
+options=(!lto)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/hahwul/jwt-hack/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
