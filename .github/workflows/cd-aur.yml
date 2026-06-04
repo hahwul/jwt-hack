@@ -7,6 +7,11 @@ on:
         description: "Version to publish (e.g., 2.5.0)"
         required: true
         type: string
+      pkgrel:
+        description: "Package release (bump for packaging-only fixes; 1 for a new version)"
+        required: false
+        default: "1"
+        type: string
   workflow_run:
     workflows: ["Release"]
     types: [completed]
@@ -41,8 +46,9 @@ jobs:
 
       - name: Update PKGBUILD version
         run: |
+          PKGREL="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pkgrel || '1' }}"
           sed -i "s/^pkgver=.*/pkgver=${{ env.VERSION }}/" aur/PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/" aur/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=${PKGREL}/" aur/PKGBUILD
           cat aur/PKGBUILD
 
       - name: Publish to AUR
