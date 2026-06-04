@@ -39,6 +39,7 @@ pub struct CrackOptions<'a> {
     pub chars: &'a str,
     pub preset: &'a Option<String>,
     pub concurrency: usize,
+    pub min: usize,
     pub max: usize,
     pub power: bool,
     pub verbose: bool,
@@ -70,6 +71,7 @@ pub fn execute(
     chars: &str,
     preset: &Option<String>,
     concurrency: usize,
+    min: usize,
     max: usize,
     power: bool,
     verbose: bool,
@@ -83,6 +85,7 @@ pub fn execute(
         chars,
         preset,
         concurrency,
+        min,
         max,
         power,
         verbose,
@@ -101,6 +104,7 @@ pub fn execute_json(
     chars: &str,
     preset: &Option<String>,
     concurrency: usize,
+    min: usize,
     max: usize,
     power: bool,
     verbose: bool,
@@ -114,6 +118,7 @@ pub fn execute_json(
         chars,
         preset,
         concurrency,
+        min,
         max,
         power,
         verbose,
@@ -193,6 +198,7 @@ fn execute_with_options(options: &CrackOptions, emit_output: bool) {
         if let Err(e) = crack_bruteforce(
             options.token,
             &chars_to_use,
+            options.min,
             options.max,
             options.concurrency,
             options.power,
@@ -244,6 +250,7 @@ fn execute_with_options_json(options: &CrackOptions) -> anyhow::Result<CrackRepo
         crack_bruteforce(
             options.token,
             &chars_to_use,
+            options.min,
             options.max,
             options.concurrency,
             options.power,
@@ -662,6 +669,7 @@ fn crack_dictionary(
 fn crack_bruteforce(
     token: &str,
     chars: &str,
+    min_length: usize,
     max_length: usize,
     concurrency: usize,
     power: bool,
@@ -669,6 +677,16 @@ fn crack_bruteforce(
     is_jwe: bool,
     emit_output: bool,
 ) -> anyhow::Result<CrackReport> {
+    if min_length < 1 {
+        anyhow::bail!("min length must be at least 1, got {}", min_length);
+    }
+    if min_length > max_length {
+        anyhow::bail!(
+            "min length ({}) cannot exceed max length ({})",
+            min_length,
+            max_length
+        );
+    }
     if max_length > crack::brute::MAX_BRUTE_LENGTH {
         anyhow::bail!(
             "max length {} exceeds supported brute-force limit of {}",
@@ -684,7 +702,7 @@ fn crack_bruteforce(
         None
     };
 
-    let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
+    let total_combinations = crack::brute::estimate_combinations(chars.len(), min_length, max_length);
 
     let found = Arc::new(Mutex::new(None::<String>));
     let found_flag = Arc::new(AtomicBool::new(false));
@@ -708,8 +726,8 @@ fn crack_bruteforce(
 
     if emit_output {
         utils::log_info(format!(
-            "Streaming brute-force: {} total combinations (length 1..{})",
-            total_combinations, max_length
+            "Streaming brute-force: {} total combinations (length {}..{})",
+            total_combinations, min_length, max_length
         ));
     }
 
@@ -725,7 +743,7 @@ fn crack_bruteforce(
     const BRUTE_CHUNK: u64 = 4096;
 
     pool.install(|| {
-        for length in 1..=max_length {
+        for length in min_length..=max_length {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
@@ -907,7 +925,7 @@ fn crack_target_field(
             options.chars.to_string()
         };
 
-        let total = crack::brute::estimate_combinations(chars_to_use.len(), options.max);
+        let total = crack::brute::estimate_combinations(chars_to_use.len(), options.min, options.max);
         let pb = if emit_output {
             create_crack_progress_bar(
                 multi.as_ref().expect("multi exists when emit_output"),
@@ -923,7 +941,7 @@ fn crack_target_field(
             None
         };
 
-        for length in 1..=options.max {
+        for length in options.min..=options.max {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
@@ -1286,7 +1304,8 @@ mod tests {
                 "abcdefghijklmnopqrstuvwxyz",
                 &None, // preset
                 10,
-                4,
+                1,  // min
+                4,  // max
                 false,
                 false,
                 &None, // target_field
@@ -1313,6 +1332,7 @@ mod tests {
             chars: "abcdefghijklmnopqrstuvwxyz",
             preset: &None, // preset
             concurrency: 10,
+            min: 1,
             max: 4,
             power: false,
             verbose: false,
@@ -1344,6 +1364,7 @@ mod tests {
             chars: "abcdefghijklmnopqrstuvwxyz",
             preset: &None, // preset
             concurrency: 10,
+            min: 1,
             max: 4,
             power: false,
             verbose: false,
@@ -1424,6 +1445,7 @@ mod tests {
         // Test with minimal parameters to avoid long test runs
         let result = crack_bruteforce(
             &token, "abc", // Very limited charset
+            1,     // min length
             2,     // Only try up to length 2
             2,     // Small concurrency
             false, // Don't use all cores
@@ -1474,6 +1496,7 @@ mod tests {
         // Test with parameters that will not find the secret
         let result = crack_bruteforce(
             &token, "abc", // Limited charset that doesn't contain digits
+            1,     // min length
             3,     // Only try up to length 3
             2,     // Small concurrency
             false, // Don't use all cores
@@ -1536,6 +1559,7 @@ mod tests {
             chars: "default_not_used", // Should be overridden by preset
             preset: &preset,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,
@@ -1566,6 +1590,7 @@ mod tests {
             chars: "abc",
             preset: &preset,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,
@@ -1595,6 +1620,7 @@ mod tests {
             chars: "abc", // Should be used since no preset
             preset: &None,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,
