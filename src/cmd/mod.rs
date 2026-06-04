@@ -123,6 +123,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "20")]
         concurrency: usize,
 
+        /// Min length (for bruteforce attack, default: 1)
+        #[arg(long, default_value = "1")]
+        min: usize,
+
         /// Max length (for bruteforce attack)
         #[arg(long, default_value = "4")]
         max: usize,
@@ -336,6 +340,7 @@ pub fn execute() {
                 chars,
                 preset,
                 concurrency,
+                min,
                 max,
                 power,
                 verbose,
@@ -348,6 +353,7 @@ pub fn execute() {
                 chars,
                 preset,
                 *concurrency,
+                *min,
                 *max,
                 *power,
                 *verbose,
@@ -488,6 +494,7 @@ pub fn execute() {
             chars,
             preset,
             concurrency,
+            min,
             max,
             power,
             verbose,
@@ -501,6 +508,7 @@ pub fn execute() {
                 chars,
                 preset,
                 *concurrency,
+                *min,
                 *max,
                 *power,
                 *verbose,

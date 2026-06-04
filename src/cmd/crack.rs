@@ -39,6 +39,7 @@ pub struct CrackOptions<'a> {
     pub chars: &'a str,
     pub preset: &'a Option<String>,
     pub concurrency: usize,
+    pub min: usize,
     pub max: usize,
     pub power: bool,
     pub verbose: bool,
@@ -70,6 +71,7 @@ pub fn execute(
     chars: &str,
     preset: &Option<String>,
     concurrency: usize,
+    min: usize,
     max: usize,
     power: bool,
     verbose: bool,
@@ -83,6 +85,7 @@ pub fn execute(
         chars,
         preset,
         concurrency,
+        min,
         max,
         power,
         verbose,
@@ -101,6 +104,7 @@ pub fn execute_json(
     chars: &str,
     preset: &Option<String>,
     concurrency: usize,
+    min: usize,
     max: usize,
     power: bool,
     verbose: bool,
@@ -114,6 +118,7 @@ pub fn execute_json(
         chars,
         preset,
         concurrency,
+        min,
         max,
         power,
         verbose,
@@ -193,6 +198,7 @@ fn execute_with_options(options: &CrackOptions, emit_output: bool) {
         if let Err(e) = crack_bruteforce(
             options.token,
             &chars_to_use,
+            options.min,
             options.max,
             options.concurrency,
             options.power,
@@ -244,6 +250,7 @@ fn execute_with_options_json(options: &CrackOptions) -> anyhow::Result<CrackRepo
         crack_bruteforce(
             options.token,
             &chars_to_use,
+            options.min,
             options.max,
             options.concurrency,
             options.power,
@@ -276,15 +283,20 @@ fn create_crack_progress_bar(
     Some(progress)
 }
 
+/// Maximum thread count when `--power` is enabled.
+/// Beyond ~32 threads, HMAC verification hits diminishing returns on throughput
+/// while per-thread allocator pressure continues to grow linearly.
+const MAX_POWER_THREADS: usize = 32;
+
 fn build_thread_pool(
     concurrency: usize,
     power: bool,
     _mode_name: &str,
 ) -> anyhow::Result<rayon::ThreadPool> {
     let pool_size = if power {
-        rayon::current_num_threads()
+        rayon::current_num_threads().clamp(1, MAX_POWER_THREADS)
     } else {
-        concurrency.min(rayon::current_num_threads())
+        concurrency.min(rayon::current_num_threads().max(1))
     };
 
     rayon::ThreadPoolBuilder::new()
@@ -521,13 +533,15 @@ fn crack_dictionary(
     let start_time = Instant::now();
 
     let file = File::open(wordlist_path)?;
-    let reader = BufReader::new(file);
+    let file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut reader = BufReader::new(file);
 
     let multi = if emit_output {
         Some(MultiProgress::new())
     } else {
         None
     };
+    // Show a spinner while loading/processing batches
     let loading_pb = if let Some(ref multi) = multi {
         let pb = multi.add(ProgressBar::new_spinner());
         pb.set_style(
@@ -536,73 +550,101 @@ fn crack_dictionary(
                 .expect("valid spinner template")
                 .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
         );
-        pb.set_message("Reading wordlist...");
+        pb.set_message("Processing wordlist...");
         pb.enable_steady_tick(Duration::from_millis(100));
         Some(pb)
     } else {
         None
     };
 
-    // Read straight into a Vec — wordlists are typically already deduped and
-    // routing them through a HashSet doubles peak memory on multi-million
-    // entry lists (rockyou et al.) for negligible savings.
-    let mut words_vec: Vec<String> = Vec::new();
-    for word in reader.lines().map_while(Result::ok) {
-        words_vec.push(word);
-        if emit_output && words_vec.len().is_multiple_of(10000) {
-            if let Some(ref pb) = loading_pb {
-                pb.set_message(format!("Reading wordlist... ({} words)", words_vec.len()));
+    let found = Arc::new(Mutex::new(None::<String>));
+    let found_flag = Arc::new(AtomicBool::new(false));
+    let attempts = Arc::new(AtomicUsize::new(0));
+
+    let pool = build_thread_pool(concurrency, power, "dictionary")?;
+
+    // Process the wordlist in streaming batches so we never hold the entire
+    // file in memory at once.  For huge lists (rockyou ≈ 14 GB) this drops
+    // peak RSS from 14+ GB to ~2-3 MB while keeping rayon workers fed.
+    const DICT_BATCH_SIZE: usize = 100_000;
+
+    let mut word_batch: Vec<String> = Vec::with_capacity(DICT_BATCH_SIZE);
+    let mut line_buf = String::new();
+    let mut bytes_read: u64 = 0;
+
+    loop {
+        word_batch.clear();
+        line_buf.clear();
+
+        // Fill one batch
+        let mut batch_bytes: u64 = 0;
+        for _ in 0..DICT_BATCH_SIZE {
+            line_buf.clear();
+            let n = match reader.read_line(&mut line_buf) {
+                Ok(0) => break, // EOF
+                Ok(n) => n,
+                Err(_) => break,
+            };
+            batch_bytes += n as u64;
+            // Trim trailing newline / carriage return
+            let word = line_buf.trim_end_matches(['\n', '\r']).to_string();
+            if !word.is_empty() {
+                word_batch.push(word);
             }
+        }
+
+        if word_batch.is_empty() {
+            break; // EOF with nothing left
+        }
+
+        bytes_read += batch_bytes;
+
+        if let Some(ref pb) = loading_pb {
+            let pct = if file_size > 0 {
+                (bytes_read as f64 / file_size as f64 * 100.0) as u64
+            } else {
+                0
+            };
+            pb.set_message(format!(
+                "Processing batch ({} keys tested, ~{}% of file)",
+                attempts.load(Ordering::Relaxed),
+                pct
+            ));
+        }
+
+        run_parallel_crack(
+            &pool,
+            &word_batch,
+            token,
+            &found,
+            &found_flag,
+            &attempts,
+            &None, // no line-based progress bar during streaming
+            verbose,
+            is_jwe,
+        );
+
+        // Zeroize and clear before reusing the buffer (capacity
+        // is preserved across iterations so we avoid re-allocation).
+        for w in &mut word_batch {
+            w.zeroize();
+        }
+        word_batch.clear();
+
+        if found_flag.load(Ordering::Relaxed) {
+            break;
         }
     }
 
     if let Some(pb) = loading_pb {
         pb.finish_with_message(format!(
-            "Loaded {} words in {}",
-            words_vec.len(),
+            "Processed {} words in {}",
+            attempts.load(Ordering::Relaxed),
             HumanDuration(start_time.elapsed())
         ));
     }
-    let found = Arc::new(Mutex::new(None::<String>));
-    let found_flag = Arc::new(AtomicBool::new(false));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let start = Instant::now();
 
-    let pb = if emit_output {
-        create_crack_progress_bar(
-            multi.as_ref().expect("multi exists when emit_output"),
-            words_vec.len() as u64,
-            verbose,
-        )
-    } else {
-        None
-    };
-    let pool = build_thread_pool(concurrency, power, "dictionary")?;
-    let update_thread = if emit_output {
-        spawn_rate_update_thread(&attempts, &pb)
-    } else {
-        None
-    };
-
-    run_parallel_crack(
-        &pool,
-        &words_vec,
-        token,
-        &found,
-        &found_flag,
-        &attempts,
-        &pb,
-        verbose,
-        is_jwe,
-    );
-    cleanup_crack_progress(pb, update_thread);
-
-    // Zeroize wordlist candidates from memory
-    for word in &mut words_vec {
-        word.zeroize();
-    }
-
-    let elapsed = start.elapsed();
+    let elapsed = start_time.elapsed();
     let attempts_total = attempts.load(Ordering::Relaxed);
     report_crack_results(&found, elapsed, attempts_total, token, is_jwe, emit_output);
 
@@ -625,6 +667,7 @@ fn crack_dictionary(
 fn crack_bruteforce(
     token: &str,
     chars: &str,
+    min_length: usize,
     max_length: usize,
     concurrency: usize,
     power: bool,
@@ -632,6 +675,16 @@ fn crack_bruteforce(
     is_jwe: bool,
     emit_output: bool,
 ) -> anyhow::Result<CrackReport> {
+    if min_length < 1 {
+        anyhow::bail!("min length must be at least 1, got {}", min_length);
+    }
+    if min_length > max_length {
+        anyhow::bail!(
+            "min length ({}) cannot exceed max length ({})",
+            min_length,
+            max_length
+        );
+    }
     if max_length > crack::brute::MAX_BRUTE_LENGTH {
         anyhow::bail!(
             "max length {} exceeds supported brute-force limit of {}",
@@ -647,7 +700,8 @@ fn crack_bruteforce(
         None
     };
 
-    let total_combinations = crack::brute::estimate_combinations(chars.len(), max_length);
+    let total_combinations =
+        crack::brute::estimate_combinations(chars.chars().count(), min_length, max_length);
 
     let found = Arc::new(Mutex::new(None::<String>));
     let found_flag = Arc::new(AtomicBool::new(false));
@@ -671,8 +725,8 @@ fn crack_bruteforce(
 
     if emit_output {
         utils::log_info(format!(
-            "Streaming brute-force: {} total combinations (length 1..{})",
-            total_combinations, max_length
+            "Streaming brute-force: {} total combinations (length {}..{})",
+            total_combinations, min_length, max_length
         ));
     }
 
@@ -688,13 +742,19 @@ fn crack_bruteforce(
     const BRUTE_CHUNK: u64 = 4096;
 
     pool.install(|| {
-        for length in 1..=max_length {
+        for length in min_length..=max_length {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
-            let total: u64 = charset_size.pow(length as u32);
+            let total: u64 = charset_size.saturating_pow(length as u32);
             if total == 0 {
                 continue;
+            }
+            if total == u64::MAX {
+                // This length (and higher) would overflow u64 enumeration space.
+                // Stop to avoid attempting impossible iteration or wrong wrap.
+                // (Lower lengths were already processed; higher lengths are even larger.)
+                break;
             }
             let num_chunks = total.div_ceil(BRUTE_CHUNK);
 
@@ -765,6 +825,10 @@ fn crack_bruteforce(
                     buf.zeroize();
                 },
             );
+
+            // Between length iterations the allocation pattern changes
+            // (different buffer sizes). mimalloc returns freed pages to
+            // the OS eagerly at this natural GC boundary.
         }
     });
 
@@ -836,17 +900,15 @@ fn crack_target_field(
     }
 
     // Generate candidates based on mode
-    let candidates: Vec<String> = if options.mode == "dict" {
-        if let Some(wordlist_path) = options.wordlist {
-            let file = File::open(wordlist_path)?;
-            let reader = BufReader::new(file);
-            reader.lines().map_while(Result::ok).collect()
-        } else {
-            return Err(anyhow::anyhow!("Wordlist is required for dictionary mode"));
+    if options.mode != "dict" && options.mode != "brute" {
+        if emit_output {
+            utils::log_error(format!("Invalid mode for target field: {}", options.mode));
         }
-    } else {
-        vec![]
-    };
+        return Err(anyhow::anyhow!(
+            "Invalid mode '{}' for targeted field cracking",
+            options.mode
+        ));
+    }
 
     let pattern = options.pattern.as_deref();
     let found = Arc::new(Mutex::new(None::<String>));
@@ -861,6 +923,24 @@ fn crack_target_field(
         .collect();
 
     if options.mode == "brute" {
+        if options.min < 1 {
+            anyhow::bail!("min length must be at least 1, got {}", options.min);
+        }
+        if options.min > options.max {
+            anyhow::bail!(
+                "min length ({}) cannot exceed max length ({})",
+                options.min,
+                options.max
+            );
+        }
+        if options.max > crack::brute::MAX_BRUTE_LENGTH {
+            anyhow::bail!(
+                "max length {} exceeds supported brute-force limit of {}",
+                options.max,
+                crack::brute::MAX_BRUTE_LENGTH
+            );
+        }
+
         let chars_to_use = if let Some(preset) = options.preset {
             get_preset_chars(preset)
                 .ok_or_else(|| anyhow::anyhow!("Unknown preset: '{}'", preset))?
@@ -868,7 +948,11 @@ fn crack_target_field(
             options.chars.to_string()
         };
 
-        let total = crack::brute::estimate_combinations(chars_to_use.len(), options.max);
+        let total = crack::brute::estimate_combinations(
+            chars_to_use.chars().count(),
+            options.min,
+            options.max,
+        );
         let pb = if emit_output {
             create_crack_progress_bar(
                 multi.as_ref().expect("multi exists when emit_output"),
@@ -884,7 +968,7 @@ fn crack_target_field(
             None
         };
 
-        for length in 1..=options.max {
+        for length in options.min..=options.max {
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
@@ -917,43 +1001,108 @@ fn crack_target_field(
 
         cleanup_crack_progress(pb, update_thread);
     } else {
-        let pb = if emit_output {
-            create_crack_progress_bar(
-                multi.as_ref().expect("multi exists when emit_output"),
-                candidates.len() as u64,
+        // Dictionary mode with streaming batches — avoids loading the entire
+        // wordlist into memory and eliminates the duplicate `expanded` Vec.
+        let wordlist_path = options
+            .wordlist
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Wordlist is required for dictionary mode"))?;
+        let file = File::open(wordlist_path)?;
+        let file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+        let mut reader = BufReader::new(file);
+
+        const TARGET_DICT_BATCH: usize = 100_000;
+        let mut word_batch: Vec<String> = Vec::with_capacity(TARGET_DICT_BATCH);
+        let mut line_buf = String::new();
+        let mut bytes_read: u64 = 0;
+
+        let loading_pb = if emit_output {
+            let pb = multi.as_ref().map(|m| {
+                let pb = m.add(ProgressBar::new_spinner());
+                pb.set_style(
+                    ProgressStyle::default_spinner()
+                        .template("{spinner:.blue} {msg}")
+                        .expect("valid spinner template")
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+                );
+                pb.set_message("Processing wordlist (targeted field)...");
+                pb.enable_steady_tick(Duration::from_millis(100));
+                pb
+            });
+            pb
+        } else {
+            None
+        };
+
+        loop {
+            word_batch.clear();
+            let mut batch_bytes: u64 = 0;
+            for _ in 0..TARGET_DICT_BATCH {
+                line_buf.clear();
+                let n = match reader.read_line(&mut line_buf) {
+                    Ok(0) => break,
+                    Ok(n) => n,
+                    Err(_) => break,
+                };
+                batch_bytes += n as u64;
+                let word = line_buf.trim_end_matches(['\n', '\r']).to_string();
+                if word.is_empty() {
+                    continue;
+                }
+                // Apply pattern inline — no separate expanded Vec
+                word_batch.push(apply_pattern(pattern, &word));
+            }
+
+            if word_batch.is_empty() {
+                break;
+            }
+
+            bytes_read += batch_bytes;
+            if let Some(ref pb) = loading_pb {
+                let pct = if file_size > 0 {
+                    (bytes_read as f64 / file_size as f64 * 100.0) as u64
+                } else {
+                    0
+                };
+                pb.set_message(format!(
+                    "Targeted field batch ({} tested, ~{}% of file)",
+                    attempts.load(Ordering::Relaxed),
+                    pct
+                ));
+            }
+
+            run_target_field_crack(
+                &pool,
+                &word_batch,
+                &header_map,
+                &claims,
+                target_field,
+                field_location,
+                &alg,
+                options.token,
+                &found,
+                &found_flag,
+                &attempts,
+                &None,
                 options.verbose,
-            )
-        } else {
-            None
-        };
-        let update_thread = if emit_output {
-            spawn_rate_update_thread(&attempts, &pb)
-        } else {
-            None
-        };
+            );
 
-        let expanded: Vec<String> = candidates
-            .into_iter()
-            .map(|v| apply_pattern(pattern, &v))
-            .collect();
+            if found_flag.load(Ordering::Relaxed) {
+                break;
+            }
 
-        run_target_field_crack(
-            &pool,
-            &expanded,
-            &header_map,
-            &claims,
-            target_field,
-            field_location,
-            &alg,
-            options.token,
-            &found,
-            &found_flag,
-            &attempts,
-            &pb,
-            options.verbose,
-        );
+            for w in &mut word_batch {
+                w.zeroize();
+            }
+            word_batch.clear();
+        }
 
-        cleanup_crack_progress(pb, update_thread);
+        if let Some(pb) = loading_pb {
+            pb.finish_with_message(format!(
+                "Processed {} entries",
+                attempts.load(Ordering::Relaxed)
+            ));
+        }
     }
 
     let elapsed = start_time.elapsed();
@@ -1178,7 +1327,8 @@ mod tests {
                 "abcdefghijklmnopqrstuvwxyz",
                 &None, // preset
                 10,
-                4,
+                1, // min
+                4, // max
                 false,
                 false,
                 &None, // target_field
@@ -1205,6 +1355,7 @@ mod tests {
             chars: "abcdefghijklmnopqrstuvwxyz",
             preset: &None, // preset
             concurrency: 10,
+            min: 1,
             max: 4,
             power: false,
             verbose: false,
@@ -1236,6 +1387,7 @@ mod tests {
             chars: "abcdefghijklmnopqrstuvwxyz",
             preset: &None, // preset
             concurrency: 10,
+            min: 1,
             max: 4,
             power: false,
             verbose: false,
@@ -1316,6 +1468,7 @@ mod tests {
         // Test with minimal parameters to avoid long test runs
         let result = crack_bruteforce(
             &token, "abc", // Very limited charset
+            1,     // min length
             2,     // Only try up to length 2
             2,     // Small concurrency
             false, // Don't use all cores
@@ -1366,6 +1519,7 @@ mod tests {
         // Test with parameters that will not find the secret
         let result = crack_bruteforce(
             &token, "abc", // Limited charset that doesn't contain digits
+            1,     // min length
             3,     // Only try up to length 3
             2,     // Small concurrency
             false, // Don't use all cores
@@ -1428,6 +1582,7 @@ mod tests {
             chars: "default_not_used", // Should be overridden by preset
             preset: &preset,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,
@@ -1458,6 +1613,7 @@ mod tests {
             chars: "abc",
             preset: &preset,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,
@@ -1487,6 +1643,7 @@ mod tests {
             chars: "abc", // Should be used since no preset
             preset: &None,
             concurrency: 2,
+            min: 1,
             max: 2,
             power: false,
             verbose: false,

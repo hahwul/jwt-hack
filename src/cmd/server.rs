@@ -79,6 +79,8 @@ pub struct CrackRequest {
     pub preset: Option<String>,
     #[serde(default = "default_concurrency")]
     pub concurrency: usize,
+    #[serde(default = "default_min_length")]
+    pub min: usize,
     #[serde(default = "default_max_length")]
     pub max: usize,
 }
@@ -93,6 +95,10 @@ fn default_crack_chars() -> String {
 
 fn default_concurrency() -> usize {
     20
+}
+
+fn default_min_length() -> usize {
+    1
 }
 
 fn default_max_length() -> usize {
@@ -290,10 +296,33 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
 }
 
 /// Helper function to crack JWT using brute force
-fn crack_brute(token: &str, chars: &str, max_length: usize) -> anyhow::Result<Option<String>> {
+fn crack_brute(
+    token: &str,
+    chars: &str,
+    min_length: usize,
+    max_length: usize,
+) -> anyhow::Result<Option<String>> {
+    if min_length < 1 {
+        anyhow::bail!("min length must be at least 1, got {}", min_length);
+    }
+    if min_length > max_length {
+        anyhow::bail!(
+            "min length ({}) cannot exceed max length ({})",
+            min_length,
+            max_length
+        );
+    }
+    if max_length > crack::brute::MAX_BRUTE_LENGTH {
+        anyhow::bail!(
+            "max length {} exceeds supported brute-force limit of {}",
+            max_length,
+            crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
+
     // Stream combinations chunk by chunk instead of loading all into memory
     const CHUNK_SIZE: usize = 10000;
-    for length in 1..=max_length {
+    for length in min_length..=max_length {
         for chunk in crack::brute::generate_combinations_chunked(chars, length, CHUNK_SIZE) {
             for word in chunk {
                 if let Ok(true) = jwt::verify(token, &word) {
@@ -338,7 +367,7 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
             } else {
                 &req.chars
             };
-            crack_brute(&req.token, charset, req.max)
+            crack_brute(&req.token, charset, req.min, req.max)
         }
         _ => {
             return Ok(Json(CrackResponse {
@@ -711,7 +740,7 @@ mod tests {
         let secret = "ab";
         let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
 
-        let result = crack_brute(&token, "abc", 3);
+        let result = crack_brute(&token, "abc", 1, 3);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Some(secret.to_string()));
     }
@@ -721,7 +750,7 @@ mod tests {
         let secret = "ab";
         let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
 
-        let result = crack_brute(&token, "cde", 3);
+        let result = crack_brute(&token, "cde", 1, 3);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
     }
@@ -732,7 +761,7 @@ mod tests {
         let token = jwt::encode(&serde_json::json!({"sub": "test"}), secret, "HS256").unwrap();
 
         // Max length is 2, secret is length 3
-        let result = crack_brute(&token, "abc", 2);
+        let result = crack_brute(&token, "abc", 1, 2);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
     }

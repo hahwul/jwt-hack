@@ -80,6 +80,9 @@ pub struct CrackArgs {
     /// Character set preset: az, AZ, aZ, 19, aZ19, ascii
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preset: Option<String>,
+    /// Min length for bruteforce attack
+    #[serde(default = "default_min_length")]
+    pub min: usize,
     /// Max length for bruteforce attack
     #[serde(default = "default_max_length")]
     pub max: usize,
@@ -114,6 +117,10 @@ fn default_crack_mode() -> String {
 
 fn default_chars() -> String {
     "abcdefghijklmnopqrstuvwxyz0123456789".to_string()
+}
+
+fn default_min_length() -> usize {
+    1
 }
 
 fn default_max_length() -> usize {
@@ -291,10 +298,17 @@ impl JwtHackServer {
             };
 
             // For brute force, only try very short combinations due to performance constraints
+            if args.min < 1 || args.min > args.max {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Invalid min/max lengths: min must be >= 1 and <= max (got min={}, max={})",
+                    args.min, args.max
+                ))]));
+            }
             let max_len = std::cmp::min(args.max, 3); // Limit to 3 characters max for MCP
             let chars: Vec<char> = chars_to_use.chars().take(10).collect(); // Limit charset
 
-            for len in 1..=max_len {
+            let min_len = std::cmp::max(args.min, 1);
+            for len in min_len..=max_len {
                 // Generate combinations for this length
                 let combinations = generate_combinations(&chars, len);
 
@@ -471,6 +485,7 @@ mod tests {
             mode: "dict".to_string(),
             chars: "abc".to_string(),
             preset: None, // preset
+            min: 1,
             max: 2,
             concurrency: 1,
         };

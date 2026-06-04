@@ -12,7 +12,19 @@ pub fn generate_combinations_chunked(
 ) -> impl Iterator<Item = Vec<String>> {
     let char_vec: Vec<char> = chars.chars().collect();
     let charset_size = char_vec.len();
-    let total = charset_size.pow(length as u32);
+    // Use saturating to avoid overflow panics on pow for large charset*length
+    // (e.g. default 36-char at length ~13). If it would overflow usize, treat
+    // that length as having 0 enumerable combos (impractical to search anyway).
+    let total = if length == 0 {
+        1
+    } else {
+        let p = charset_size.saturating_pow(length as u32);
+        if p == usize::MAX && charset_size > 1 {
+            0
+        } else {
+            p
+        }
+    };
 
     // Use a struct that implements Iterator to hold the state
     struct CombinationIter {
@@ -94,8 +106,9 @@ pub fn generate_bruteforce_payloads(
     let result = Arc::new(Mutex::new(Vec::new()));
 
     // Calculate total number of combinations for accurate progress reporting
+    let charset_len = chars.chars().count();
     let total_combinations: usize = (1..=max_length)
-        .map(|len| chars.len().pow(len as u32))
+        .map(|len| charset_len.pow(len as u32))
         .sum();
 
     let completed = Arc::new(AtomicUsize::new(0));
@@ -176,14 +189,18 @@ pub fn write_candidate_bytes(idx: u64, char_bytes: &[Vec<u8>], length: usize, ou
     }
 }
 
-/// Calculates the total number of possible combinations based on charset length and maximum word length
-pub fn estimate_combinations(charset_len: usize, max_len: usize) -> u64 {
+/// Calculates the total number of possible combinations based on charset length
+/// and a length range `min_len..=max_len`.
+pub fn estimate_combinations(charset_len: usize, min_len: usize, max_len: usize) -> u64 {
     let mut total: u64 = 0;
+    let c = charset_len as u64;
 
-    for length in 1..=max_len {
-        // Sum up number of combinations for each length (charset_len^length)
-        let combinations = (charset_len as u64).pow(length as u32);
-        total += combinations;
+    for length in min_len..=max_len {
+        // Sum up number of combinations for each length (charset_len^length).
+        // Use saturating to avoid debug overflow panics / release wrap for
+        // large charsets or high lengths (e.g. 36^13+). Callers treat MAX as "huge".
+        let combinations = c.saturating_pow(length as u32);
+        total = total.saturating_add(combinations);
     }
 
     total
@@ -303,17 +320,25 @@ mod tests {
 
     #[test]
     fn test_estimate_combinations_simple() {
-        assert_eq!(estimate_combinations(2, 2), 6); // 2^1 + 2^2 = 2 + 4 = 6
+        assert_eq!(estimate_combinations(2, 1, 2), 6); // 2^1 + 2^2 = 2 + 4 = 6
     }
 
     #[test]
     fn test_estimate_combinations_single_char() {
-        assert_eq!(estimate_combinations(1, 3), 3); // 1^1 + 1^2 + 1^3 = 1 + 1 + 1 = 3
+        assert_eq!(estimate_combinations(1, 1, 3), 3); // 1^1 + 1^2 + 1^3 = 1 + 1 + 1 = 3
+    }
+
+    #[test]
+    fn test_estimate_combinations_min_length() {
+        // Only length 3: 2^3 = 8
+        assert_eq!(estimate_combinations(2, 3, 3), 8);
+        // Lengths 2..=3: 2^2 + 2^3 = 4 + 8 = 12
+        assert_eq!(estimate_combinations(2, 2, 3), 12);
     }
 
     #[test]
     fn test_estimate_combinations_zero_length() {
-        assert_eq!(estimate_combinations(3, 0), 0);
+        assert_eq!(estimate_combinations(3, 1, 0), 0);
     }
 
     #[test]
