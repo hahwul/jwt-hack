@@ -318,21 +318,8 @@ fn encode_compressed_jwt(
                 sig
             }
             Algorithm::HS384 | Algorithm::HS512 => {
-                // For HS384/HS512, we need to use the jsonwebtoken library
-                // Create a temporary uncompressed token for signing
-                let temp_header = jsonwebtoken::Header::new(algorithm);
-                let temp_claims = serde_json::json!({"temp": "data"});
-                let encoding_key = EncodingKey::from_secret(secret.as_bytes());
-                let temp_token = jsonwebtoken::encode(&temp_header, &temp_claims, &encoding_key)?;
-
-                // Extract signature from temp token and apply to our message
-                let temp_parts: Vec<&str> = temp_token.split('.').collect();
-                if temp_parts.len() != 3 {
-                    return Err(anyhow!("Failed to create temporary token for signing"));
-                }
-
-                // We need to manually sign the compressed message
-                // This is complex for HS384/HS512, so let's use a different approach
+                // Signing a compressed payload with HS384/HS512 would require manually
+                // computing the MAC over the compressed segment; not yet implemented.
                 return Err(anyhow!("HS384/HS512 with compression not yet supported"));
             }
             _ => return Err(anyhow!("HMAC algorithms require a secret key")),
@@ -677,11 +664,13 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                     }
                 }
                 Algorithm::HS384 | Algorithm::HS512 => {
-                    // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation
+                    // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation.
+                    // Route through handle_verification_result so expired/not-yet-valid tokens surface as
+                    // distinct errors instead of collapsing into a plain `false`, matching the HS256/RSA/EC paths.
                     let decoding_key = DecodingKey::from_secret(secret.as_bytes());
                     let validation = create_validation(decoded_token.algorithm, options);
                     let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-                    Ok(result.is_ok())
+                    handle_verification_result(result)
                 }
                 _ => Err(anyhow!(
                     "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
@@ -803,6 +792,14 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                     key_bytes.len()
                 ));
             }
+            // AES-GCM requires a 96-bit (12-byte) nonce; converting a slice of any
+            // other length into `Nonce` panics, so reject malformed IVs up front.
+            if iv_bytes.len() != 12 {
+                return Err(anyhow!(
+                    "Invalid IV length: AES-GCM requires a 12-byte nonce, got {}",
+                    iv_bytes.len()
+                ));
+            }
             let mut key_128: [u8; 16] = key_bytes
                 .try_into()
                 .map_err(|_| anyhow!("Failed to convert key to 16-byte array"))?;
@@ -833,6 +830,14 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
                 return Err(anyhow!(
                     "A256GCM requires a 32-byte key, got {}",
                     key_bytes.len()
+                ));
+            }
+            // AES-GCM requires a 96-bit (12-byte) nonce; converting a slice of any
+            // other length into `Nonce` panics, so reject malformed IVs up front.
+            if iv_bytes.len() != 12 {
+                return Err(anyhow!(
+                    "Invalid IV length: AES-GCM requires a 12-byte nonce, got {}",
+                    iv_bytes.len()
                 ));
             }
             let mut key_256: [u8; 32] = key_bytes
@@ -2122,6 +2127,65 @@ mod tests {
         assert!(
             verification_result.unwrap(),
             "Compressed token should be valid"
+        );
+    }
+
+    #[test]
+    fn test_decrypt_jwe_rejects_malformed_iv_length() {
+        use base64::Engine;
+        let b64 = |b: &[u8]| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b);
+        let header = b64(br#"{"alg":"dir","enc":"A256GCM"}"#);
+        // IV of 8 bytes — AES-GCM requires a 12-byte nonce. Before the guard this
+        // converted into `Nonce` via `from_slice`, panicking on the length mismatch.
+        let iv = b64(&[0u8; 8]);
+        let ciphertext = b64(&[0u8; 16]);
+        let tag = b64(&[0u8; 16]);
+        // Empty encrypted-key segment is valid for `dir`.
+        let token = format!("{header}..{iv}.{ciphertext}.{tag}");
+        let key = "01234567890123456789012345678901"; // 32 bytes for A256GCM
+
+        let result = decrypt_jwe(&token, key);
+        assert!(
+            result.is_err(),
+            "decrypt_jwe must reject a non-12-byte IV instead of panicking"
+        );
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("Invalid IV length"),
+            "unexpected error message: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_verify_hs384_expired_token_propagates_error() {
+        let secret = "test_secret";
+        let exp = (Utc::now() - Duration::hours(1)).timestamp();
+        let claims = json!({ "sub": "u", "exp": exp });
+        let options = EncodeOptions {
+            algorithm: "HS384",
+            key_data: KeyData::Secret(secret),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&claims, &options).expect("Failed to encode HS384 token");
+
+        let verify_options = VerifyOptions {
+            key_data: VerifyKeyData::Secret(secret),
+            validate_exp: true,
+            validate_nbf: false,
+            leeway: 0,
+        };
+        // Consistent with the HS256/RSA/EC paths: an expired token surfaces as a
+        // distinct error rather than collapsing into Ok(false).
+        let result = verify_with_options(&token, &verify_options);
+        assert!(
+            result.is_err(),
+            "expired HS384 token should propagate an error"
+        );
+        let msg = result.unwrap_err().to_string().to_lowercase();
+        assert!(
+            msg.contains("expired"),
+            "error should mention expiration: {msg}"
         );
     }
 

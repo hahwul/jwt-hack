@@ -93,7 +93,7 @@ pub fn generate_url_payload(
         let bypass_urls = [
             format!("{}://{}{}{}", protocol, trust_domain, "Z", domain),
             format!("{protocol}://{trust_domain}@{domain}"),
-            format!("{protocol}://{trust_domain}%0d0aHost: {domain}"),
+            format!("{protocol}://{trust_domain}%0d%0aHost: {domain}"),
         ];
 
         for url in &bypass_urls {
@@ -1416,7 +1416,7 @@ mod tests {
                     .unwrap()
                     .as_str()
                     .unwrap()
-                    .contains("victim.com%0d0aHost: attacker.com")
+                    .contains("victim.com%0d%0aHost: attacker.com")
             }),
             "Bypass payload with CRLF not found"
         );
