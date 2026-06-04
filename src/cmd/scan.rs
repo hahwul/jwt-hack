@@ -452,14 +452,17 @@ fn collect_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Resu
 
 /// Check for none algorithm vulnerability
 fn check_none_algorithm(_token: &str, decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let alg_str = format!("{:?}", decoded.algorithm).to_lowercase();
-    let vulnerable = alg_str.contains("none")
-        || decoded
-            .header
-            .get("alg")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_lowercase() == "none")
-            .unwrap_or(false);
+    // `decoded.algorithm` is a `jsonwebtoken::Algorithm`, which has no `none`
+    // variant (the decoder maps `none` to an HS256 sentinel), so the only
+    // reliable source is the raw header. Match a plain string `alg: "none"` as
+    // well as the array form `alg: ["none", ...]`, a parser-confusion variant
+    // some libraries resolve to the first element.
+    let is_none_str =
+        |v: &serde_json::Value| v.as_str().is_some_and(|s| s.eq_ignore_ascii_case("none"));
+    let vulnerable = decoded.header.get("alg").is_some_and(|alg| match alg {
+        serde_json::Value::Array(items) => items.iter().any(is_none_str),
+        other => is_none_str(other),
+    });
 
     let result = if vulnerable {
         VulnerabilityResult {
@@ -1178,7 +1181,15 @@ fn check_psychic_signature(
 ) -> Result<VulnerabilityResult> {
     use base64::Engine;
     let name = "Psychic Signature".to_string();
-    let alg_str = format!("{:?}", decoded.algorithm).to_uppercase();
+    // Read `alg` from the raw header so this still fires on tokens that fail
+    // strict decode (where `decoded.algorithm` is only an HS256 sentinel) and on
+    // curves jwt-hack's decoder doesn't model (e.g. ES512 / CVE-2022-21449 on P-521).
+    let alg_str = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(str::to_uppercase)
+        .unwrap_or_else(|| format!("{:?}", decoded.algorithm).to_uppercase());
     if !alg_str.starts_with("ES") {
         return Ok(VulnerabilityResult {
             name,
@@ -1850,6 +1861,43 @@ mod tests {
         let decoded = jwt::decode(&token).unwrap();
         let r = check_psychic_signature(&token, &decoded).unwrap();
         assert!(!r.vulnerable);
+    }
+
+    #[test]
+    fn test_check_psychic_signature_detects_es512_on_fallback_path() {
+        // ES512 (P-521) tokens can fail strict decode, leaving only an HS256
+        // sentinel in `decoded.algorithm`. The check must still read `alg` from
+        // the header so CVE-2022-21449 is caught on the header-only fallback path.
+        use base64::Engine;
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(r#"{"alg":"ES512","typ":"JWT"}"#.as_bytes());
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}".as_ref());
+        let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([0u8; 132]);
+        let token = format!("{header_b64}.{claims_b64}.{sig_b64}");
+        // Synthetic decode with the HS256 sentinel, mirroring the fallback path.
+        let decoded = header_only_decoded(r#"{"alg":"ES512","typ":"JWT"}"#);
+        let r = check_psychic_signature(&token, &decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_check_none_algorithm_array_form() {
+        // `alg: ["none", "HS256"]` is a parser-confusion variant; some libraries
+        // resolve to the first element and accept an unsigned token. jwt::decode
+        // rejects array alg, so use a header-only DecodedToken.
+        let decoded = header_only_decoded(r#"{"alg":["none","HS256"],"typ":"JWT"}"#);
+        let r = check_none_algorithm("token", &decoded).unwrap();
+        assert!(r.vulnerable, "array containing 'none' should be flagged");
+        assert_eq!(r.name, "None Algorithm");
+        assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_check_none_algorithm_array_without_none_is_safe() {
+        let decoded = header_only_decoded(r#"{"alg":["HS256","RS256"],"typ":"JWT"}"#);
+        let r = check_none_algorithm("token", &decoded).unwrap();
+        assert!(!r.vulnerable, "array without 'none' must not be flagged");
     }
 
     #[test]
