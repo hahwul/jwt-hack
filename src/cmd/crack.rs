@@ -294,9 +294,7 @@ fn build_thread_pool(
     _mode_name: &str,
 ) -> anyhow::Result<rayon::ThreadPool> {
     let pool_size = if power {
-        rayon::current_num_threads()
-            .max(1)
-            .min(MAX_POWER_THREADS)
+        rayon::current_num_threads().clamp(1, MAX_POWER_THREADS)
     } else {
         concurrency.min(rayon::current_num_threads().max(1))
     };
@@ -702,7 +700,8 @@ fn crack_bruteforce(
         None
     };
 
-    let total_combinations = crack::brute::estimate_combinations(chars.len(), min_length, max_length);
+    let total_combinations =
+        crack::brute::estimate_combinations(chars.chars().count(), min_length, max_length);
 
     let found = Arc::new(Mutex::new(None::<String>));
     let found_flag = Arc::new(AtomicBool::new(false));
@@ -747,9 +746,15 @@ fn crack_bruteforce(
             if found_flag.load(Ordering::Relaxed) {
                 break;
             }
-            let total: u64 = charset_size.pow(length as u32);
+            let total: u64 = charset_size.saturating_pow(length as u32);
             if total == 0 {
                 continue;
+            }
+            if total == u64::MAX {
+                // This length (and higher) would overflow u64 enumeration space.
+                // Stop to avoid attempting impossible iteration or wrong wrap.
+                // (Lower lengths were already processed; higher lengths are even larger.)
+                break;
             }
             let num_chunks = total.div_ceil(BRUTE_CHUNK);
 
@@ -918,6 +923,24 @@ fn crack_target_field(
         .collect();
 
     if options.mode == "brute" {
+        if options.min < 1 {
+            anyhow::bail!("min length must be at least 1, got {}", options.min);
+        }
+        if options.min > options.max {
+            anyhow::bail!(
+                "min length ({}) cannot exceed max length ({})",
+                options.min,
+                options.max
+            );
+        }
+        if options.max > crack::brute::MAX_BRUTE_LENGTH {
+            anyhow::bail!(
+                "max length {} exceeds supported brute-force limit of {}",
+                options.max,
+                crack::brute::MAX_BRUTE_LENGTH
+            );
+        }
+
         let chars_to_use = if let Some(preset) = options.preset {
             get_preset_chars(preset)
                 .ok_or_else(|| anyhow::anyhow!("Unknown preset: '{}'", preset))?
@@ -925,7 +948,11 @@ fn crack_target_field(
             options.chars.to_string()
         };
 
-        let total = crack::brute::estimate_combinations(chars_to_use.len(), options.min, options.max);
+        let total = crack::brute::estimate_combinations(
+            chars_to_use.chars().count(),
+            options.min,
+            options.max,
+        );
         let pb = if emit_output {
             create_crack_progress_bar(
                 multi.as_ref().expect("multi exists when emit_output"),
@@ -990,22 +1017,18 @@ fn crack_target_field(
         let mut bytes_read: u64 = 0;
 
         let loading_pb = if emit_output {
-            let pb = multi
-                .as_ref()
-                .map(|m| {
-                    let pb = m.add(ProgressBar::new_spinner());
-                    pb.set_style(
-                        ProgressStyle::default_spinner()
-                            .template("{spinner:.blue} {msg}")
-                            .expect("valid spinner template")
-                            .tick_strings(&[
-                                "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
-                            ]),
-                    );
-                    pb.set_message("Processing wordlist (targeted field)...");
-                    pb.enable_steady_tick(Duration::from_millis(100));
-                    pb
-                });
+            let pb = multi.as_ref().map(|m| {
+                let pb = m.add(ProgressBar::new_spinner());
+                pb.set_style(
+                    ProgressStyle::default_spinner()
+                        .template("{spinner:.blue} {msg}")
+                        .expect("valid spinner template")
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+                );
+                pb.set_message("Processing wordlist (targeted field)...");
+                pb.enable_steady_tick(Duration::from_millis(100));
+                pb
+            });
             pb
         } else {
             None
@@ -1304,8 +1327,8 @@ mod tests {
                 "abcdefghijklmnopqrstuvwxyz",
                 &None, // preset
                 10,
-                1,  // min
-                4,  // max
+                1, // min
+                4, // max
                 false,
                 false,
                 &None, // target_field

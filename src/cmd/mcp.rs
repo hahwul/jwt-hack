@@ -298,6 +298,12 @@ impl JwtHackServer {
             };
 
             // For brute force, only try very short combinations due to performance constraints
+            if args.min < 1 || args.min > args.max {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Invalid min/max lengths: min must be >= 1 and <= max (got min={}, max={})",
+                    args.min, args.max
+                ))]));
+            }
             let max_len = std::cmp::min(args.max, 3); // Limit to 3 characters max for MCP
             let chars: Vec<char> = chars_to_use.chars().take(10).collect(); // Limit charset
 

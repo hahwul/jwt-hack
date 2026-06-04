@@ -296,7 +296,30 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
 }
 
 /// Helper function to crack JWT using brute force
-fn crack_brute(token: &str, chars: &str, min_length: usize, max_length: usize) -> anyhow::Result<Option<String>> {
+fn crack_brute(
+    token: &str,
+    chars: &str,
+    min_length: usize,
+    max_length: usize,
+) -> anyhow::Result<Option<String>> {
+    if min_length < 1 {
+        anyhow::bail!("min length must be at least 1, got {}", min_length);
+    }
+    if min_length > max_length {
+        anyhow::bail!(
+            "min length ({}) cannot exceed max length ({})",
+            min_length,
+            max_length
+        );
+    }
+    if max_length > crack::brute::MAX_BRUTE_LENGTH {
+        anyhow::bail!(
+            "max length {} exceeds supported brute-force limit of {}",
+            max_length,
+            crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
+
     // Stream combinations chunk by chunk instead of loading all into memory
     const CHUNK_SIZE: usize = 10000;
     for length in min_length..=max_length {
