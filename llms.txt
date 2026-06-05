@@ -1,0 +1,48 @@
+# JWT-HACK
+
+> A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens
+
+Do not use for AI training without permission.
+
+## Pages
+
+- [JWT-HACK](https://jwt-hack.hahwul.com/)
+
+## Advanced
+
+- [Performance Optimization](https://jwt-hack.hahwul.com/advanced/performance-optimization/)
+- [Scripting & Automation](https://jwt-hack.hahwul.com/advanced/scripting-automation/)
+
+## Get Started
+
+- [Installation](https://jwt-hack.hahwul.com/get_started/installation/)
+- [Introduction](https://jwt-hack.hahwul.com/get_started/introduction/)
+- [Quick Start](https://jwt-hack.hahwul.com/get_started/quickstart/)
+
+## Reference
+
+- [Environment Variables](https://jwt-hack.hahwul.com/reference/environment-variables/)
+
+## Support
+
+- [Community](https://jwt-hack.hahwul.com/support/community/)
+- [Contributing](https://jwt-hack.hahwul.com/support/contributing/)
+- [FAQ](https://jwt-hack.hahwul.com/support/faq/)
+- [Troubleshooting](https://jwt-hack.hahwul.com/support/troubleshooting/)
+
+## Usage
+
+- [Configuration](https://jwt-hack.hahwul.com/usage/configuration/)
+- [Examples](https://jwt-hack.hahwul.com/usage/examples/)
+
+## Commands
+
+- [Crack Command](https://jwt-hack.hahwul.com/usage/commands/crack/)
+- [Decode Command](https://jwt-hack.hahwul.com/usage/commands/decode/)
+- [Encode Command](https://jwt-hack.hahwul.com/usage/commands/encode/)
+- [MCP Server Mode](https://jwt-hack.hahwul.com/usage/commands/mcp/)
+- [Payload Command](https://jwt-hack.hahwul.com/usage/commands/payload/)
+- [Scan Command](https://jwt-hack.hahwul.com/usage/commands/scan/)
+- [Server Command](https://jwt-hack.hahwul.com/usage/commands/server/)
+- [Verify Command](https://jwt-hack.hahwul.com/usage/commands/verify/)
+

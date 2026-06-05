@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>JWT-HACK - A JWT Security Testing Toolkit</title>
+  <meta property="og:title" content="JWT-HACK">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jwt-hack.hahwul.com/">
+  <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JWT-HACK">
+  <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:site" content="@hahwul">
+  <meta name="twitter:creator" content="@hahwul">
+  <link rel="icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-dark.png" alt="JWT-HACK" class="logo-dark">
+      <img src="https://jwt-hack.hahwul.com/images/jwt-hack-light.png" alt="JWT-HACK" class="logo-light">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.6.0</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<main style="padding-top: var(--header-h);">
+  <!-- Hero -->
+  <section class="landing-hero">
+    <div class="hero-inner">
+      <div class="hero-meta">
+        <span class="meta-dot"></span>
+        <span>cryptography · security · toolkit</span>
+        <span class="meta-sep">·</span>
+        <span class="meta-badge">v2.6.0</span>
+      </div>
+
+      <h1>
+        <span class="seg-h">jwt</span><span class="dot">-</span><span class="highlight">hack</span>
+      </h1>
+
+      <p class="hero-desc">A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens</p>
+
+      <div class="hero-buttons">
+        <a href="/get_started/installation/" class="btn btn-primary">
+          Get Started
+          <svg aria-hidden="true" focusable="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="https://github.com/hahwul/jwt-hack" class="btn btn-secondary" target="_blank" rel="noopener">
+          <svg aria-hidden="true" focusable="false" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56 0-.27-.01-1.18-.02-2.13-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.27-1.68-1.27-1.68-1.04-.71.08-.69.08-.69 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.25 3.34.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.21-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.12 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.07.78 2.15 0 1.55-.01 2.8-.01 3.18 0 .31.21.67.79.56C20.21 21.38 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+          GitHub
+        </a>
+      </div>
+
+      <!-- Token Visualizer -->
+      <div class="token-card">
+        <div class="token-head">
+          <span class="token-tag">token.preview</span>
+          <span class="token-id">HS256 · 3-segment</span>
+        </div>
+        <div class="token-body">
+          <div class="token-row h">
+            <span class="tag">header</span>
+            <span class="val">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span>
+          </div>
+          <div class="token-row p">
+            <span class="tag">payload</span>
+            <span class="val">eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhB...</span>
+          </div>
+          <div class="token-row s">
+            <span class="tag">sig</span>
+            <span class="val">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQss...</span>
+          </div>
+          <div class="token-divider"></div>
+        </div>
+        <div class="token-foot">
+          <span class="prompt">$</span>
+          <span>jwt-hack decode &lt;token&gt;</span>
+          <span class="blink"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="landing-features">
+    <div class="section-header">
+      <div class="section-eyebrow">capabilities</div>
+      <h2>Essential Features</h2>
+      <p>Discover jwt-hack's essential features for comprehensive attack surface detection and analysis.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-num">01</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3>encode &amp; decode</h3>
+        <p>JWT and JWE tokens with multiple algorithms, custom headers, and DEFLATE compression.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-num">02</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>verify signatures</h3>
+        <p>Symmetric and asymmetric algorithms verified with secrets or keys, plus expiration validation.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-num">03</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <h3>advanced cracking</h3>
+        <p>Crack JWT secrets via dictionary or brute-force, with support for compressed tokens.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-num">04</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <h3>attack payloads</h3>
+        <p>Generate none-alg, algorithm confusion, and header manipulation attack variants.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-num">05</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3>high performance</h3>
+        <p>Built in Rust with parallel processing for intensive operations &mdash; raw speed under load.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-num">06</span>
+        <div class="feature-icon">
+          <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+        </div>
+        <h3>mcp server</h3>
+        <p>Integrate with AI models via Model Context Protocol for intelligent JWT analysis.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="landing-cta">
+    <div class="landing-cta-inner">
+      <div class="section-eyebrow">open source</div>
+      <h2>Contributing</h2>
+      <p>JWT-HACK is an open-source project. If you want to contribute to this project, please see CONTRIBUTING.md and submit a pull request!</p>
+      <a href="https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md" class="btn btn-secondary" target="_blank" rel="noopener">
+        View Contributing Guide
+        <svg aria-hidden="true" focusable="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><polyline points="7 7 17 7 17 17"/></svg>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
+    </a>
+    <span class="separator">&bull;</span>
+    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+<script>
+  // Theme toggle
+  document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    }
+
+    // Mobile menu
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var sidebar = document.querySelector('.docs-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('active');
+      });
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
+    }
+
+    // Active sidebar link
+    var links = document.querySelectorAll('.sidebar-links a');
+    var path = window.location.pathname.replace(/\/$/, '') || '/';
+    links.forEach(function(link) {
+      var href = link.getAttribute('href').replace(/\/$/, '') || '/';
+      if (href === path) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>
