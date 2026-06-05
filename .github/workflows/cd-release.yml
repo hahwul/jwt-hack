@@ -64,6 +64,19 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cross
+      - name: Use native Perl for vendored OpenSSL (Windows)
+        # The Build step runs under Git Bash (shell: bash), whose MSYS Perl is
+        # broken on the runner image and aborts openssl-src's Configure with a
+        # "Params/Check.pm" compile error, failing the vendored OpenSSL build
+        # (pulled in via josekit + the openssl crate). Point openssl-src at the
+        # runner's native Perl — the same one the pwsh-based CI builds with
+        # successfully — so it bypasses the broken Git Bash Perl on PATH.
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $perl = (Get-Command perl).Source
+          Write-Output "Using native Perl: $perl"
+          "OPENSSL_SRC_PERL=$perl" >> $env:GITHUB_ENV
       - name: Build
         shell: bash
         run: |
