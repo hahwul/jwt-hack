@@ -1,7 +1,7 @@
 +++
 title = "JWT-HACK"
 template = "landing"
-hero_badge = "v2.5.0"
+hero_badge = "v2.6.0"
 hero_description = "A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens"
 features_title = "Essential Features"
 features_description = "Discover jwt-hack's essential features for comprehensive attack surface detection and analysis."

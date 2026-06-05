@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "jwt-hack"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "aes-gcm",
  "ansi-to-tui",

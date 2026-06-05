@@ -1,6 +1,6 @@
 # Maintainer: HAHWUL <hahwul@gmail.com>
 pkgname=jwt-hack
-pkgver=2.5.0
+pkgver=2.6.0
 pkgrel=1
 pkgdesc="Hack the JWT (JSON Web Token) - JWT security testing and token manipulation"
 arch=('x86_64' 'aarch64')

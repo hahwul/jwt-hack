@@ -9,6 +9,25 @@ CARGO_LOCK   = "Cargo.lock"
 SNAP_YAML    = "snap/snapcraft.yaml"
 AUR_PKGBUILD = "aur/PKGBUILD"
 
+# Docs and README hardcode the version too: the site version badge, the
+# landing-page hero badge, the docker pull examples, and the server
+# health-response sample. Each entry is {path, pattern, prefix}; the bare
+# version is capture group 2, `v?` matches any leading `v` *outside* that group,
+# and `prefix` ("v" or "") is what the writer re-attaches. Keep in lockstep
+# with the identical list in version_check.cr.
+DOCS_TARGETS = [
+  {path: "docs/templates/header.html",
+   pattern: /(class="version-badge">)v?([^<]+)/, prefix: "v"},
+  {path: "docs/content/index.md",
+   pattern: /(hero_badge\s*=\s*")v?([^"]+)/, prefix: "v"},
+  {path: "docs/content/get_started/installation.md",
+   pattern: /(docker pull hahwul\/jwt-hack:)v?([0-9][^\s]*)/, prefix: "v"},
+  {path: "README.md",
+   pattern: /(docker pull hahwul\/jwt-hack:)v?([0-9][^\s]*)/, prefix: "v"},
+  {path: "docs/content/usage/commands/server.md",
+   pattern: /("version":\s*")v?([^"]+)/, prefix: ""},
+]
+
 # Read helpers (mirror version_check.cr).
 
 def cargo_toml_version : String?
@@ -41,6 +60,15 @@ def aur_version : String?
   content = File.read(AUR_PKGBUILD)
   match = content.match(/^pkgver=([^\s]+)/m)
   match ? match[1].gsub('_', '-') : nil
+rescue
+  nil
+end
+
+# Generic reader for the DOCS_TARGETS above: capture group 2 holds the bare
+# version (the optional leading `v` is matched outside the group and dropped).
+def docs_version(path : String, pattern : Regex) : String?
+  match = File.read(path).match(pattern)
+  match ? match[2] : nil
 rescue
   nil
 end
@@ -108,6 +136,20 @@ rescue ex
   false
 end
 
+# Generic writer for the DOCS_TARGETS: replace the matched version with
+# `prefix + new_version`, keeping the surrounding context (capture group 1).
+# `sub` touches only the first match, and each pattern is unique per file.
+def update_docs(path : String, pattern : Regex, prefix : String, new_version : String) : Bool
+  content = File.read(path)
+  updated = content.sub(pattern, "\\1#{prefix}#{new_version}")
+  return false if updated == content
+  File.write(path, updated)
+  true
+rescue ex
+  puts "  error: #{ex.message}"
+  false
+end
+
 # Loose semver — allow numeric pre-release suffix (`-dev.1`, `-rc.2`,
 # `-alpha`).
 def valid_version?(version : String) : Bool
@@ -116,19 +158,30 @@ end
 
 # Status report.
 
-cargo_v = cargo_toml_version
-lock_v  = cargo_lock_version
-snap_v  = snap_version
-aur_v   = aur_version
+# Every version-bearing file as {path, current_version, writer}. The writer
+# takes the new version as an argument (rather than closing over it) so the
+# list can be built up front, before the prompt. `current` is nil for any file
+# that doesn't carry a version, which the loop below skips.
+targets = [
+  {CARGO_TOML, cargo_toml_version, ->(v : String) { update_cargo_toml(v) }},
+  {CARGO_LOCK, cargo_lock_version, ->(v : String) { update_cargo_lock(v) }},
+  {SNAP_YAML, snap_version, ->(v : String) { update_snap(v) }},
+  {AUR_PKGBUILD, aur_version, ->(v : String) { update_aur(v) }},
+] of Tuple(String, String?, Proc(String, Bool))
+DOCS_TARGETS.each do |t|
+  path, pattern, prefix = t[:path], t[:pattern], t[:prefix]
+  targets << {path, docs_version(path, pattern), ->(v : String) { update_docs(path, pattern, prefix, v) }}
+end
+
+width = targets.map { |path, _, _| path.size }.max
 
 puts "Current versions:"
-puts "  #{CARGO_TOML.ljust(22)} #{cargo_v || "Not found"}"
-puts "  #{CARGO_LOCK.ljust(22)} #{lock_v || "Not found"}"
-puts "  #{SNAP_YAML.ljust(22)} #{snap_v || "Not found"}"
-puts "  #{AUR_PKGBUILD.ljust(22)} #{aur_v || "Not found"}"
+targets.each do |path, ver, _|
+  puts "  #{path.ljust(width)} #{ver || "Not found"}"
+end
 puts
 
-versions = [cargo_v, lock_v, snap_v, aur_v].compact
+versions = targets.map { |_, ver, _| ver }.compact
 unique = versions.uniq
 
 if unique.size > 1
@@ -136,7 +189,7 @@ if unique.size > 1
   puts
 end
 
-current = cargo_v || lock_v || snap_v || aur_v || "unknown"
+current = versions.first? || "unknown"
 puts "Current: #{current}"
 print "New version (Enter to cancel): "
 input = gets
@@ -152,7 +205,7 @@ unless valid_version?(new_version)
   exit 1
 end
 
-if new_version == current && unique.size == 1
+if unique == [new_version]
   puts "No change."
   exit 0
 end
@@ -162,20 +215,19 @@ puts "Updating to #{new_version}..."
 
 ok = 0
 total = 0
+changed = 0
 
-[
-  {CARGO_TOML, ->{ update_cargo_toml(new_version) }, !cargo_v.nil?},
-  {CARGO_LOCK, ->{ update_cargo_lock(new_version) }, !lock_v.nil?},
-  {SNAP_YAML, ->{ update_snap(new_version) }, !snap_v.nil?},
-  {AUR_PKGBUILD, ->{ update_aur(new_version) }, !aur_v.nil?},
-].each do |tuple|
-  path, fn, present = tuple
-  next unless present
+targets.each do |path, ver, fn|
+  next if ver.nil? # file doesn't carry a version — nothing to update
   total += 1
-  print "  #{path.ljust(22)} "
-  if fn.call
+  print "  #{path.ljust(width)} "
+  if ver == new_version
+    puts "unchanged"
+    ok += 1
+  elsif fn.call(new_version)
     puts "ok"
     ok += 1
+    changed += 1
   else
     puts "FAIL"
   end
@@ -183,8 +235,8 @@ end
 
 puts
 if ok == total
-  puts "Updated #{ok} files to #{new_version}."
+  puts "#{changed} updated, #{total - changed} already at #{new_version}."
 else
-  puts "Updated #{ok}/#{total} files."
+  puts "Updated #{ok}/#{total} files; #{total - ok} failed."
   exit 1
 end

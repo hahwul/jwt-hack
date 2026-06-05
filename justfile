@@ -35,12 +35,12 @@ fix:
     cargo fmt
     cargo clippy --fix --allow-dirty
 
-# Report jwt-hack version across Cargo.toml, Cargo.lock, snap, aur.
+# Report jwt-hack version across Cargo.toml, Cargo.lock, snap, aur, docs, README.
 [group('release')]
 version-check:
     crystal run scripts/version_check.cr
 
-# Bump jwt-hack version in lockstep across all version-bearing files.
+# Bump jwt-hack version in lockstep across all version-bearing files (incl. docs/README).
 [group('release')]
 version-update:
     crystal run scripts/version_update.cr
