@@ -23,6 +23,6 @@ jobs:
             system "cargo build --release"
             bin.install "target/release/jwt-hack"
           test: system "#{bin}/jwt-hack", "-V"
-          update_readme_table: true
+          update_readme_table: false
           skip_commit: false
           debug: false
