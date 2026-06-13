@@ -185,6 +185,18 @@ pub fn execute() {
 }
 
 fn run_tui() -> io::Result<()> {
+    // Install a panic hook that restores the terminal before the default hook runs,
+    // so an unexpected panic in the event loop never leaves the user in raw mode on
+    // the alternate screen (which would otherwise require a manual `reset`). This is
+    // the reliable cleanup path under the release profile's panic = "abort" setting,
+    // where unwinding-based cleanup does not run.
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        previous_hook(info);
+    }));
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -351,13 +363,17 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 app.cursor_position = 0;
             }
         },
-        // Left arrow
+        // Left arrow — step back one whole character (cursor_position is a byte offset)
         (_, KeyCode::Left) if app.cursor_position > 0 => {
-            app.cursor_position -= 1;
+            if let Some(c) = app.input[..app.cursor_position].chars().next_back() {
+                app.cursor_position -= c.len_utf8();
+            }
         }
-        // Right arrow
+        // Right arrow — step forward one whole character
         (_, KeyCode::Right) if app.cursor_position < app.input.len() => {
-            app.cursor_position += 1;
+            if let Some(c) = app.input[app.cursor_position..].chars().next() {
+                app.cursor_position += c.len_utf8();
+            }
         }
         // Home
         (_, KeyCode::Home) => {
@@ -376,19 +392,21 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
         (_, KeyCode::PageDown) => {
             app.scroll_offset += app.visible_height();
         }
-        // Backspace
+        // Backspace — remove the whole character before the cursor
         (_, KeyCode::Backspace) if app.cursor_position > 0 => {
-            app.input.remove(app.cursor_position - 1);
-            app.cursor_position -= 1;
+            if let Some(c) = app.input[..app.cursor_position].chars().next_back() {
+                app.cursor_position -= c.len_utf8();
+                app.input.remove(app.cursor_position);
+            }
         }
-        // Delete
+        // Delete — remove the character at the cursor (cursor stays on a char boundary)
         (_, KeyCode::Delete) if app.cursor_position < app.input.len() => {
             app.input.remove(app.cursor_position);
         }
-        // Character input
+        // Character input — advance by the byte length of the inserted character
         (_, KeyCode::Char(c)) => {
             app.input.insert(app.cursor_position, c);
-            app.cursor_position += 1;
+            app.cursor_position += c.len_utf8();
         }
         _ => {}
     }
@@ -494,6 +512,19 @@ fn render_help(app: &mut App) {
             .push(Line::from(Span::styled(ex, dim_style)));
     }
 
+    app.output_lines.lines.push(Line::raw(""));
+    app.output_lines
+        .lines
+        .push(Line::from(Span::styled("  Notes", bold_style)));
+    app.output_lines.lines.push(Line::from(Span::styled(
+        "    crack/scan run in the background, one at a time. While one is running,",
+        dim_style,
+    )));
+    app.output_lines.lines.push(Line::from(Span::styled(
+        "    another command may report it is busy — wait for it to finish and retry.",
+        dim_style,
+    )));
+
     app.scroll_to_bottom();
 }
 
@@ -521,13 +552,7 @@ fn render_show(app: &mut App) {
         .session
         .token
         .as_deref()
-        .map(|t| {
-            if t.len() > 40 {
-                format!("{}...{}", &t[..20], &t[t.len() - 10..])
-            } else {
-                t.to_string()
-            }
-        })
+        .map(|t| utils::abbreviate_middle(t, 20, 10))
         .unwrap_or_else(|| "(not set)".to_string());
     let token_style = if app.session.token.is_some() {
         default_style
@@ -590,11 +615,7 @@ fn handle_set(parts: &[&str], app: &mut App) {
     match key {
         "token" => {
             app.session.token = Some(value.to_string());
-            let preview = if value.len() > 40 {
-                format!("{}...{}", &value[..20], &value[value.len() - 10..])
-            } else {
-                value.to_string()
-            };
+            let preview = utils::abbreviate_middle(value, 20, 10);
             app.push_success(&format!("Token set: {preview}"));
         }
         "secret" => {

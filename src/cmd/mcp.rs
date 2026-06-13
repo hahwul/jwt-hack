@@ -63,7 +63,6 @@ pub struct VerifyArgs {
     pub secret: Option<String>,
     /// Validate expiration claim (exp)
     #[serde(default)]
-    #[allow(dead_code)]
     pub validate_exp: bool,
 }
 
@@ -86,10 +85,6 @@ pub struct CrackArgs {
     /// Max length for bruteforce attack
     #[serde(default = "default_max_length")]
     pub max: usize,
-    /// Concurrency level
-    #[serde(default = "default_concurrency")]
-    #[allow(dead_code)]
-    pub concurrency: usize,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -125,10 +120,6 @@ fn default_min_length() -> usize {
 
 fn default_max_length() -> usize {
     4
-}
-
-fn default_concurrency() -> usize {
-    20
 }
 
 fn default_payload_target() -> String {
@@ -231,7 +222,36 @@ impl JwtHackServer {
         Parameters(args): Parameters<VerifyArgs>,
     ) -> Result<CallToolResult, McpError> {
         if let Some(secret) = &args.secret {
-            let result = crate::jwt::verify(&args.token, secret);
+            // A 'none' token carries no signature. If a (non-empty) secret was supplied,
+            // verifying against it would silently ignore the secret — the classic
+            // alg:none bypass — so report the token as invalid instead, matching the CLI
+            // and REST verify surfaces.
+            if !secret.is_empty() {
+                if let Ok(decoded) = crate::jwt::decode(&args.token) {
+                    let is_none = decoded
+                        .header
+                        .get("alg")
+                        .and_then(|v| v.as_str())
+                        .map(|a| a.eq_ignore_ascii_case("none"))
+                        .unwrap_or(false);
+                    if is_none {
+                        return Ok(CallToolResult::success(vec![Content::text(
+                            "✗ Token uses 'none' algorithm and carries no signature; cannot be verified against the provided secret".to_string(),
+                        )]));
+                    }
+                }
+            }
+
+            // Honor the advertised `validate_exp` option instead of silently ignoring
+            // it: route through verify_with_options so an expired token is reported as
+            // expired rather than "valid" when the caller asked for expiration checks.
+            let options = crate::jwt::VerifyOptions {
+                key_data: crate::jwt::VerifyKeyData::Secret(secret),
+                validate_exp: args.validate_exp,
+                validate_nbf: false,
+                leeway: 0,
+            };
+            let result = crate::jwt::verify_with_options(&args.token, &options);
 
             match result {
                 Ok(is_valid) => {
@@ -304,15 +324,27 @@ impl JwtHackServer {
                     args.min, args.max
                 ))]));
             }
-            let max_len = std::cmp::min(args.max, 3); // Limit to 3 characters max for MCP
-            let chars: Vec<char> = chars_to_use.chars().take(10).collect(); // Limit charset
+            const MCP_MAX_BRUTE_LEN: usize = 3;
+            const MCP_MAX_CHARSET: usize = 10;
+            const MCP_MAX_ATTEMPTS: usize = 100;
+            let max_len = std::cmp::min(args.max, MCP_MAX_BRUTE_LEN); // Limit length for MCP
+            let chars: Vec<char> = chars_to_use.chars().take(MCP_MAX_CHARSET).collect(); // Limit charset
 
             let min_len = std::cmp::max(args.min, 1);
+            // Without this guard, a requested min length above the MCP cap yields an
+            // empty range (min_len > max_len) and the tool silently reports "not found"
+            // having searched nothing. Reject it explicitly so the caller is not misled.
+            if min_len > max_len {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "MCP brute-force is capped at {} characters; requested min length {} cannot be searched.",
+                    MCP_MAX_BRUTE_LEN, min_len
+                ))]));
+            }
             for len in min_len..=max_len {
                 // Generate combinations for this length
                 let combinations = generate_combinations(&chars, len);
 
-                for combination in combinations.into_iter().take(100) {
+                for combination in combinations.into_iter().take(MCP_MAX_ATTEMPTS) {
                     // Limit attempts
                     if let Ok(is_valid) = crate::jwt::verify(&args.token, &combination) {
                         if is_valid {
@@ -325,10 +357,11 @@ impl JwtHackServer {
                 }
             }
 
-            Ok(CallToolResult::success(vec![Content::text(
-                "✗ Brute force attack failed. Secret not found in limited search space."
-                    .to_string(),
-            )]))
+            Ok(CallToolResult::success(vec![Content::text(format!(
+                "✗ Brute force attack failed. Secret not found in the limited MCP search space \
+                 (lengths {}-{}, charset capped at {} chars, {} attempts per length).",
+                min_len, max_len, MCP_MAX_CHARSET, MCP_MAX_ATTEMPTS
+            ))]))
         } else {
             Ok(CallToolResult::error(vec![Content::text(
                 "Invalid crack mode. Use 'dict' or 'brute'.".to_string(),
@@ -473,6 +506,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_verify_tool_rejects_none_with_secret() {
+        let server = JwtHackServer::new();
+        // Build an unsigned 'none' token.
+        let options = crate::jwt::EncodeOptions {
+            algorithm: "none",
+            key_data: crate::jwt::KeyData::None,
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = crate::jwt::encode_with_options(&serde_json::json!({"sub": "admin"}), &options)
+            .unwrap();
+
+        let args = VerifyArgs {
+            token,
+            secret: Some("any-secret".to_string()),
+            validate_exp: false,
+        };
+        let call_result = server.verify(Parameters(args)).await.unwrap();
+        if let Some(content) = call_result.content.first() {
+            if let RawContent::Text(text) = &content.raw {
+                assert!(
+                    !text.text.contains("✓ JWT signature is valid"),
+                    "a none token with a secret must not be reported valid: {}",
+                    text.text
+                );
+                assert!(
+                    text.text.contains("none"),
+                    "expected a 'none' explanation, got: {}",
+                    text.text
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_crack_tool() {
         let server = JwtHackServer::new();
 
@@ -487,7 +555,6 @@ mod tests {
             preset: None, // preset
             min: 1,
             max: 2,
-            concurrency: 1,
         };
 
         let result = server.crack(Parameters(args)).await;

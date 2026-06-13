@@ -186,12 +186,24 @@ fn asn1_sequence(items: &[&[u8]]) -> Vec<u8> {
 
 fn asn1_length(len: usize) -> Vec<u8> {
     if len < 128 {
-        vec![len as u8]
-    } else if len < 256 {
-        vec![0x81, len as u8]
-    } else {
-        vec![0x82, (len >> 8) as u8, len as u8]
+        // Short form.
+        return vec![len as u8];
     }
+    // Long form: a leading byte 0x80|N followed by N big-endian length bytes.
+    // The previous implementation hard-coded the 0x82 (2-byte) form, which
+    // silently truncated the length for content >= 65536 bytes and produced
+    // corrupt DER. This emits the minimal number of length bytes for any size.
+    let mut bytes = Vec::new();
+    let mut remaining = len;
+    while remaining > 0 {
+        bytes.push((remaining & 0xff) as u8);
+        remaining >>= 8;
+    }
+    bytes.reverse();
+    let mut out = Vec::with_capacity(bytes.len() + 1);
+    out.push(0x80 | bytes.len() as u8);
+    out.extend_from_slice(&bytes);
+    out
 }
 
 /// Generate a spoofed JWKS with a new RSA key pair
@@ -702,6 +714,10 @@ mod tests {
         assert_eq!(asn1_length(128), vec![0x81, 0x80]);
         assert_eq!(asn1_length(255), vec![0x81, 0xff]);
         assert_eq!(asn1_length(256), vec![0x82, 0x01, 0x00]);
+        assert_eq!(asn1_length(65535), vec![0x82, 0xff, 0xff]);
+        // Lengths >= 65536 must use a 3+ byte long form rather than truncating.
+        assert_eq!(asn1_length(65536), vec![0x83, 0x01, 0x00, 0x00]);
+        assert_eq!(asn1_length(70000), vec![0x83, 0x01, 0x11, 0x70]);
     }
 
     #[test]

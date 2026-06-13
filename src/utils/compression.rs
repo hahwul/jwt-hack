@@ -13,13 +13,31 @@ pub fn compress_deflate(data: &[u8]) -> Result<Vec<u8>> {
     Ok(compressed)
 }
 
-/// Decompresses data using DEFLATE decompression algorithm
+/// Maximum number of bytes produced when decompressing an untrusted DEFLATE stream.
+///
+/// DEFLATE can amplify input by more than 1000x, so an unbounded `read_to_end` on
+/// attacker-controlled data is a decompression-bomb / memory-exhaustion vector. The
+/// `zip:"DEF"` payload of any token reaching `jwt::decode` is fully attacker-controlled
+/// (including over the REST server), so the decompressed size must be capped.
+pub const MAX_DECOMPRESSED_SIZE: u64 = 10 * 1024 * 1024; // 10 MiB
+
+/// Decompresses data using DEFLATE decompression algorithm.
+///
+/// The decompressed output is capped at [`MAX_DECOMPRESSED_SIZE`]; input that would
+/// expand beyond that limit is rejected with an error instead of being buffered, to
+/// prevent decompression-bomb denial of service from untrusted tokens.
 pub fn decompress_deflate(compressed_data: &[u8]) -> Result<Vec<u8>> {
-    let mut decoder = DeflateDecoder::new(compressed_data);
+    let mut limited = DeflateDecoder::new(compressed_data).take(MAX_DECOMPRESSED_SIZE + 1);
     let mut decompressed = Vec::new();
-    decoder
+    limited
         .read_to_end(&mut decompressed)
         .map_err(|e| anyhow!("Failed to decompress data: {}", e))?;
+    if decompressed.len() as u64 > MAX_DECOMPRESSED_SIZE {
+        return Err(anyhow!(
+            "Decompressed payload exceeds maximum allowed size of {} bytes",
+            MAX_DECOMPRESSED_SIZE
+        ));
+    }
     Ok(decompressed)
 }
 
@@ -64,6 +82,24 @@ mod tests {
         let invalid_data = b"this is not compressed data";
         let result = decompress_deflate(invalid_data);
         assert!(result.is_err(), "Decompressing invalid data should fail");
+    }
+
+    #[test]
+    fn test_decompress_bomb_is_capped() {
+        // A highly compressible input that expands past the cap must be rejected
+        // rather than buffered into memory.
+        let bomb_size = (MAX_DECOMPRESSED_SIZE as usize) + 1024;
+        let compressed = compress_deflate(&vec![0u8; bomb_size]).expect("compress");
+        assert!(
+            compressed.len() < bomb_size,
+            "expected the bomb input to actually compress"
+        );
+        let result = decompress_deflate(&compressed);
+        assert!(
+            result.is_err(),
+            "decompression past the cap must error, got {} bytes",
+            result.map(|v| v.len()).unwrap_or(0)
+        );
     }
 
     #[test]
