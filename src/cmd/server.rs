@@ -260,7 +260,12 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
     // A 'none' token carries no signature. If the caller supplied a (non-empty)
     // secret, reporting it as valid would silently ignore that secret — the classic
     // alg:none bypass — so report it as invalid instead.
-    if req.secret.as_deref().map(|s| !s.is_empty()).unwrap_or(false) {
+    if req
+        .secret
+        .as_deref()
+        .map(|s| !s.is_empty())
+        .unwrap_or(false)
+    {
         if let Ok(decoded) = jwt::decode(&req.token) {
             let is_none = decoded
                 .header
