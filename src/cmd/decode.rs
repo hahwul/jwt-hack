@@ -14,10 +14,20 @@ fn format_unix_timestamp(seconds: i64) -> Option<String> {
         .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
 }
 
+/// Reads a NumericDate claim (`exp`/`iat`) as seconds. Accepts both integer and
+/// float JSON numbers (RFC 7519 allows non-integer NumericDate). Float→int uses
+/// Rust's saturating cast and non-finite values are rejected; out-of-range values
+/// are later dropped by `format_unix_timestamp` rather than panicking.
+fn claim_seconds(value: &Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_f64().filter(|f| f.is_finite()).map(|f| f as i64))
+}
+
 /// Annotate issued-at claim with human-readable timestamp in the JSON output
 fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(iat) = claims.get("iat") {
-        if let Some(iat_seconds) = iat.as_i64() {
+        if let Some(iat_seconds) = claim_seconds(iat) {
             if let Some(formatted_time) = format_unix_timestamp(iat_seconds) {
                 if let Some(obj) = claims_map.as_object_mut() {
                     obj.insert("iat_time".to_string(), Value::String(formatted_time));
@@ -30,7 +40,7 @@ fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
 /// Annotate expiration claim with human-readable timestamp and status in the JSON output
 fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(exp) = claims.get("exp") {
-        if let Some(exp_seconds) = exp.as_i64() {
+        if let Some(exp_seconds) = claim_seconds(exp) {
             if let Some(formatted_time) = format_unix_timestamp(exp_seconds) {
                 let now = chrono::Utc::now().timestamp();
                 let is_expired = now > exp_seconds;
@@ -347,6 +357,24 @@ mod tests {
             });
             assert!(result.is_ok(), "decode panicked on exp/iat = {value}");
         }
+    }
+
+    #[test]
+    fn test_decode_token_with_float_timestamp_is_annotated() {
+        // RFC 7519 NumericDate allows non-integer values; a float exp/iat must still
+        // be annotated (not silently dropped) and must not panic.
+        let claims = json!({ "sub": "u", "exp": 1_700_000_000.0_f64, "iat": 1_600_000_000.0_f64 });
+        let token = jwt::encode(&claims, "", "HS256").expect("token");
+        let value = execute_json(&token).expect("decode");
+        let payload = value.get("payload").expect("payload");
+        assert!(
+            payload.get("exp_time").is_some(),
+            "float exp should be annotated with exp_time"
+        );
+        assert!(
+            payload.get("iat_time").is_some(),
+            "float iat should be annotated with iat_time"
+        );
     }
 
     #[test]

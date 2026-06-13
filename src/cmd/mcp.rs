@@ -222,6 +222,26 @@ impl JwtHackServer {
         Parameters(args): Parameters<VerifyArgs>,
     ) -> Result<CallToolResult, McpError> {
         if let Some(secret) = &args.secret {
+            // A 'none' token carries no signature. If a (non-empty) secret was supplied,
+            // verifying against it would silently ignore the secret — the classic
+            // alg:none bypass — so report the token as invalid instead, matching the CLI
+            // and REST verify surfaces.
+            if !secret.is_empty() {
+                if let Ok(decoded) = crate::jwt::decode(&args.token) {
+                    let is_none = decoded
+                        .header
+                        .get("alg")
+                        .and_then(|v| v.as_str())
+                        .map(|a| a.eq_ignore_ascii_case("none"))
+                        .unwrap_or(false);
+                    if is_none {
+                        return Ok(CallToolResult::success(vec![Content::text(
+                            "✗ Token uses 'none' algorithm and carries no signature; cannot be verified against the provided secret".to_string(),
+                        )]));
+                    }
+                }
+            }
+
             // Honor the advertised `validate_exp` option instead of silently ignoring
             // it: route through verify_with_options so an expired token is reported as
             // expired rather than "valid" when the caller asked for expiration checks.
@@ -483,6 +503,41 @@ mod tests {
 
         let call_result = result.unwrap();
         assert!(call_result.is_error != Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_verify_tool_rejects_none_with_secret() {
+        let server = JwtHackServer::new();
+        // Build an unsigned 'none' token.
+        let options = crate::jwt::EncodeOptions {
+            algorithm: "none",
+            key_data: crate::jwt::KeyData::None,
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = crate::jwt::encode_with_options(&serde_json::json!({"sub": "admin"}), &options)
+            .unwrap();
+
+        let args = VerifyArgs {
+            token,
+            secret: Some("any-secret".to_string()),
+            validate_exp: false,
+        };
+        let call_result = server.verify(Parameters(args)).await.unwrap();
+        if let Some(content) = call_result.content.first() {
+            if let RawContent::Text(text) = &content.raw {
+                assert!(
+                    !text.text.contains("✓ JWT signature is valid"),
+                    "a none token with a secret must not be reported valid: {}",
+                    text.text
+                );
+                assert!(
+                    text.text.contains("none"),
+                    "expected a 'none' explanation, got: {}",
+                    text.text
+                );
+            }
+        }
     }
 
     #[tokio::test]

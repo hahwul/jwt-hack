@@ -310,6 +310,12 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
 /// Bounds memory/time and prevents pointing the endpoint at huge or special files.
 const MAX_WORDLIST_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
 
+/// Bounds how many crack/scan operations run concurrently. `spawn_blocking` already
+/// keeps a single crack off the async runtime, but without this cap a burst of
+/// requests could still occupy many blocking threads and saturate CPU. Excess
+/// requests wait asynchronously for a permit instead of piling on.
+static CRACK_LIMITER: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+
 /// Helper function to crack JWT using dictionary attack
 fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
     use std::fs::File;
@@ -405,6 +411,12 @@ fn crack_brute(
 
 /// Crack endpoint handler
 async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackResponse>, ApiError> {
+    // Limit concurrent crack work across all requests (released when this handler returns).
+    let _permit = CRACK_LIMITER.acquire().await.map_err(|e| ApiError {
+        status: StatusCode::SERVICE_UNAVAILABLE,
+        message: format!("crack limiter unavailable: {e}"),
+    })?;
+
     // Run the synchronous, CPU/IO-bound crack on a blocking thread so it cannot pin
     // a Tokio worker and starve /health and every other endpoint (request DoS).
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<String>> {
@@ -536,6 +548,10 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
     // read/verify loop does not block the async runtime.
     if !req.skip_crack {
         if let Some(wordlist_path) = &req.wordlist {
+            let _permit = CRACK_LIMITER.acquire().await.map_err(|e| ApiError {
+                status: StatusCode::SERVICE_UNAVAILABLE,
+                message: format!("crack limiter unavailable: {e}"),
+            })?;
             let token = req.token.clone();
             let path = PathBuf::from(wordlist_path);
             let crack_result = tokio::task::spawn_blocking(move || crack_dict(&token, &path))
