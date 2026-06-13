@@ -71,6 +71,12 @@ pub struct CrackRequest {
     pub token: String,
     #[serde(default = "default_crack_mode")]
     pub mode: String,
+    /// Inline wordlist (one secret per entry). Preferred over `wordlist` in server
+    /// mode so clients never need the server to open a server-side file path.
+    #[serde(default)]
+    pub wordlist_content: Option<Vec<String>>,
+    /// Server-side wordlist file path. Only honored when it resolves inside the
+    /// directory named by the `JWT_HACK_WORDLIST_DIR` env var (otherwise rejected).
     #[serde(default)]
     pub wordlist: Option<String>,
     #[serde(default = "default_crack_chars")]
@@ -149,6 +155,10 @@ pub struct ScanRequest {
     pub skip_crack: bool,
     #[serde(default)]
     pub skip_payloads: bool,
+    /// Inline wordlist (one secret per entry); preferred over `wordlist`.
+    #[serde(default)]
+    pub wordlist_content: Option<Vec<String>>,
+    /// Server-side wordlist file path, gated by `JWT_HACK_WORDLIST_DIR` (see CrackRequest).
     #[serde(default)]
     pub wordlist: Option<String>,
     #[serde(default = "default_max_crack_attempts")]
@@ -316,14 +326,77 @@ const MAX_WORDLIST_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
 /// requests wait asynchronously for a permit instead of piling on.
 static CRACK_LIMITER: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 
-/// Helper function to crack JWT using dictionary attack
+/// Where a dictionary attack draws its candidate secrets from.
+enum WordlistSource {
+    /// Candidates sent inline in the request body.
+    Inline(Vec<String>),
+    /// An allow-list-validated server-side file path.
+    Path(PathBuf),
+}
+
+impl WordlistSource {
+    /// Run the dictionary attack for this source (intended for a blocking thread).
+    fn crack(self, token: &str) -> anyhow::Result<Option<String>> {
+        match self {
+            WordlistSource::Inline(words) => Ok(crack_words(token, words)),
+            WordlistSource::Path(path) => crack_dict(token, &path),
+        }
+    }
+}
+
+/// Resolve the dictionary source from a request: inline content is preferred, then a
+/// gated file path. Returns `Ok(None)` when neither was supplied.
+fn wordlist_source(
+    content: Option<Vec<String>>,
+    path: Option<&String>,
+) -> anyhow::Result<Option<WordlistSource>> {
+    if let Some(words) = content {
+        Ok(Some(WordlistSource::Inline(words)))
+    } else if let Some(path) = path {
+        Ok(Some(WordlistSource::Path(resolve_wordlist_path(path)?)))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Try each candidate secret against the token, returning the first that verifies.
+fn crack_words<I: IntoIterator<Item = String>>(token: &str, words: I) -> Option<String> {
+    words
+        .into_iter()
+        .find(|word| matches!(jwt::verify(token, word), Ok(true)))
+}
+
+/// Resolve a client-supplied wordlist path against the operator-configured allow-list.
+///
+/// In server mode the path originates from a remote request body, so opening an
+/// arbitrary path would be an unauthenticated file-read primitive. We only honor
+/// paths that canonicalize to a location inside `JWT_HACK_WORDLIST_DIR` (which also
+/// defeats `..` traversal and symlink escapes). If the env var is unset, server-side
+/// paths are disabled entirely and clients must send `wordlist_content` inline.
+fn resolve_wordlist_path(requested: &str) -> anyhow::Result<PathBuf> {
+    let base = std::env::var_os("JWT_HACK_WORDLIST_DIR").ok_or_else(|| {
+        anyhow::anyhow!(
+            "server-side wordlist file paths are disabled; send `wordlist_content` inline, \
+             or set JWT_HACK_WORDLIST_DIR to an allowed directory to enable path-based wordlists"
+        )
+    })?;
+    let base = std::fs::canonicalize(&base)
+        .map_err(|e| anyhow::anyhow!("JWT_HACK_WORDLIST_DIR is not accessible: {}", e))?;
+    let candidate = std::fs::canonicalize(PathBuf::from(requested))
+        .map_err(|e| anyhow::anyhow!("wordlist path is not accessible: {}", e))?;
+    if !candidate.starts_with(&base) {
+        anyhow::bail!("wordlist path is outside the allowed directory");
+    }
+    Ok(candidate)
+}
+
+/// Helper function to crack JWT using a dictionary file (already allow-list validated).
 fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read};
 
-    // The wordlist path arrives from the request body in server mode. Reject
-    // non-regular files (directories, devices like /dev/zero, FIFOs) and oversized
-    // files so a client cannot turn the endpoint into a blocking/DoS file reader.
+    // Reject non-regular files (directories, devices like /dev/zero, FIFOs) and
+    // oversized files so the endpoint can't be turned into a blocking/DoS file reader.
     let metadata = std::fs::metadata(wordlist_path)?;
     if !metadata.is_file() {
         anyhow::bail!("wordlist path is not a regular file");
@@ -339,13 +412,7 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
     let file = File::open(wordlist_path)?;
     let reader = BufReader::new(file).take(MAX_WORDLIST_BYTES);
 
-    for word in reader.lines().map_while(Result::ok) {
-        if let Ok(true) = jwt::verify(token, &word) {
-            return Ok(Some(word));
-        }
-    }
-
-    Ok(None)
+    Ok(crack_words(token, reader.lines().map_while(Result::ok)))
 }
 
 /// Helper function to crack JWT using brute force
@@ -422,12 +489,12 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<String>> {
         let mode = req.mode.to_lowercase();
         match mode.as_str() {
-            "dict" => {
-                let wordlist_path = req.wordlist.ok_or_else(|| {
-                    anyhow::anyhow!("Wordlist path required for dictionary attack")
-                })?;
-                crack_dict(&req.token, &PathBuf::from(wordlist_path))
-            }
+            "dict" => match wordlist_source(req.wordlist_content, req.wordlist.as_ref())? {
+                Some(source) => source.crack(&req.token),
+                None => anyhow::bail!(
+                    "Dictionary attack requires `wordlist_content` (inline) or `wordlist` (path)"
+                ),
+            },
             "brute" => {
                 let charset: String = if let Some(preset) = &req.preset {
                     match preset.as_str() {
@@ -547,14 +614,20 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
     // Try to crack if not skipped. Offload to a blocking thread so the dictionary
     // read/verify loop does not block the async runtime.
     if !req.skip_crack {
-        if let Some(wordlist_path) = &req.wordlist {
+        let source = match wordlist_source(req.wordlist_content.clone(), req.wordlist.as_ref()) {
+            Ok(source) => source,
+            Err(e) => {
+                vulnerabilities.push(format!("Wordlist rejected: {}", e));
+                None
+            }
+        };
+        if let Some(source) = source {
             let _permit = CRACK_LIMITER.acquire().await.map_err(|e| ApiError {
                 status: StatusCode::SERVICE_UNAVAILABLE,
                 message: format!("crack limiter unavailable: {e}"),
             })?;
             let token = req.token.clone();
-            let path = PathBuf::from(wordlist_path);
-            let crack_result = tokio::task::spawn_blocking(move || crack_dict(&token, &path))
+            let crack_result = tokio::task::spawn_blocking(move || source.crack(&token))
                 .await
                 .map_err(|e| ApiError {
                     status: StatusCode::INTERNAL_SERVER_ERROR,
@@ -859,5 +932,38 @@ mod tests {
         let result = crack_brute(&token, "abc", 1, 2);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), None);
+    }
+
+    #[test]
+    fn test_wordlist_source_prefers_inline() {
+        // Inline content wins and never touches the filesystem or the env allow-list.
+        let path = "/etc/passwd".to_string();
+        let src = wordlist_source(Some(vec!["a".to_string()]), Some(&path)).unwrap();
+        assert!(matches!(src, Some(WordlistSource::Inline(_))));
+        // Neither source supplied -> no crack source.
+        assert!(wordlist_source(None, None).unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_handle_crack_inline_wordlist() {
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "letmein", "HS256").unwrap();
+        let req = CrackRequest {
+            token,
+            mode: "dict".to_string(),
+            wordlist_content: Some(vec![
+                "nope".to_string(),
+                "letmein".to_string(),
+                "other".to_string(),
+            ]),
+            wordlist: None,
+            chars: default_crack_chars(),
+            preset: None,
+            concurrency: 1,
+            min: 1,
+            max: 4,
+        };
+        let resp = handle_crack(Json(req)).await.unwrap().0;
+        assert!(resp.success);
+        assert_eq!(resp.secret.as_deref(), Some("letmein"));
     }
 }

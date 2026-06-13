@@ -512,6 +512,19 @@ fn render_help(app: &mut App) {
             .push(Line::from(Span::styled(ex, dim_style)));
     }
 
+    app.output_lines.lines.push(Line::raw(""));
+    app.output_lines
+        .lines
+        .push(Line::from(Span::styled("  Notes", bold_style)));
+    app.output_lines.lines.push(Line::from(Span::styled(
+        "    crack/scan run in the background, one at a time. While one is running,",
+        dim_style,
+    )));
+    app.output_lines.lines.push(Line::from(Span::styled(
+        "    another command may report it is busy — wait for it to finish and retry.",
+        dim_style,
+    )));
+
     app.scroll_to_bottom();
 }
 
