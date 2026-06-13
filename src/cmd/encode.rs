@@ -115,7 +115,8 @@ pub fn execute_json(
         (
             jwt::encode_with_options(&claims, &options)?,
             if secret.unwrap_or("").is_empty() {
-                "empty".to_string()
+                // Still an HMAC signature, just keyed with an empty secret — not unsigned.
+                "empty (signed)".to_string()
             } else {
                 "****".to_string()
             },
@@ -225,14 +226,20 @@ fn encode_json(
     // Encode the JWT token using the configured options
     let token = jwt::encode_with_options(&claims, &options)?;
 
-    // Determine key information display based on signature type
-    let key_info = if no_signature || secret.unwrap_or("").is_empty() {
+    // Determine key information display based on signature type. An empty secret
+    // still produces a real (forgeable) HMAC signature, so it must not be reported
+    // as "unsigned" — only the explicit `--no-signature` (none) path is unsigned.
+    let key_info = if no_signature {
         "None (unsigned)".dimmed().to_string()
+    } else if secret.unwrap_or("").is_empty() {
+        "empty secret (signed)".dimmed().to_string()
     } else {
         "****".to_string()
     };
 
-    display_encoding_result(&token, algorithm, &key_info, headers);
+    // Reflect the actual algorithm written into the token: --no-signature emits "none".
+    let effective_alg = if no_signature { "none" } else { algorithm };
+    display_encoding_result(&token, effective_alg, &key_info, headers);
 
     Ok(())
 }

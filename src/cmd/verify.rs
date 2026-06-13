@@ -106,29 +106,38 @@ fn verify_token(
 
     let private_key_content: String; // Needs to live long enough
 
+    // Inspect the token's declared algorithm up front. A 'none' token carries no
+    // signature, so verify_with_options reports it as valid unconditionally. That is
+    // the desired behaviour only when the caller is just inspecting an unsigned token
+    // (no key supplied); if the caller explicitly provided a key/secret, accepting a
+    // 'none' token would silently ignore that key — the classic alg:none bypass — so
+    // we reject it instead.
+    let is_none_alg = jwt::decode(token)?
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .map(|a| a.eq_ignore_ascii_case("none"))
+        .unwrap_or(false);
+
     if let Some(pk_path) = private_key_path {
+        if is_none_alg {
+            return Err(anyhow!("Token uses the 'none' algorithm and carries no signature; it cannot be verified against the provided private key."));
+        }
         // For asymmetric algorithms, read the private key file
         private_key_content = fs::read_to_string(pk_path)
             .map_err(|e| anyhow!("Failed to read private key from {:?}: {}", pk_path, e))?;
         key_data = VerifyKeyData::PublicKeyPem(&private_key_content);
     } else if let Some(s) = secret {
+        if is_none_alg {
+            return Err(anyhow!("Token uses the 'none' algorithm and carries no signature; it cannot be verified against the provided secret."));
+        }
         // For HMAC algorithms, use the provided secret
         key_data = VerifyKeyData::Secret(s);
+    } else if is_none_alg {
+        // No key provided: allow inspection of the unsigned 'none' token.
+        key_data = VerifyKeyData::Secret("");
     } else {
-        // Handle case where no key/secret is provided
-        // Check if token uses 'none' algorithm which doesn't require verification
-        let decoded_unverified = jwt::decode(token)?;
-        if decoded_unverified
-            .header
-            .get("alg")
-            .and_then(|v| v.as_str())
-            == Some("none")
-        {
-            // For 'none' algorithm, use empty secret (will be ignored)
-            key_data = VerifyKeyData::Secret("");
-        } else {
-            return Err(anyhow!("No secret or private key provided for a token that is not using 'none' algorithm. Please provide --secret or --private-key."));
-        }
+        return Err(anyhow!("No secret or private key provided for a token that is not using 'none' algorithm. Please provide --secret or --private-key."));
     }
 
     let options = VerifyOptions {
@@ -257,6 +266,31 @@ mod tests {
             result.unwrap(),
             "Token with 'none' algorithm should verify without secret"
         );
+    }
+
+    #[test]
+    fn test_verify_token_none_algorithm_with_secret_is_rejected() {
+        // A 'none' token must NOT be reported valid when the caller supplies a key.
+        let claims = json!({"sub": "admin"});
+        let options = jwt::EncodeOptions {
+            algorithm: "none",
+            key_data: jwt::KeyData::None,
+            header_params: None,
+            compress_payload: false,
+        };
+        let token =
+            jwt::encode_with_options(&claims, &options).expect("Failed to create none token");
+
+        // With a secret provided, verification must error rather than return Ok(true).
+        let result = verify_token(&token, Some("any-secret"), None, false);
+        assert!(
+            result.is_err(),
+            "none token with an explicit secret must not be accepted as valid"
+        );
+
+        // Without a key, inspecting the unsigned token is still allowed.
+        let result = verify_token(&token, None, None, false);
+        assert!(matches!(result, Ok(true)));
     }
 
     #[test]

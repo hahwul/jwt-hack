@@ -1,7 +1,14 @@
 use std::io::Read;
+use std::sync::{Mutex, TryLockError};
 
 use ansi_to_tui::IntoText;
 use ratatui::text::Text;
+
+/// Serializes access to the process-global stdout/stderr redirection performed by
+/// `gag::BufferRedirect`. Without it, two overlapping captures (e.g. a background
+/// `crack` thread and another command) race on the same OS fds: the loser silently
+/// runs with no redirect, leaking raw output onto the TUI and losing its own output.
+static CAPTURE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Result of capturing stdout/stderr from a command
 #[allow(dead_code)]
@@ -16,6 +23,21 @@ pub fn capture_command_output<F>(f: F) -> CapturedOutput
 where
     F: FnOnce(),
 {
+    // Hold the global capture lock for the entire redirect + restore. If another
+    // capture is already active we refuse rather than block (avoiding a UI freeze)
+    // or corrupt the screen (avoiding the silent no-redirect fallback below).
+    let _guard = match CAPTURE_LOCK.try_lock() {
+        Ok(guard) => guard,
+        Err(TryLockError::WouldBlock) => {
+            const BUSY: &str = "(another command is still running — please wait and retry)";
+            return CapturedOutput {
+                text: Text::raw(BUSY),
+                raw: BUSY.to_string(),
+            };
+        }
+        Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+    };
+
     let mut stdout_capture = match gag::BufferRedirect::stdout() {
         Ok(c) => c,
         Err(_) => {

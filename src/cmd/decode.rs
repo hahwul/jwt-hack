@@ -1,28 +1,27 @@
 use anyhow::Result;
 use colored::Colorize;
 use serde_json::Value;
-use std::time::SystemTime;
 
 use crate::jwt;
 use crate::utils;
 
-/// Helper function to format Unix timestamp to human-readable format
-fn format_unix_timestamp(seconds: u64) -> String {
-    let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(seconds);
-    chrono::DateTime::<chrono::Utc>::from(time)
-        .format("%Y-%m-%d %H:%M:%S UTC")
-        .to_string()
+/// Helper function to format a Unix timestamp to a human-readable string.
+///
+/// Returns `None` for values outside chrono's representable range instead of
+/// panicking, so that attacker-controlled `exp`/`iat` claims cannot crash decode.
+fn format_unix_timestamp(seconds: i64) -> Option<String> {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(seconds, 0)
+        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
 }
 
 /// Annotate issued-at claim with human-readable timestamp in the JSON output
 fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(iat) = claims.get("iat") {
-        if let Some(iat_val) = iat.as_f64() {
-            let iat_seconds = iat_val as u64;
-            let formatted_time = format_unix_timestamp(iat_seconds);
-
-            if let Some(obj) = claims_map.as_object_mut() {
-                obj.insert("iat_time".to_string(), Value::String(formatted_time));
+        if let Some(iat_seconds) = iat.as_i64() {
+            if let Some(formatted_time) = format_unix_timestamp(iat_seconds) {
+                if let Some(obj) = claims_map.as_object_mut() {
+                    obj.insert("iat_time".to_string(), Value::String(formatted_time));
+                }
             }
         }
     }
@@ -31,20 +30,18 @@ fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
 /// Annotate expiration claim with human-readable timestamp and status in the JSON output
 fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
     if let Some(exp) = claims.get("exp") {
-        if let Some(exp_val) = exp.as_f64() {
-            let exp_seconds = exp_val as u64;
-            let exp_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(exp_seconds);
-            let formatted_time = format_unix_timestamp(exp_seconds);
+        if let Some(exp_seconds) = exp.as_i64() {
+            if let Some(formatted_time) = format_unix_timestamp(exp_seconds) {
+                let now = chrono::Utc::now().timestamp();
+                let is_expired = now > exp_seconds;
 
-            let now = SystemTime::now();
-            let is_expired = now > exp_time;
-
-            if let Some(obj) = claims_map.as_object_mut() {
-                obj.insert("exp_time".to_string(), Value::String(formatted_time));
-                obj.insert(
-                    "exp_status".to_string(),
-                    Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
-                );
+                if let Some(obj) = claims_map.as_object_mut() {
+                    obj.insert("exp_time".to_string(), Value::String(formatted_time));
+                    obj.insert(
+                        "exp_status".to_string(),
+                        Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
+                    );
+                }
             }
         }
     }
@@ -232,7 +229,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use serde_json::json;
-    use std::time::{Duration, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_execute_valid_token() {
@@ -332,6 +329,24 @@ mod tests {
             result.is_err(),
             "decode_token should fail for invalid token format"
         );
+    }
+
+    #[test]
+    fn test_decode_token_with_overflowing_exp_does_not_panic() {
+        // Attacker-controlled out-of-range exp/iat claims must not crash decode.
+        for value in [
+            json!(8_300_000_000_000_000i64), // out of chrono range
+            json!(i64::MAX),
+            json!(1e30),  // saturates a naive float->u64 cast
+            json!(-1i64), // negative timestamp
+        ] {
+            let claims = json!({ "sub": "u", "exp": value, "iat": value });
+            let token = jwt::encode(&claims, "", "HS256").expect("token");
+            let result = std::panic::catch_unwind(|| {
+                let _ = execute_json(&token);
+            });
+            assert!(result.is_ok(), "decode panicked on exp/iat = {value}");
+        }
     }
 
     #[test]

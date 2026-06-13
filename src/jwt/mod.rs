@@ -170,11 +170,24 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
     let mut header = Header::new(algorithm);
     if let Some(params) = &options.header_params {
         for (key, value) in params {
-            // Add custom headers as additional claims
+            // Map recognized header fields onto the typed `Header`, and serialize any
+            // other custom parameter through the flattened `extras` map so it is
+            // actually written into the encoded token. Previously every header except
+            // `typ`/`cty` was silently dropped on this (signed, non-compressed) path,
+            // which made `--header kid=...` a no-op and broke targeted-field cracking.
             match *key {
                 "typ" => header.typ = Some(value.to_string()),
                 "cty" => header.cty = Some(value.to_string()),
-                _ => { /* Other headers will be handled by jsonwebtoken */ }
+                "kid" => header.kid = Some(value.to_string()),
+                "jku" => header.jku = Some(value.to_string()),
+                "x5u" => header.x5u = Some(value.to_string()),
+                "x5t" => header.x5t = Some(value.to_string()),
+                // `alg` is determined by the algorithm option; never override it here
+                // (doing so would emit a duplicate "alg" key in the header JSON).
+                "alg" => {}
+                other => {
+                    header.extras.insert(other.to_string(), value.to_string());
+                }
             }
         }
     }
@@ -532,7 +545,7 @@ impl Hs256Verifier {
     /// Return true if `secret` produces the token's signature.
     pub fn verify(&self, secret: &[u8]) -> bool {
         let mut calculated = hmac_sha256::HMAC::mac(&self.signing_input, secret);
-        let matches = calculated.as_slice() == self.expected_sig.as_slice();
+        let matches = crate::utils::constant_time_eq(calculated.as_slice(), &self.expected_sig);
         calculated.zeroize();
         matches
     }
@@ -579,6 +592,13 @@ fn create_validation(algorithm: Algorithm, options: &VerifyOptions) -> Validatio
     validation.validate_exp = options.validate_exp;
     validation.validate_nbf = options.validate_nbf;
     validation.leeway = options.leeway;
+    // jsonwebtoken's defaults require an `exp` claim to be present and validate the
+    // `aud` claim. jwt-hack verifies the SIGNATURE (and optionally exp/nbf) of
+    // arbitrary tokens, so it must not reject a validly-signed token merely because
+    // it lacks `exp` or carries an `aud` we were never asked to check. Without this,
+    // HS384/HS512/RSA/EC tokens that omit `exp` were silently reported as invalid.
+    validation.required_spec_claims.clear();
+    validation.validate_aud = false;
     validation
 }
 
@@ -645,7 +665,8 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                     // Manual signature check
                     let mut calculated_sig =
                         hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes());
-                    let sig_matches = signature == calculated_sig.as_slice();
+                    let sig_matches =
+                        crate::utils::constant_time_eq(&signature, calculated_sig.as_slice());
                     calculated_sig.zeroize();
                     if !sig_matches {
                         return Ok(false); // Signature mismatch
@@ -2154,6 +2175,46 @@ mod tests {
             msg.contains("Invalid IV length"),
             "unexpected error message: {msg}"
         );
+    }
+
+    #[test]
+    fn test_verify_hs384_hs512_round_trip_without_exp() {
+        // A validly-signed token that omits `exp` must verify true for every HMAC
+        // algorithm — jsonwebtoken's default required-claims must not reject it.
+        for alg in ["HS256", "HS384", "HS512"] {
+            let secret = "round_trip_secret";
+            let claims = json!({ "sub": "u" }); // no exp claim on purpose
+            let options = EncodeOptions {
+                algorithm: alg,
+                key_data: KeyData::Secret(secret),
+                header_params: None,
+                compress_payload: false,
+            };
+            let token = encode_with_options(&claims, &options)
+                .unwrap_or_else(|e| panic!("encode {alg} failed: {e}"));
+
+            let verify_options = VerifyOptions {
+                key_data: VerifyKeyData::Secret(secret),
+                validate_exp: false,
+                validate_nbf: false,
+                leeway: 0,
+            };
+            let result = verify_with_options(&token, &verify_options);
+            assert!(
+                matches!(result, Ok(true)),
+                "{alg} token without exp should verify true, got {result:?}"
+            );
+
+            // Wrong secret must still fail.
+            let wrong = VerifyOptions {
+                key_data: VerifyKeyData::Secret("nope"),
+                ..Default::default()
+            };
+            assert!(
+                matches!(verify_with_options(&token, &wrong), Ok(false)),
+                "{alg} token must not verify with the wrong secret"
+            );
+        }
     }
 
     #[test]

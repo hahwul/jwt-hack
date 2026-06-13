@@ -59,9 +59,9 @@ pub enum Commands {
         #[arg(long)]
         private_key: Option<PathBuf>,
 
-        /// Algorithm to use
-        #[arg(long, default_value = "HS256")]
-        algorithm: String,
+        /// Algorithm to use (falls back to config `default_algorithm`, then HS256)
+        #[arg(long)]
+        algorithm: Option<String>,
 
         /// Use 'none' algorithm (no signature)
         #[arg(long)]
@@ -291,8 +291,9 @@ pub enum JwksAction {
 pub fn execute() {
     let cli = Cli::parse();
 
-    // Load configuration
-    let _config = match crate::config::Config::load(cli.config.as_deref()) {
+    // Load configuration. Its `default_*` values are applied below as fallbacks when
+    // the corresponding CLI flag is not provided (CLI flags always take precedence).
+    let config = match crate::config::Config::load(cli.config.as_deref()) {
         Ok(config) => config,
         Err(e) => {
             error!("Failed to load configuration: {}", e);
@@ -312,16 +313,22 @@ pub fn execute() {
                 header,
                 compress,
                 jwe,
-            }) => encode::execute_json(
-                json,
-                secret.as_deref(),
-                private_key.as_ref(),
-                algorithm,
-                *no_signature,
-                header,
-                *compress,
-                *jwe,
-            ),
+            }) => {
+                let algorithm = algorithm
+                    .as_deref()
+                    .or(config.default_algorithm.as_deref())
+                    .unwrap_or("HS256");
+                encode::execute_json(
+                    json,
+                    secret.as_deref().or(config.default_secret.as_deref()),
+                    private_key.as_ref().or(config.default_private_key.as_ref()),
+                    algorithm,
+                    *no_signature,
+                    header,
+                    *compress,
+                    *jwe,
+                )
+            }
             Some(Commands::Verify {
                 token,
                 secret,
@@ -329,8 +336,8 @@ pub fn execute() {
                 validate_exp,
             }) => verify::execute_json(
                 token,
-                secret.as_deref(),
-                private_key.as_ref(),
+                secret.as_deref().or(config.default_secret.as_deref()),
+                private_key.as_ref().or(config.default_private_key.as_ref()),
                 *validate_exp,
             ),
             Some(Commands::Crack {
@@ -346,20 +353,27 @@ pub fn execute() {
                 verbose,
                 target_field,
                 pattern,
-            }) => crack::execute_json(
-                token,
-                mode,
-                wordlist,
-                chars,
-                preset,
-                *concurrency,
-                *min,
-                *max,
-                *power,
-                *verbose,
-                target_field,
-                pattern,
-            ),
+            }) => {
+                let wordlist = if wordlist.is_some() {
+                    wordlist
+                } else {
+                    &config.default_wordlist
+                };
+                crack::execute_json(
+                    token,
+                    mode,
+                    wordlist,
+                    chars,
+                    preset,
+                    *concurrency,
+                    *min,
+                    *max,
+                    *power,
+                    *verbose,
+                    target_field,
+                    pattern,
+                )
+            }
             Some(Commands::Payload {
                 token,
                 jwk_trust,
@@ -385,7 +399,7 @@ pub fn execute() {
                 report.as_ref(),
                 *skip_crack,
                 *skip_payloads,
-                wordlist.as_ref(),
+                wordlist.as_ref().or(config.default_wordlist.as_ref()),
                 *max_crack_attempts,
             ),
             Some(Commands::Jwks { action }) => jwks::execute_json(action),
@@ -422,8 +436,16 @@ pub fn execute() {
                     api_key,
                 }) = &cli.command
                 {
-                    let runtime =
-                        tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+                    let runtime = match tokio::runtime::Runtime::new() {
+                        Ok(rt) => rt,
+                        Err(e) => {
+                            let err_value = crate::output::ErrorResponse::new(format!(
+                                "Failed to create tokio runtime: {e}"
+                            ));
+                            let _ = crate::output::print_json(&err_value);
+                            std::process::exit(1);
+                        }
+                    };
                     if let Some(key) = api_key.as_deref() {
                         runtime.block_on(server::execute_with_api_key(host, *port, key));
                     } else {
@@ -431,13 +453,9 @@ pub fn execute() {
                     }
                 }
 
-                if let Some(Commands::Mcp) = &cli.command {
-                    mcp::execute();
-                }
-
-                if let Some(Commands::Shell) = &cli.command {
-                    shell::execute();
-                }
+                // Note: Mcp/Shell are intentionally not launched here — they return an
+                // error above because `--json` is unsupported for them, so control never
+                // reaches this Ok arm for those subcommands.
             }
             Err(e) => {
                 let err_value = crate::output::ErrorResponse::new(e.to_string());
@@ -463,10 +481,14 @@ pub fn execute() {
             compress,
             jwe,
         }) => {
+            let algorithm = algorithm
+                .as_deref()
+                .or(config.default_algorithm.as_deref())
+                .unwrap_or("HS256");
             encode::execute(
                 json,
-                secret.as_deref(),
-                private_key.as_ref(),
+                secret.as_deref().or(config.default_secret.as_deref()),
+                private_key.as_ref().or(config.default_private_key.as_ref()),
                 algorithm,
                 *no_signature,
                 header,
@@ -482,8 +504,8 @@ pub fn execute() {
         }) => {
             verify::execute(
                 token,
-                secret.as_deref(),
-                private_key.as_ref(),
+                secret.as_deref().or(config.default_secret.as_deref()),
+                private_key.as_ref().or(config.default_private_key.as_ref()),
                 *validate_exp,
             );
         }
@@ -501,6 +523,11 @@ pub fn execute() {
             target_field,
             pattern,
         }) => {
+            let wordlist = if wordlist.is_some() {
+                wordlist
+            } else {
+                &config.default_wordlist
+            };
             crack::execute(
                 token,
                 mode,
@@ -544,7 +571,7 @@ pub fn execute() {
                 report.as_ref(),
                 *skip_crack,
                 *skip_payloads,
-                wordlist.as_ref(),
+                wordlist.as_ref().or(config.default_wordlist.as_ref()),
                 *max_crack_attempts,
             );
         }
@@ -596,7 +623,13 @@ pub fn execute() {
             port,
             api_key,
         }) => {
-            let runtime = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+            let runtime = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(e) => {
+                    error!("Failed to create tokio runtime: {e}");
+                    std::process::exit(1);
+                }
+            };
             if let Some(key) = api_key.as_deref() {
                 runtime.block_on(server::execute_with_api_key(host, *port, key));
             } else {

@@ -98,19 +98,62 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     format!("{hours}h {remain_minutes}m {remain_seconds}s")
 }
 
+/// Compares two byte slices in constant time relative to their content.
+///
+/// Returns `false` immediately on a length mismatch (lengths are not secret), but
+/// for equal-length inputs the comparison does not short-circuit on the first
+/// differing byte, avoiding a timing side channel. Used for HMAC signature and
+/// API-key comparisons.
+pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Abbreviates a string to its first `head` and last `tail` characters joined by an
+/// ellipsis. Operates on characters, never raw byte offsets, so multibyte input
+/// (e.g. a pasted token containing non-ASCII bytes) cannot trigger a
+/// non-char-boundary slice panic. Strings short enough to show in full are returned
+/// unchanged.
+pub fn abbreviate_middle(s: &str, head: usize, tail: usize) -> String {
+    if s.chars().count() <= head + tail {
+        return s.to_string();
+    }
+    let prefix: String = s.chars().take(head).collect();
+    let suffix: String = {
+        let mut t: Vec<char> = s.chars().rev().take(tail).collect();
+        t.reverse();
+        t.into_iter().collect()
+    };
+    format!("{prefix}...{suffix}")
+}
+
 /// Formats a base64 encoded string for display with preview (shows first/last chars with length)
+///
+/// Operates on characters rather than raw byte offsets so that JWE/JWK components,
+/// which are not guaranteed to be ASCII (they come unvalidated from attacker-controlled
+/// tokens and remote JWKS endpoints), never trigger a non-char-boundary slice panic.
 pub fn format_base64_preview(base64_str: &str) -> String {
     const PREVIEW_LEN: usize = 8;
 
-    if base64_str.len() <= PREVIEW_LEN * 2 {
+    let char_count = base64_str.chars().count();
+    if char_count <= PREVIEW_LEN * 2 {
         return base64_str.to_string();
     }
 
-    let start = &base64_str[..PREVIEW_LEN];
-    let end = &base64_str[base64_str.len() - PREVIEW_LEN..];
-    let length = base64_str.len();
+    let start: String = base64_str.chars().take(PREVIEW_LEN).collect();
+    let end: String = {
+        let mut tail: Vec<char> = base64_str.chars().rev().take(PREVIEW_LEN).collect();
+        tail.reverse();
+        tail.into_iter().collect()
+    };
 
-    format!("{}...{} ({} chars)", start, end, length)
+    format!("{}...{} ({} chars)", start, end, char_count)
 }
 
 #[cfg(test)]
@@ -225,5 +268,23 @@ mod tests {
         let input = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let expected = "ABCDEFGH...456789+/ (64 chars)";
         assert_eq!(format_base64_preview(input), expected);
+    }
+
+    #[test]
+    fn test_constant_time_eq() {
+        assert!(constant_time_eq(b"secret", b"secret"));
+        assert!(!constant_time_eq(b"secret", b"secres"));
+        assert!(!constant_time_eq(b"secret", b"secre"));
+        assert!(!constant_time_eq(b"", b"x"));
+        assert!(constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn test_format_base64_preview_multibyte_no_panic() {
+        // Non-ASCII input must not panic on a non-char-boundary byte slice.
+        let input = "abcdefgé".repeat(4); // multibyte chars straddle the 8-byte preview offsets
+        let preview = format_base64_preview(&input);
+        assert!(preview.contains("..."));
+        assert!(preview.contains("chars)"));
     }
 }

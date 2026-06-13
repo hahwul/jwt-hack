@@ -198,8 +198,13 @@ pub fn execute_fetch(url: &str) {
                     "RSA" => {
                         if let Some(n) = &key.n {
                             let n_str: &str = n.as_str();
-                            let n_display = if n_str.len() > 40 {
-                                format!("{}...({} chars)", &n_str[..40], n_str.len())
+                            // The modulus comes verbatim from a remote/attacker-controlled
+                            // JWKS and is not guaranteed to be ASCII; truncate by characters
+                            // so a multibyte boundary at byte 40 cannot panic.
+                            let char_count = n_str.chars().count();
+                            let n_display = if char_count > 40 {
+                                let head: String = n_str.chars().take(40).collect();
+                                format!("{}...({} chars)", head, char_count)
                             } else {
                                 n_str.to_string()
                             };

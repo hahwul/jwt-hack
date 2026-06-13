@@ -257,6 +257,29 @@ async fn handle_encode(Json(req): Json<EncodeRequest>) -> Result<Json<EncodeResp
 
 /// Verify endpoint handler
 async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResponse>, ApiError> {
+    // A 'none' token carries no signature. If the caller supplied a (non-empty)
+    // secret, reporting it as valid would silently ignore that secret — the classic
+    // alg:none bypass — so report it as invalid instead.
+    if req.secret.as_deref().map(|s| !s.is_empty()).unwrap_or(false) {
+        if let Ok(decoded) = jwt::decode(&req.token) {
+            let is_none = decoded
+                .header
+                .get("alg")
+                .and_then(|v| v.as_str())
+                .map(|a| a.eq_ignore_ascii_case("none"))
+                .unwrap_or(false);
+            if is_none {
+                return Ok(Json(VerifyResponse {
+                    success: true,
+                    valid: Some(false),
+                    error: Some(
+                        "Token uses 'none' algorithm and carries no signature; cannot be verified against the provided secret".to_string(),
+                    ),
+                }));
+            }
+        }
+    }
+
     let options = jwt::VerifyOptions {
         key_data: jwt::VerifyKeyData::Secret(req.secret.as_deref().unwrap_or("")),
         validate_exp: req.validate_exp,
@@ -278,13 +301,32 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
     }
 }
 
+/// Maximum wordlist size (bytes) the server will read for a dictionary attack.
+/// Bounds memory/time and prevents pointing the endpoint at huge or special files.
+const MAX_WORDLIST_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
+
 /// Helper function to crack JWT using dictionary attack
 fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
     use std::fs::File;
-    use std::io::{BufRead, BufReader};
+    use std::io::{BufRead, BufReader, Read};
+
+    // The wordlist path arrives from the request body in server mode. Reject
+    // non-regular files (directories, devices like /dev/zero, FIFOs) and oversized
+    // files so a client cannot turn the endpoint into a blocking/DoS file reader.
+    let metadata = std::fs::metadata(wordlist_path)?;
+    if !metadata.is_file() {
+        anyhow::bail!("wordlist path is not a regular file");
+    }
+    if metadata.len() > MAX_WORDLIST_BYTES {
+        anyhow::bail!(
+            "wordlist file is too large ({} bytes, limit {} bytes)",
+            metadata.len(),
+            MAX_WORDLIST_BYTES
+        );
+    }
 
     let file = File::open(wordlist_path)?;
-    let reader = BufReader::new(file);
+    let reader = BufReader::new(file).take(MAX_WORDLIST_BYTES);
 
     for word in reader.lines().map_while(Result::ok) {
         if let Ok(true) = jwt::verify(token, &word) {
@@ -320,6 +362,27 @@ fn crack_brute(
         );
     }
 
+    // Bound the total keyspace a single HTTP request can enumerate. The per-length
+    // cap above does NOT bound runtime (e.g. a 62-char charset at length 8 is ~2e14
+    // candidates), which would pin a worker for an unbounded time. Reject requests
+    // whose keyspace exceeds a ceiling that still responds promptly.
+    const MAX_BRUTE_CANDIDATES: u128 = 5_000_000;
+    let charset_size = chars.chars().count() as u128;
+    let mut total: u128 = 0;
+    for length in min_length..=max_length {
+        total = total.saturating_add(charset_size.saturating_pow(length as u32));
+        if total > MAX_BRUTE_CANDIDATES {
+            anyhow::bail!(
+                "requested brute-force keyspace is too large for the server endpoint \
+                 (charset {} chars, lengths {}-{} exceed the {} candidate ceiling)",
+                charset_size,
+                min_length,
+                max_length,
+                MAX_BRUTE_CANDIDATES
+            );
+        }
+    }
+
     // Stream combinations chunk by chunk instead of loading all into memory
     const CHUNK_SIZE: usize = 10000;
     for length in min_length..=max_length {
@@ -337,46 +400,44 @@ fn crack_brute(
 
 /// Crack endpoint handler
 async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackResponse>, ApiError> {
-    let mode = req.mode.to_lowercase();
-
-    // For API, we need to handle cracking without blocking too long
-    let result = match mode.as_str() {
-        "dict" => {
-            if let Some(wordlist_path) = req.wordlist {
-                let path = PathBuf::from(wordlist_path);
-                crack_dict(&req.token, &path)
-            } else {
-                return Ok(Json(CrackResponse {
-                    success: false,
-                    secret: None,
-                    error: Some("Wordlist path required for dictionary attack".to_string()),
-                }));
+    // Run the synchronous, CPU/IO-bound crack on a blocking thread so it cannot pin
+    // a Tokio worker and starve /health and every other endpoint (request DoS).
+    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<String>> {
+        let mode = req.mode.to_lowercase();
+        match mode.as_str() {
+            "dict" => {
+                let wordlist_path = req.wordlist.ok_or_else(|| {
+                    anyhow::anyhow!("Wordlist path required for dictionary attack")
+                })?;
+                crack_dict(&req.token, &PathBuf::from(wordlist_path))
             }
+            "brute" => {
+                let charset: String = if let Some(preset) = &req.preset {
+                    match preset.as_str() {
+                        "az" => "abcdefghijklmnopqrstuvwxyz".to_string(),
+                        "AZ" => "ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string(),
+                        "aZ" => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string(),
+                        "19" => "0123456789".to_string(),
+                        "aZ19" => {
+                            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                                .to_string()
+                        }
+                        "ascii" => " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".to_string(),
+                        _ => req.chars.clone(),
+                    }
+                } else {
+                    req.chars.clone()
+                };
+                crack_brute(&req.token, &charset, req.min, req.max)
+            }
+            other => anyhow::bail!("Invalid mode: {}. Use 'dict' or 'brute'", other),
         }
-        "brute" => {
-            let charset = if let Some(preset) = &req.preset {
-                match preset.as_str() {
-                    "az" => "abcdefghijklmnopqrstuvwxyz",
-                    "AZ" => "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                    "aZ" => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                    "19" => "0123456789",
-                    "aZ19" => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-                    "ascii" => " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
-                    _ => &req.chars,
-                }
-            } else {
-                &req.chars
-            };
-            crack_brute(&req.token, charset, req.min, req.max)
-        }
-        _ => {
-            return Ok(Json(CrackResponse {
-                success: false,
-                secret: None,
-                error: Some(format!("Invalid mode: {}. Use 'dict' or 'brute'", mode)),
-            }));
-        }
-    };
+    })
+    .await
+    .map_err(|e| ApiError {
+        status: StatusCode::INTERNAL_SERVER_ERROR,
+        message: format!("crack task failed: {e}"),
+    })?;
 
     match result {
         Ok(Some(secret)) => Ok(Json(CrackResponse {
@@ -466,11 +527,19 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
         }
     }
 
-    // Try to crack if not skipped
+    // Try to crack if not skipped. Offload to a blocking thread so the dictionary
+    // read/verify loop does not block the async runtime.
     if !req.skip_crack {
         if let Some(wordlist_path) = &req.wordlist {
+            let token = req.token.clone();
             let path = PathBuf::from(wordlist_path);
-            if let Ok(Some(secret)) = crack_dict(&req.token, &path) {
+            let crack_result = tokio::task::spawn_blocking(move || crack_dict(&token, &path))
+                .await
+                .map_err(|e| ApiError {
+                    status: StatusCode::INTERNAL_SERVER_ERROR,
+                    message: format!("scan crack task failed: {e}"),
+                })?;
+            if let Ok(Some(secret)) = crack_result {
                 vulnerabilities.push(format!("Weak secret found: {}", secret));
                 found_secret = Some(secret);
             }
@@ -501,7 +570,12 @@ async fn api_key_middleware(
 ) -> Response {
     if let Some(expected) = expected_key.as_deref() {
         let provided = req.headers().get("X-API-KEY").and_then(|v| v.to_str().ok());
-        if provided != Some(expected) {
+        // Constant-time comparison to avoid leaking how many leading bytes match
+        // via response timing (a byte-by-byte key-recovery side channel).
+        let authorized = provided
+            .map(|p| crate::utils::constant_time_eq(p.as_bytes(), expected.as_bytes()))
+            .unwrap_or(false);
+        if !authorized {
             return (
                 StatusCode::UNAUTHORIZED,
                 axum::Json(serde_json::json!({
