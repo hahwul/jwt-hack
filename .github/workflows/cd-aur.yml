@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Manual dispatch reads the PKGBUILD from the default branch (latest
           # recipe); the package source itself is fetched from the v$pkgver tag
