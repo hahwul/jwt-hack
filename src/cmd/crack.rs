@@ -1,5 +1,5 @@
-use colored::Colorize;
-use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
+use colored::{Color, Colorize};
+use indicatif::{HumanDuration, MultiProgress, ProgressBar};
 use log::{error, info};
 use rayon::prelude::*;
 use serde::Serialize;
@@ -14,6 +14,7 @@ use zeroize::Zeroize;
 
 use crate::crack;
 use crate::jwt;
+use crate::printing::theme;
 use crate::utils;
 
 /// Maps preset names to their corresponding character sets
@@ -273,13 +274,7 @@ fn create_crack_progress_bar(
     if verbose {
         return None;
     }
-    let progress = multi.add(ProgressBar::new(total));
-    progress.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.red} [{elapsed_precise}] Cracking.. [{bar:40.cyan/blue}] {pos}/{len} ({percent}%) {msg}")
-            .expect("valid progress bar template")
-            .progress_chars("#>-")
-    );
+    let progress = multi.add(theme::progress_bar(total, "Cracking"));
     Some(progress)
 }
 
@@ -457,16 +452,20 @@ fn report_crack_results(
         };
         let secret_label = if is_jwe { "Key" } else { "Secret" };
 
-        eprintln!("\n  {} {}", "✓".green(), label.bold());
-        println!();
-        println!("  {:<14}{}", secret_label.bold(), secret.bold());
-        println!(
-            "  {:<14}{} ({:.2} keys/sec)",
-            "Time".bold(),
-            HumanDuration(elapsed),
-            rate
+        eprintln!(
+            "\n{}",
+            theme::status_line(theme::G_OK, Color::Green, label.bold())
         );
-        println!("  {:<14}{}", "Token".bold(), utils::format_jwt_token(token));
+        println!();
+        println!("{}", theme::kv(secret_label, secret.bold()));
+        println!(
+            "{}",
+            theme::kv(
+                "Time",
+                format!("{} ({:.2} keys/sec)", HumanDuration(elapsed), rate)
+            )
+        );
+        println!("{}", theme::kv("Token", utils::format_jwt_token(token)));
     } else {
         let label = if is_jwe {
             "Key not found"
@@ -474,12 +473,18 @@ fn report_crack_results(
             "Secret not found"
         };
         eprintln!(
-            "\n  {} {} ({} keys in {}, {:.2} keys/sec)",
-            "✗".red(),
-            label.bold(),
-            attempts_total,
-            HumanDuration(elapsed),
-            rate
+            "\n{}",
+            theme::status_line(
+                theme::G_ERR,
+                Color::Red,
+                format!(
+                    "{} ({} keys in {}, {:.2} keys/sec)",
+                    label.bold(),
+                    attempts_total,
+                    HumanDuration(elapsed),
+                    rate
+                )
+            )
         );
     }
 }
@@ -542,20 +547,9 @@ fn crack_dictionary(
         None
     };
     // Show a spinner while loading/processing batches
-    let loading_pb = if let Some(ref multi) = multi {
-        let pb = multi.add(ProgressBar::new_spinner());
-        pb.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.blue} {msg}")
-                .expect("valid spinner template")
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-        );
-        pb.set_message("Processing wordlist...");
-        pb.enable_steady_tick(Duration::from_millis(100));
-        Some(pb)
-    } else {
-        None
-    };
+    let loading_pb = multi
+        .as_ref()
+        .map(|multi| multi.add(theme::spinner("Processing wordlist...")));
 
     let found = Arc::new(Mutex::new(None::<String>));
     let found_flag = Arc::new(AtomicBool::new(false));
@@ -1017,19 +1011,9 @@ fn crack_target_field(
         let mut bytes_read: u64 = 0;
 
         let loading_pb = if emit_output {
-            let pb = multi.as_ref().map(|m| {
-                let pb = m.add(ProgressBar::new_spinner());
-                pb.set_style(
-                    ProgressStyle::default_spinner()
-                        .template("{spinner:.blue} {msg}")
-                        .expect("valid spinner template")
-                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-                );
-                pb.set_message("Processing wordlist (targeted field)...");
-                pb.enable_steady_tick(Duration::from_millis(100));
-                pb
-            });
-            pb
+            multi
+                .as_ref()
+                .map(|m| m.add(theme::spinner("Processing wordlist (targeted field)...")))
         } else {
             None
         };
@@ -1116,27 +1100,37 @@ fn crack_target_field(
     if emit_output {
         if let Some(value) = found.lock().unwrap_or_else(|e| e.into_inner()).clone() {
             eprintln!(
-                "\n  {} {}",
-                "✓".green(),
-                "Matching field value found".bold()
+                "\n{}",
+                theme::status_line(
+                    theme::G_OK,
+                    Color::Green,
+                    "Matching field value found".bold()
+                )
             );
             println!();
-            println!("  {:<14}{}", "Field".bold(), target_field.bold());
-            println!("  {:<14}{}", "Value".bold(), value.bold());
+            println!("{}", theme::kv("Field", target_field.bold()));
+            println!("{}", theme::kv("Value", value.bold()));
             println!(
-                "  {:<14}{} ({:.2} attempts/sec)",
-                "Time".bold(),
-                HumanDuration(elapsed),
-                rate
+                "{}",
+                theme::kv(
+                    "Time",
+                    format!("{} ({:.2} attempts/sec)", HumanDuration(elapsed), rate)
+                )
             );
         } else {
             eprintln!(
-                "\n  {} {} ({} attempts in {}, {:.2} attempts/sec)",
-                "✗".red(),
-                "No matching field value found".bold(),
-                attempts_total,
-                HumanDuration(elapsed),
-                rate
+                "\n{}",
+                theme::status_line(
+                    theme::G_ERR,
+                    Color::Red,
+                    format!(
+                        "{} ({} attempts in {}, {:.2} attempts/sec)",
+                        "No matching field value found".bold(),
+                        attempts_total,
+                        HumanDuration(elapsed),
+                        rate
+                    )
+                )
             );
         }
     }

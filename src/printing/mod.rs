@@ -1,3 +1,4 @@
+pub mod theme;
 pub mod version;
 
 use colored::Colorize;
@@ -16,28 +17,31 @@ impl log::Log for PrettyLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
-            let level_str = match record.level() {
-                Level::Error => format!("{}", "✗".red()),
-                Level::Warn => format!("{}", "⚠".yellow()),
-                Level::Info => format!("{}", "▸".cyan()),
-                Level::Debug => format!("{}", "●".dimmed()),
-                Level::Trace => format!("{}", "○".dimmed()),
+            // Dim, second-precision timestamp keeps the line scannable without the
+            // noisy `[..] [..]` brackets of the old format.
+            let timestamp = chrono::Local::now().format("%H:%M:%S");
+            let glyph = match record.level() {
+                Level::Error => theme::G_ERR.red(),
+                Level::Warn => theme::G_WARN.yellow(),
+                Level::Info => theme::G_INFO.cyan(),
+                Level::Debug => theme::G_DEBUG.dimmed(),
+                Level::Trace => theme::G_TRACE.dimmed(),
             };
 
+            // Only escalated levels tint the message body; info/trace stay plain
+            // so routine status output reads calmly.
             let message = match record.level() {
-                Level::Error => format!("{}", record.args().to_string().red()),
-                Level::Warn => format!("{}", record.args().to_string().yellow()),
-                Level::Info => format!("{}", record.args()),
-                Level::Debug => format!("{}", record.args().to_string().dimmed()),
-                Level::Trace => format!("{}", record.args()),
+                Level::Error => record.args().to_string().red(),
+                Level::Warn => record.args().to_string().yellow(),
+                Level::Debug => record.args().to_string().dimmed(),
+                Level::Info | Level::Trace => record.args().to_string().normal(),
             };
 
             let _ = writeln!(
                 std::io::stderr(),
-                "[{}] [{}] {}",
+                "{}  {} {}",
                 timestamp.to_string().dimmed(),
-                level_str,
+                glyph,
                 message
             );
         }
@@ -63,15 +67,16 @@ pub fn banner() {
    \/_____/   \/_/   \/_/     \/_/      \/_/\/_/   \/_/\/_/   \/_____/   \/_/\/_/
 "#
         .cyan()
+        .bold()
     );
+    // Single, dot-separated identity line keeps the metadata compact and modern.
     eprintln!(
-        "{}{}{}",
-        "                JSON Web Token Hack Toolkit - ".dimmed(),
-        VERSION.green(),
-        " by @hahwul".dimmed()
+        "   {}  {}  {}  {}  {}",
+        "JSON Web Token Hack Toolkit".dimmed(),
+        "·".dimmed(),
+        VERSION.green().bold(),
+        "·".dimmed(),
+        "@hahwul".cyan()
     );
-    eprintln!(
-        "{}\n",
-        "                https://github.com/hahwul/jwt-hack".dimmed()
-    );
+    eprintln!("   {}\n", "https://github.com/hahwul/jwt-hack".dimmed());
 }

@@ -1,32 +1,40 @@
-use colored::Colorize;
+use colored::{Color, Colorize};
 use std::fmt::Display;
+
+use crate::printing::theme;
 
 pub mod compression;
 
 /// Displays a success message with a green checkmark prefix
 pub fn log_success<T: Display>(message: T) {
-    eprintln!("{} {}", "✓".green(), message);
+    eprintln!("{}", theme::status_line(theme::G_OK, Color::Green, message));
 }
 
 /// Displays an information message with a cyan arrow prefix
 pub fn log_info<T: Display>(message: T) {
-    eprintln!("{} {}", "▸".cyan(), message);
+    eprintln!(
+        "{}",
+        theme::status_line(theme::G_INFO, Color::Cyan, message)
+    );
 }
 
 /// Displays a warning message with a yellow warning symbol prefix
 pub fn log_warning<T: Display>(message: T) {
-    eprintln!("{} {}", "⚠".yellow(), message);
+    eprintln!(
+        "{}",
+        theme::status_line(theme::G_WARN, Color::Yellow, message)
+    );
 }
 
 /// Displays an error message with a red cross prefix
 pub fn log_error<T: Display>(message: T) {
-    eprintln!("{} {}", "✗".red(), message);
+    eprintln!("{}", theme::status_line(theme::G_ERR, Color::Red, message));
 }
 
 /// Displays a debug message with a dimmed dot prefix for development purposes
 #[allow(dead_code)]
 pub fn log_debug<T: Display>(message: T) {
-    eprintln!("{} {}", "●".dimmed(), message);
+    eprintln!("{} {}", theme::G_DEBUG.dimmed(), message);
 }
 
 /// Returns a value formatted with color based on success status (green for success, red for failure)
@@ -57,23 +65,17 @@ pub fn format_jwt_token(token: &str) -> String {
 }
 
 /// Creates an animated spinner with a custom color to indicate ongoing operations
-pub fn start_progress_with_color(message: &str, color: &str) -> indicatif::ProgressBar {
-    let pb = indicatif::ProgressBar::new_spinner();
-    let template = format!("{{spinner:.{color}}} {{msg}}");
-    pb.set_style(
-        indicatif::ProgressStyle::default_spinner()
-            .template(&template)
-            .expect("valid spinner template")
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
-    pb.set_message(message.to_string());
-    pb.enable_steady_tick(std::time::Duration::from_millis(100));
-    pb
+///
+/// Retained for API compatibility; the color argument is accepted but the shared
+/// theme spinner uses the unified cyan accent so spinners look identical
+/// everywhere.
+pub fn start_progress_with_color(message: &str, _color: &str) -> indicatif::ProgressBar {
+    theme::spinner(message)
 }
 
 /// Creates an animated spinner to indicate ongoing operations with the specified message
 pub fn start_progress(message: &str) -> indicatif::ProgressBar {
-    start_progress_with_color(message, "blue")
+    theme::spinner(message)
 }
 
 /// Converts a duration into human-readable format (hours, minutes, seconds)

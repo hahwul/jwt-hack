@@ -1,16 +1,17 @@
-use crate::printing::VERSION;
-use colored::Colorize;
+use crate::printing::{theme, VERSION};
 use serde_json::Value;
 
 /// Displays version information and other project details
 pub fn execute() {
-    println!("  {:<14}{}", "Version".dimmed(), VERSION);
-    println!("  {:<14}@hahwul", "Author".dimmed());
+    println!("{}", theme::section_line("jwt-hack"));
+    println!();
+    println!("{}", theme::kv("Version", VERSION));
+    println!("{}", theme::kv("Author", "@hahwul"));
     println!(
-        "  {:<14}https://github.com/hahwul/jwt-hack",
-        "Repository".dimmed()
+        "{}",
+        theme::kv("Repository", "https://github.com/hahwul/jwt-hack")
     );
-    println!("  {:<14}MIT", "License".dimmed());
+    println!("{}", theme::kv("License", "MIT"));
 }
 
 pub fn execute_json() -> anyhow::Result<Value> {
