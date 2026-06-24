@@ -2,6 +2,7 @@ use colored::Colorize;
 use serde_json::Value;
 use std::path::PathBuf;
 
+use crate::printing::theme;
 use crate::utils;
 use jwt_hack::jwks;
 
@@ -176,22 +177,23 @@ pub fn execute_json(action: &super::JwksAction) -> anyhow::Result<Value> {
 pub fn execute_fetch(url: &str) {
     match jwks::fetch_jwks(url) {
         Ok(jwk_set) => {
-            println!("\n  {}", "JWKS Endpoint".bold());
-            println!("  {:<18}{}", "URL".dimmed(), url);
-            println!("  {:<18}{}", "Keys Found".dimmed(), jwk_set.keys.len());
+            println!("{}", theme::section_line("JWKS Endpoint"));
+            println!();
+            println!("{}", theme::kv_line("URL", url, 18));
+            println!("{}", theme::kv_line("Keys Found", jwk_set.keys.len(), 18));
 
             for (i, key) in jwk_set.keys.iter().enumerate() {
-                println!("\n  {} {}", "Key".bold(), format!("#{}", i + 1).bold());
-                println!("  {:<18}{}", "Type (kty)".dimmed(), key.kty);
+                println!("\n{}", theme::subsection_line(&format!("Key #{}", i + 1)));
+                println!("{}", theme::kv_line("Type (kty)", &key.kty, 18));
 
                 if let Some(kid) = &key.kid {
-                    println!("  {:<18}{}", "Key ID (kid)".dimmed(), kid);
+                    println!("{}", theme::kv_line("Key ID (kid)", kid, 18));
                 }
                 if let Some(alg) = &key.alg {
-                    println!("  {:<18}{}", "Algorithm".dimmed(), alg);
+                    println!("{}", theme::kv_line("Algorithm", alg, 18));
                 }
                 if let Some(use_) = &key.key_use {
-                    println!("  {:<18}{}", "Use".dimmed(), use_);
+                    println!("{}", theme::kv_line("Use", use_, 18));
                 }
 
                 match key.kty.as_str() {
@@ -208,47 +210,48 @@ pub fn execute_fetch(url: &str) {
                             } else {
                                 n_str.to_string()
                             };
-                            println!("  {:<18}{}", "Modulus (n)".dimmed(), n_display);
+                            println!("{}", theme::kv_line("Modulus (n)", n_display, 18));
                         }
                         if let Some(e) = &key.e {
-                            println!("  {:<18}{}", "Exponent (e)".dimmed(), e);
+                            println!("{}", theme::kv_line("Exponent (e)", e, 18));
                         }
 
                         // Try to convert to PEM
                         match jwks::jwk_rsa_to_pem(key) {
                             Ok(pem) => {
-                                println!("  {:<18}{}", "PEM".dimmed(), "OK (extractable)".green());
+                                println!(
+                                    "{}",
+                                    theme::kv_line("PEM", "OK (extractable)".green(), 18)
+                                );
                                 println!("\n{}", pem);
                             }
                             Err(e) => {
                                 println!(
-                                    "  {:<18}{}",
-                                    "PEM".dimmed(),
-                                    format!("Error: {}", e).red()
+                                    "{}",
+                                    theme::kv_line("PEM", format!("Error: {}", e).red(), 18)
                                 );
                             }
                         }
                     }
                     "EC" => {
                         if let Some(crv) = &key.crv {
-                            println!("  {:<18}{}", "Curve".dimmed(), crv);
+                            println!("{}", theme::kv_line("Curve", crv, 18));
                         }
                         if let Some(x) = &key.x {
-                            println!("  {:<18}{}", "X".dimmed(), x);
+                            println!("{}", theme::kv_line("X", x, 18));
                         }
                         if let Some(y) = &key.y {
-                            println!("  {:<18}{}", "Y".dimmed(), y);
+                            println!("{}", theme::kv_line("Y", y, 18));
                         }
                     }
                     "oct" => {
                         println!(
-                            "  {:<18}{}",
-                            "Key".dimmed(),
-                            "(symmetric key present)".yellow()
+                            "{}",
+                            theme::kv_line("Key", "(symmetric key present)".yellow(), 18)
                         );
                     }
                     _ => {
-                        println!("  {:<18}(unknown key type)", "Details".dimmed());
+                        println!("{}", theme::kv_line("Details", "(unknown key type)", 18));
                     }
                 }
             }
@@ -283,9 +286,10 @@ pub fn execute_spoof(
 
         match jwks::generate_jwks_injection_payloads(token_str, url, algorithm) {
             Ok(result) => {
-                println!("\n  {}", "JWKS Injection Attack".bold());
-                println!("  {:<18}{}", "Algorithm".dimmed(), algorithm);
-                println!("  {:<18}{}", "Attacker URL".dimmed(), url);
+                println!("{}", theme::section_line("JWKS Injection Attack"));
+                println!();
+                println!("{}", theme::kv_line("Algorithm", algorithm, 18));
+                println!("{}", theme::kv_line("Attacker URL", url, 18));
 
                 // Save JWKS to file if output specified
                 if let Some(output_path) = output {
@@ -303,28 +307,28 @@ pub fn execute_spoof(
                     }
                 }
 
-                println!("\n  {}", "Spoofed JWKS".bold());
+                println!("\n{}", theme::subsection_line("Spoofed JWKS"));
                 println!("{}", result.jwks_json);
 
-                println!("\n  {}", "Private Key".bold());
+                println!("\n{}", theme::subsection_line("Private Key"));
                 println!("{}", result.private_key_pem);
 
-                println!("\n  {}", "Injection Payloads".bold());
+                println!("\n{}", theme::subsection_line("Injection Payloads"));
                 for payload in &result.payloads {
                     println!(
-                        "\n  {}",
-                        format!(
+                        "\n{}",
+                        theme::subsection_line(&format!(
                             "{} ({})",
                             payload.header_type.to_uppercase(),
                             payload.description
-                        )
-                        .bold()
+                        ))
                     );
                     println!("  {}", payload.token);
                 }
 
                 println!(
-                    "\n  {}",
+                    "\n{}{}",
+                    theme::INDENT,
                     "Host the JWKS JSON at the attacker URL and use the injection tokens.".yellow()
                 );
             }
@@ -338,8 +342,9 @@ pub fn execute_spoof(
     // Simple spoof without injection
     match jwks::generate_spoofed_jwks(algorithm, kid, token) {
         Ok(spoofed) => {
-            println!("\n  {}", "Spoofed JWKS".bold());
-            println!("  {:<18}{}", "Algorithm".dimmed(), algorithm);
+            println!("{}", theme::section_line("Spoofed JWKS"));
+            println!();
+            println!("{}", theme::kv_line("Algorithm", algorithm, 18));
 
             // Save JWKS to file if output specified
             if let Some(output_path) = output {
@@ -357,14 +362,14 @@ pub fn execute_spoof(
                 }
             }
 
-            println!("\n  {}", "JWKS (Public Key Set)".bold());
+            println!("\n{}", theme::subsection_line("JWKS (Public Key Set)"));
             println!("{}", spoofed.jwks_json);
 
-            println!("\n  {}", "Private Key (PEM)".bold());
+            println!("\n{}", theme::subsection_line("Private Key (PEM)"));
             println!("{}", spoofed.private_key_pem);
 
             if let Some(signed_token) = &spoofed.signed_token {
-                println!("\n  {}", "Signed Token".bold());
+                println!("\n{}", theme::subsection_line("Signed Token"));
                 println!("  {}", signed_token);
             }
         }
@@ -407,8 +412,9 @@ pub fn execute_verify(token: &str, url: Option<&str>, jwks_file: Option<&PathBuf
         return;
     };
 
-    println!("\n  {}", "JWKS Verification".bold());
-    println!("  {:<18}{}", "Keys".dimmed(), jwk_set.keys.len());
+    println!("{}", theme::section_line("JWKS Verification"));
+    println!();
+    println!("{}", theme::kv_line("Keys", jwk_set.keys.len(), 18));
 
     match jwks::verify_with_jwks(token, &jwk_set) {
         Ok(results) => {
@@ -417,9 +423,9 @@ pub fn execute_verify(token: &str, url: Option<&str>, jwks_file: Option<&PathBuf
             for result in &results {
                 let status = if result.valid {
                     any_valid = true;
-                    "VALID".green().to_string()
+                    theme::badge_width(theme::G_OK, "VALID", colored::Color::Green, 7)
                 } else {
-                    "INVALID".red().to_string()
+                    theme::badge_width(theme::G_ERR, "INVALID", colored::Color::Red, 7)
                 };
 
                 let alg_str = result.alg.as_deref().unwrap_or("(unspecified)").to_string();
@@ -488,8 +494,12 @@ pub fn execute_rotate(token: &str, keys_dir: Option<&PathBuf>, key_files: &[Path
         return;
     }
 
-    println!("\n  {}", "Key Rotation Test".bold());
-    println!("  {:<18}{}", "Keys to Test".dimmed(), all_key_paths.len());
+    println!("{}", theme::section_line("Key Rotation Test"));
+    println!();
+    println!(
+        "{}",
+        theme::kv_line("Keys to Test", all_key_paths.len(), 18)
+    );
 
     match jwks::test_key_rotation(token, &all_key_paths) {
         Ok(results) => {
@@ -498,9 +508,9 @@ pub fn execute_rotate(token: &str, keys_dir: Option<&PathBuf>, key_files: &[Path
             for result in &results {
                 let status = if result.valid {
                     valid_count += 1;
-                    "VALID".green().to_string()
+                    theme::badge_width(theme::G_OK, "VALID", colored::Color::Green, 7)
                 } else {
-                    "INVALID".red().to_string()
+                    theme::badge_width(theme::G_ERR, "INVALID", colored::Color::Red, 7)
                 };
 
                 println!("\n  {}  {}", status, result.key_file.bold());
@@ -510,9 +520,11 @@ pub fn execute_rotate(token: &str, keys_dir: Option<&PathBuf>, key_files: &[Path
                 }
             }
 
-            println!("\n  {}", "Summary".bold());
+            println!("\n{}", theme::section_line("Summary"));
+            println!();
             println!(
-                "  {} of {} keys verified the token",
+                "{}{} of {} keys verified the token",
+                theme::INDENT,
                 valid_count,
                 results.len()
             );

@@ -1,12 +1,12 @@
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
-use colored::Colorize;
 use log::info;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashSet;
 
 use crate::jwt;
+use crate::printing::theme;
 use crate::utils;
 
 /// Generates different JWT attack payloads based on the given token and parameters
@@ -133,7 +133,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("alg_confusion") {
         if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, None) {
             for payload in payloads {
-                println!("\n  {}", "Algorithm Confusion (RS256->HS256)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Algorithm Confusion (RS256->HS256)")
+                );
                 println!("  {payload}");
             }
         }
@@ -143,7 +146,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("kid_sql") {
         if let Ok(payloads) = crate::payload::generate_kid_sql_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "kid SQL Injection".bold());
+                println!("\n{}", theme::subsection_line("kid SQL Injection"));
                 println!("  {payload}");
             }
         }
@@ -153,7 +156,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("x5c") {
         if let Ok(payloads) = crate::payload::generate_x5c_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "x5c Header Injection".bold());
+                println!("\n{}", theme::subsection_line("x5c Header Injection"));
                 println!("  {payload}");
             }
         }
@@ -163,7 +166,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("cty") {
         if let Ok(payloads) = crate::payload::generate_cty_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "cty Header Manipulation".bold());
+                println!("\n{}", theme::subsection_line("cty Header Manipulation"));
                 println!("  {payload}");
             }
         }
@@ -173,7 +176,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("jwk_embed") {
         match crate::payload::generate_jwk_embed_payload(token) {
             Ok(payload) => {
-                println!("\n  {}", "jwk Embedded Header (signed)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("jwk Embedded Header (signed)")
+                );
                 println!("  {payload}");
             }
             Err(e) => {
@@ -186,7 +192,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("kid_traversal") {
         if let Ok(payloads) = crate::payload::generate_kid_traversal_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "kid Path Traversal".bold());
+                println!("\n{}", theme::subsection_line("kid Path Traversal"));
                 println!("  {payload}");
             }
         }
@@ -196,7 +202,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("crit") {
         if let Ok(payloads) = crate::payload::generate_crit_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "crit Header Bypass".bold());
+                println!("\n{}", theme::subsection_line("crit Header Bypass"));
                 println!("  {payload}");
             }
         }
@@ -206,7 +212,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("b64") {
         if let Ok(payloads) = crate::payload::generate_b64_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "b64=false (RFC 7797)".bold());
+                println!("\n{}", theme::subsection_line("b64=false (RFC 7797)"));
                 println!("  {payload}");
             }
         }
@@ -216,7 +222,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("empty_sig") {
         if let Ok(payloads) = crate::payload::generate_empty_sig_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "Empty/Stripped Signature".bold());
+                println!("\n{}", theme::subsection_line("Empty/Stripped Signature"));
                 println!("  {payload}");
             }
         }
@@ -226,7 +232,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("x5c_signed") {
         match crate::payload::generate_x5c_signed_payload(token) {
             Ok(payload) => {
-                println!("\n  {}", "x5c Self-signed Cert (signed)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("x5c Self-signed Cert (signed)")
+                );
                 println!("  {payload}");
             }
             Err(e) => {
@@ -239,7 +248,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("psychic") {
         if let Ok(payloads) = crate::payload::generate_psychic_signature_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "ECDSA Psychic Signature (CVE-2022-21449)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("ECDSA Psychic Signature (CVE-2022-21449)")
+                );
                 println!("  {payload}");
             }
         }
@@ -249,7 +261,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("typ_confusion") {
         if let Ok(payloads) = crate::payload::generate_typ_confusion_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "typ Confusion".bold());
+                println!("\n{}", theme::subsection_line("typ Confusion"));
                 println!("  {payload}");
             }
         }
@@ -259,7 +271,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("alg_edge") {
         if let Ok(payloads) = crate::payload::generate_alg_edge_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "alg Edge Value".bold());
+                println!("\n{}", theme::subsection_line("alg Edge Value"));
                 println!("  {payload}");
             }
         }
@@ -269,7 +281,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("ssrf") {
         if let Ok(payloads) = crate::payload::generate_jku_x5u_ssrf_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "jku/x5u SSRF Probe".bold());
+                println!("\n{}", theme::subsection_line("jku/x5u SSRF Probe"));
                 println!("  {payload}");
             }
         }
@@ -279,7 +291,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("zip") {
         if let Ok(payloads) = crate::payload::generate_zip_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "zip Variant / Decompression Bomb".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("zip Variant / Decompression Bomb")
+                );
                 println!("  {payload}");
             }
         }
@@ -289,7 +304,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("kid_predictable") {
         if let Ok(payloads) = crate::payload::generate_kid_predictable_payload(token, None) {
             for payload in payloads {
-                println!("\n  {}", "kid Predictable Path".bold());
+                println!("\n{}", theme::subsection_line("kid Predictable Path"));
                 println!("  {payload}");
             }
         }
@@ -299,7 +314,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("dup_key") {
         if let Ok(payloads) = crate::payload::generate_duplicate_key_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "Duplicate JSON Key (alg/typ/kid)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Duplicate JSON Key (alg/typ/kid)")
+                );
                 println!("  {payload}");
             }
         }
@@ -309,7 +327,7 @@ fn generate_payloads(
     if should_generate_all || targets.contains("nested") {
         if let Ok(payloads) = crate::payload::generate_nested_jwt_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "Nested JWT (cty=JWT)".bold());
+                println!("\n{}", theme::subsection_line("Nested JWT (cty=JWT)"));
                 println!("  {payload}");
             }
         }
@@ -319,7 +337,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("jwk_embed_ec") {
         match crate::payload::generate_jwk_embed_ec_payload(token) {
             Ok(payload) => {
-                println!("\n  {}", "jwk Embedded Header EC (signed ES256)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("jwk Embedded Header EC (signed ES256)")
+                );
                 println!("  {payload}");
             }
             Err(e) => {
@@ -332,7 +353,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("jws_json") {
         if let Ok(payloads) = crate::payload::generate_jws_json_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "JWS Flattened JSON Serialization".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("JWS Flattened JSON Serialization")
+                );
                 println!("  {payload}");
             }
         }
@@ -342,7 +366,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("alg_family_swap") {
         if let Ok(payloads) = crate::payload::generate_alg_family_swap_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "alg Cross-family Swap (PS↔RS / ES family)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("alg Cross-family Swap (PS↔RS / ES family)")
+                );
                 println!("  {payload}");
             }
         }
@@ -352,7 +379,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("none_sig") {
         if let Ok(payloads) = crate::payload::generate_none_with_sig_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "alg=none + Non-empty Signature".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("alg=none + Non-empty Signature")
+                );
                 println!("  {payload}");
             }
         }
@@ -362,7 +392,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("header_quirks") {
         if let Ok(payloads) = crate::payload::generate_header_quirks_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "Header Quirks (BOM / WS / Trailing Junk)".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Header Quirks (BOM / WS / Trailing Junk)")
+                );
                 println!("  {payload}");
             }
         }
@@ -372,7 +405,10 @@ fn generate_payloads(
     if should_generate_all || targets.contains("kid_wildcard") {
         if let Ok(payloads) = crate::payload::generate_kid_wildcard_payload(token) {
             for payload in payloads {
-                println!("\n  {}", "kid Empty/Null/Wildcard Fallback".bold());
+                println!(
+                    "\n{}",
+                    theme::subsection_line("kid Empty/Null/Wildcard Fallback")
+                );
                 println!("  {payload}");
             }
         }
@@ -395,7 +431,10 @@ fn generate_none_payloads(claims: &str, alg_value: &str) -> Result<()> {
     // Base64 encode the header for JWT format
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
 
-    println!("\n  {}", format!("None Algorithm ({alg_value})").bold());
+    println!(
+        "\n{}",
+        theme::subsection_line(&format!("None Algorithm ({alg_value})"))
+    );
     println!("  {}.{}", encoded_header, claims);
 
     Ok(())
@@ -442,7 +481,10 @@ fn generate_url_payloads(
 
         for (i, payload) in payloads.iter().enumerate() {
             let label = payload_labels.get(i).unwrap_or(&"Bypass");
-            println!("\n  {}", format!("{label} ({key_type})").bold());
+            println!(
+                "\n{}",
+                theme::subsection_line(&format!("{label} ({key_type})"))
+            );
             println!("  {payload}");
         }
     }

@@ -3,6 +3,7 @@ use colored::Colorize;
 use serde_json::Value;
 
 use crate::jwt;
+use crate::printing::theme;
 use crate::utils;
 
 /// Helper function to format a Unix timestamp to a human-readable string.
@@ -112,20 +113,22 @@ fn decode_jwt_token(token: &str) -> Result<()> {
         .and_then(|v| v.as_str())
         .unwrap_or("JWT");
 
-    println!("  {:<14}{}", "Algorithm".bold(), alg_str.cyan());
-    println!("  {:<14}{}", "Type".bold(), typ);
+    println!("{}", theme::section_line("Decode"));
+    println!();
+    println!("{}", theme::kv("Algorithm", alg_str.cyan()));
+    println!("{}", theme::kv("Type", typ));
 
-    println!("\n  {}", "Header".bold());
+    println!("\n{}", theme::subsection_line("Header"));
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
-    println!("  {}", header_json.replace('\n', "\n  "));
+    println!("{}{}", theme::INDENT, header_json.replace('\n', "\n  "));
 
     let mut claims_map: Value = decoded.claims.clone();
     process_issued_at_claim(&decoded.claims, &mut claims_map);
     process_expiration_claim(&decoded.claims, &mut claims_map);
 
-    println!("\n  {}", "Payload".bold());
+    println!("\n{}", theme::subsection_line("Payload"));
     let payload_json = serde_json::to_string_pretty(&claims_map)?;
-    println!("  {}", payload_json.replace('\n', "\n  "));
+    println!("{}{}", theme::INDENT, payload_json.replace('\n', "\n  "));
 
     Ok(())
 }
@@ -157,57 +160,73 @@ fn decode_jwt_token_json(token: &str) -> Result<Value> {
 fn decode_jwe_token(token: &str) -> Result<()> {
     let decoded = jwt::decode_jwe(token)?;
 
-    println!("  {:<14}{}", "Key Mgmt".bold(), decoded.algorithm.cyan());
-    println!("  {:<14}{}", "Encryption".bold(), decoded.encryption.cyan());
+    println!("{}", theme::section_line("Decode · JWE"));
+    println!();
+    println!("{}", theme::kv("Key Mgmt", decoded.algorithm.cyan()));
+    println!("{}", theme::kv("Encryption", decoded.encryption.cyan()));
 
-    println!("\n  {}", "Header".bold());
+    println!("\n{}", theme::subsection_line("Header"));
     let header_json = serde_json::to_string_pretty(&decoded.header)?;
-    println!("  {}", header_json.replace('\n', "\n  "));
+    println!("{}{}", theme::INDENT, header_json.replace('\n', "\n  "));
 
+    println!("\n{}", theme::subsection_line("Components"));
     println!(
-        "\n  {:<18}{}",
-        "Encrypted Key".bold(),
-        if decoded.encrypted_key.is_empty() {
-            "(empty)".dimmed().to_string()
-        } else {
-            utils::format_base64_preview(&decoded.encrypted_key)
-        }
+        "{}",
+        theme::kv_line(
+            "Encrypted Key",
+            if decoded.encrypted_key.is_empty() {
+                "(empty)".dimmed().to_string()
+            } else {
+                utils::format_base64_preview(&decoded.encrypted_key)
+            },
+            18
+        )
     );
     println!(
-        "  {:<18}{}",
-        "IV".bold(),
-        if decoded.iv.is_empty() {
-            "(empty)".dimmed().to_string()
-        } else {
-            utils::format_base64_preview(&decoded.iv)
-        }
+        "{}",
+        theme::kv_line(
+            "IV",
+            if decoded.iv.is_empty() {
+                "(empty)".dimmed().to_string()
+            } else {
+                utils::format_base64_preview(&decoded.iv)
+            },
+            18
+        )
     );
     println!(
-        "  {:<18}{}",
-        "Ciphertext".bold(),
-        utils::format_base64_preview(&decoded.ciphertext)
+        "{}",
+        theme::kv_line(
+            "Ciphertext",
+            utils::format_base64_preview(&decoded.ciphertext),
+            18
+        )
     );
     println!(
-        "  {:<18}{}",
-        "Auth Tag".bold(),
-        if decoded.tag.is_empty() {
-            "(empty)".dimmed().to_string()
-        } else {
-            utils::format_base64_preview(&decoded.tag)
-        }
+        "{}",
+        theme::kv_line(
+            "Auth Tag",
+            if decoded.tag.is_empty() {
+                "(empty)".dimmed().to_string()
+            } else {
+                utils::format_base64_preview(&decoded.tag)
+            },
+            18
+        )
     );
 
     eprintln!(
-        "\n  {}",
+        "\n{}{}",
+        theme::INDENT,
         "JWE payload is encrypted and cannot be decoded without the appropriate key".dimmed()
     );
 
     // Check for misconfigurations
     let misconfigs = jwt::detect_jwe_misconfigurations(&decoded);
     if !misconfigs.is_empty() {
-        eprintln!("\n  {}", "Security Issues Detected:".yellow().bold());
+        eprintln!("\n{}", theme::subsection_line("Security Issues"));
         for issue in misconfigs {
-            eprintln!("  {}", issue);
+            eprintln!("{}{}", theme::INDENT, issue.yellow());
         }
     }
 

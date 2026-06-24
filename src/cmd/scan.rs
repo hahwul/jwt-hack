@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use crate::jwt;
 use crate::payload;
+use crate::printing::theme;
 use crate::utils;
 
 /// Options for customizing the scan
@@ -67,6 +68,24 @@ impl Severity {
             Severity::Low => colored::Color::Blue,
             Severity::Info => colored::Color::Cyan,
         }
+    }
+
+    /// Render a colored status badge for terminal output. A non-vulnerable check
+    /// shows a green `PASS`; a vulnerable one shows a severity-specific glyph and
+    /// short label. This is presentation only — it never feeds the JSON/HTML
+    /// report (those use `as_str()`), so the machine-readable contract is intact.
+    fn badge(&self, vulnerable: bool) -> String {
+        if !vulnerable {
+            return theme::badge(theme::G_OK, "PASS", colored::Color::Green);
+        }
+        let (glyph, label) = match self {
+            Severity::Critical => ("▲", "CRIT"),
+            Severity::High => ("▲", "HIGH"),
+            Severity::Medium => ("◆", "MED"),
+            Severity::Low => ("■", "LOW"),
+            Severity::Info => (theme::G_INFO, "INFO"),
+        };
+        theme::badge(glyph, label, self.color())
     }
 }
 
@@ -171,14 +190,17 @@ fn parse_header_only(token: &str) -> Result<jwt::DecodedToken> {
 fn run_scan(token: &str, options: &ScanOptions, report_path: Option<&PathBuf>) -> Result<()> {
     let report = scan_token(token, options, !options.skip_payloads)?;
 
-    println!("  {}", "Token".bold());
-    println!("  {:<18}{}", "Algorithm".dimmed(), report.algorithm.cyan());
-    println!("  {:<18}{}", "Type".dimmed(), report.typ);
+    println!("{}", theme::section_line("Scan"));
+    println!();
+    println!(
+        "{}",
+        theme::kv_line("Algorithm", report.algorithm.cyan(), 18)
+    );
+    println!("{}", theme::kv_line("Type", &report.typ, 18));
     if let Some(err) = &report.strict_decode_error {
         println!(
-            "  {:<18}{}",
-            "Strict decode".dimmed(),
-            format!("rejected: {err}").yellow()
+            "{}",
+            theme::kv_line("Strict decode", format!("rejected: {err}").yellow(), 18)
         );
     }
 
@@ -187,9 +209,10 @@ fn run_scan(token: &str, options: &ScanOptions, report_path: Option<&PathBuf>) -
     if !options.skip_payloads {
         if let Some(payloads) = &report.attack_payloads {
             if !payloads.is_empty() {
-                println!("\n  {}", "Attack Payloads".bold());
+                println!("\n{}", theme::section_line("Attack Payloads"));
+                println!();
                 for p in payloads {
-                    println!("  {}", p);
+                    println!("{}{}", theme::INDENT, p);
                 }
             }
         }
@@ -1274,7 +1297,8 @@ fn check_zip_header(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> 
 
 /// Display scan results
 fn display_results(results: &[VulnerabilityResult]) {
-    println!("\n  {}", "Results".bold());
+    println!("\n{}", theme::section_line("Results"));
+    println!();
 
     let mut vulnerable_count = 0;
     let mut critical_count = 0;
@@ -1294,25 +1318,21 @@ fn display_results(results: &[VulnerabilityResult]) {
             }
         }
 
-        let status = if result.vulnerable {
-            "✗".red().to_string()
-        } else {
-            "✓".green().to_string()
-        };
-
-        let severity_str = result.severity.as_str().color(result.severity.color());
-
+        // Badge carries both status and severity. Pad the plain name *before*
+        // coloring so the columns line up under a real TTY.
+        let name_padded = format!("{:<22}", result.name);
         println!(
-            "  {}  {:<22} {:<12} {}",
-            status,
-            result.name.bold(),
-            severity_str,
+            "{}{}  {} {}",
+            theme::INDENT,
+            result.severity.badge(result.vulnerable),
+            name_padded.bold(),
             result.details
         );
     }
 
     // Summary
-    println!("\n  {}", "Summary".bold());
+    println!("\n{}", theme::section_line("Summary"));
+    println!();
     if vulnerable_count > 0 {
         let mut parts = Vec::new();
         if critical_count > 0 {
@@ -1328,12 +1348,17 @@ fn display_results(results: &[VulnerabilityResult]) {
             parts.push(format!("{} low", low_count));
         }
         println!(
-            "  {} vulnerabilities found: {}",
+            "{}{} vulnerabilities found: {}",
+            theme::INDENT,
             vulnerable_count,
             parts.join(", ")
         );
     } else {
-        println!("  {} No vulnerabilities detected", "✓".green());
+        println!(
+            "{}{} No vulnerabilities detected",
+            theme::INDENT,
+            theme::G_OK.green()
+        );
     }
 }
 

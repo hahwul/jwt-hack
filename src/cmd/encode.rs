@@ -6,6 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::jwt;
+use crate::printing::theme;
 use crate::utils;
 
 /// Options for encoding operations
@@ -155,18 +156,20 @@ fn display_encoding_result(
     key_info: &str,
     headers: &[(String, String)],
 ) {
-    println!("  {:<14}{}", "Algorithm".bold(), algorithm.cyan());
-    println!("  {:<14}{}", "Key".bold(), key_info);
+    println!("{}", theme::section_line("Encode"));
+    println!();
+    println!("{}", theme::kv("Algorithm", algorithm.cyan()));
+    println!("{}", theme::kv("Key", key_info));
 
     if !headers.is_empty() {
-        println!("\n  {}", "Headers".bold());
+        println!("\n{}", theme::subsection_line("Headers"));
         for (key, value) in headers {
-            println!("  {:<14}{}", key.to_string().dimmed(), value);
+            println!("{}", theme::kv(key, value));
         }
     }
 
-    println!("\n  {}", "Token".bold());
-    println!("  {}", utils::format_jwt_token(token));
+    println!("\n{}", theme::subsection_line("Token"));
+    println!("{}{}", theme::INDENT, utils::format_jwt_token(token));
 }
 
 fn encode_json(
@@ -250,11 +253,13 @@ fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
     let key = secret.unwrap_or("default_jwe_key");
     let token = jwt::encode_jwe_demo(json_str, key)?;
 
-    println!("  {:<14}{}", "Key Mgmt".bold(), "dir".cyan());
-    println!("  {:<14}{}", "Encryption".bold(), "A256GCM".cyan());
+    println!("{}", theme::section_line("Encode · JWE"));
+    println!();
+    println!("{}", theme::kv("Key Mgmt", "dir".cyan()));
+    println!("{}", theme::kv("Encryption", "A256GCM".cyan()));
 
-    println!("\n  {}", "Token".bold());
-    println!("  {}", token);
+    println!("\n{}", theme::subsection_line("Token"));
+    println!("{}{}", theme::INDENT, token);
 
     Ok(())
 }
