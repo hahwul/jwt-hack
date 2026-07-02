@@ -1006,4 +1006,109 @@ mod tests {
         app.push_warning("warn");
         assert_eq!(app.output_lines.lines.len(), 3);
     }
+
+    // ---- Command execution tests ----
+
+    #[test]
+    fn test_handle_command_encode_runs() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command("set secret shellsecret", &mut app, &tx);
+        let before = app.output_lines.lines.len();
+        handle_command("encode {\"sub\":\"1\"}", &mut app, &tx);
+        assert!(!app.should_quit);
+        // Encoding should not mutate session state and should produce output.
+        assert_eq!(app.session.secret.as_deref(), Some("shellsecret"));
+        assert!(app.output_lines.lines.len() > before);
+    }
+
+    #[test]
+    fn test_handle_command_encode_missing_json_errors() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command("encode", &mut app, &tx);
+        assert!(!app.should_quit);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_handle_command_verify_runs() {
+        // Build a real token so the verify path exercises signature checking.
+        let token = crate::jwt::encode(&serde_json::json!({"sub": "1"}), "shellsecret", "HS256")
+            .expect("encode token");
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command(&format!("set token {token}"), &mut app, &tx);
+        handle_command("set secret shellsecret", &mut app, &tx);
+        let before = app.output_lines.lines.len();
+        handle_command("verify", &mut app, &tx);
+        assert!(!app.should_quit);
+        assert!(app.output_lines.lines.len() > before);
+    }
+
+    #[test]
+    fn test_handle_command_verify_no_token_errors() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command("verify", &mut app, &tx);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_handle_command_payload_runs() {
+        let token = crate::jwt::encode(&serde_json::json!({"sub": "1"}), "s", "HS256")
+            .expect("encode token");
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command(&format!("payload {token}"), &mut app, &tx);
+        assert!(!app.should_quit);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_handle_command_crack_no_token_errors() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command("crack", &mut app, &tx);
+        assert!(!app.should_quit);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_handle_command_crack_with_token_starts_background() {
+        let token = crate::jwt::encode(&serde_json::json!({"sub": "1"}), "s", "HS256")
+            .expect("encode token");
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command(&format!("crack {token}"), &mut app, &tx);
+        // Should not block or quit; a background message is shown immediately.
+        assert!(!app.should_quit);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_handle_command_scan_with_token_starts_background() {
+        let token = crate::jwt::encode(&serde_json::json!({"sub": "1"}), "s", "HS256")
+            .expect("encode token");
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command(&format!("scan {token}"), &mut app, &tx);
+        assert!(!app.should_quit);
+        assert!(!app.output_lines.lines.is_empty());
+    }
+
+    #[test]
+    fn test_full_workflow_set_and_show() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        handle_command("set algorithm RS256", &mut app, &tx);
+        handle_command("set token a.b.c", &mut app, &tx);
+        handle_command("set secret sekret", &mut app, &tx);
+        handle_command("show", &mut app, &tx);
+
+        assert_eq!(app.session.algorithm, "RS256");
+        assert_eq!(app.session.token.as_deref(), Some("a.b.c"));
+        assert_eq!(app.session.secret.as_deref(), Some("sekret"));
+        assert_eq!(app.session.prompt(), "jwt-hack(RS256)[JWT]> ");
+    }
 }

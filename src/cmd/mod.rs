@@ -111,6 +111,12 @@ pub enum Commands {
         #[arg(short, long)]
         wordlist: Option<PathBuf>,
 
+        /// Download & use a numbered preset wordlist for dictionary attacks
+        /// (1=raft-medium-words, 2=raft-large-words, 3=jwt-secrets). Cached under
+        /// the config dir; re-download is skipped when the cached copy matches.
+        #[arg(short = 'p', long = "wordlist-preset")]
+        wordlist_preset: Option<u32>,
+
         /// Character list (for bruteforce attack)
         #[arg(long, default_value = "abcdefghijklmnopqrstuvwxyz0123456789")]
         chars: String,
@@ -287,6 +293,24 @@ pub enum JwksAction {
     },
 }
 
+/// Resolve the effective wordlist for a crack invocation.
+///
+/// Precedence: a `--wordlist-preset` wins (downloading/caching the preset on
+/// demand), then an explicit `--wordlist`, then the configured default wordlist.
+fn resolve_crack_wordlist(
+    wordlist: &Option<PathBuf>,
+    wordlist_preset: Option<u32>,
+    config_default: &Option<PathBuf>,
+) -> anyhow::Result<Option<PathBuf>> {
+    if let Some(id) = wordlist_preset {
+        return Ok(Some(crate::crack::wordlist_preset::ensure_wordlist(id)?));
+    }
+    if wordlist.is_some() {
+        return Ok(wordlist.clone());
+    }
+    Ok(config_default.clone())
+}
+
 /// Parses command-line arguments and executes the appropriate command
 pub fn execute() {
     let cli = Cli::parse();
@@ -344,6 +368,7 @@ pub fn execute() {
                 token,
                 mode,
                 wordlist,
+                wordlist_preset,
                 chars,
                 preset,
                 concurrency,
@@ -354,25 +379,23 @@ pub fn execute() {
                 target_field,
                 pattern,
             }) => {
-                let wordlist = if wordlist.is_some() {
-                    wordlist
-                } else {
-                    &config.default_wordlist
-                };
-                crack::execute_json(
-                    token,
-                    mode,
-                    wordlist,
-                    chars,
-                    preset,
-                    *concurrency,
-                    *min,
-                    *max,
-                    *power,
-                    *verbose,
-                    target_field,
-                    pattern,
-                )
+                match resolve_crack_wordlist(wordlist, *wordlist_preset, &config.default_wordlist) {
+                    Ok(effective_wordlist) => crack::execute_json(
+                        token,
+                        mode,
+                        &effective_wordlist,
+                        chars,
+                        preset,
+                        *concurrency,
+                        *min,
+                        *max,
+                        *power,
+                        *verbose,
+                        target_field,
+                        pattern,
+                    ),
+                    Err(e) => Err(e),
+                }
             }
             Some(Commands::Payload {
                 token,
@@ -513,6 +536,7 @@ pub fn execute() {
             token,
             mode,
             wordlist,
+            wordlist_preset,
             chars,
             preset,
             concurrency,
@@ -523,15 +547,21 @@ pub fn execute() {
             target_field,
             pattern,
         }) => {
-            let wordlist = if wordlist.is_some() {
-                wordlist
-            } else {
-                &config.default_wordlist
+            let effective_wordlist = match resolve_crack_wordlist(
+                wordlist,
+                *wordlist_preset,
+                &config.default_wordlist,
+            ) {
+                Ok(w) => w,
+                Err(e) => {
+                    error!("Failed to resolve wordlist preset: {e}");
+                    std::process::exit(1);
+                }
             };
             crack::execute(
                 token,
                 mode,
-                wordlist,
+                &effective_wordlist,
                 chars,
                 preset,
                 *concurrency,
@@ -699,6 +729,46 @@ mod tests {
         let cli = Cli::try_parse_from(["jwt-hack", "decode", "--json", "a.b.c"]).expect("parse ok");
         assert!(cli.output_json);
         assert!(matches!(cli.command, Some(Commands::Decode { .. })));
+    }
+
+    #[test]
+    fn test_cli_parses_crack_wordlist_preset() {
+        let cli = Cli::try_parse_from(["jwt-hack", "crack", "-p", "1", "a.b.c"]).expect("parse ok");
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Crack {
+                wordlist_preset: Some(1),
+                ..
+            })
+        ));
+
+        let cli = Cli::try_parse_from(["jwt-hack", "crack", "--wordlist-preset", "2", "a.b.c"])
+            .expect("parse ok");
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Crack {
+                wordlist_preset: Some(2),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_resolve_crack_wordlist_precedence() {
+        let explicit = Some(PathBuf::from("/tmp/explicit.txt"));
+        let default = Some(PathBuf::from("/tmp/default.txt"));
+
+        // Explicit wordlist is used when no preset is requested.
+        let resolved = resolve_crack_wordlist(&explicit, None, &default).unwrap();
+        assert_eq!(resolved, explicit);
+
+        // Falls back to the configured default when neither is given.
+        let resolved = resolve_crack_wordlist(&None, None, &default).unwrap();
+        assert_eq!(resolved, default);
+
+        // No wordlist at all resolves to None.
+        let resolved = resolve_crack_wordlist(&None, None, &None).unwrap();
+        assert_eq!(resolved, None);
     }
 
     #[test]

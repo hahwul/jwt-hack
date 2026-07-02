@@ -760,6 +760,7 @@ pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_default_crack_mode() {
@@ -965,5 +966,233 @@ mod tests {
         let resp = handle_crack(Json(req)).await.unwrap().0;
         assert!(resp.success);
         assert_eq!(resp.secret.as_deref(), Some("letmein"));
+    }
+
+    // ---- Router-level endpoint tests (mock HTTP requests through build_router) ----
+
+    /// Drive a mock request through the full router and return (status, json body).
+    async fn call_router(
+        app: &mut Router,
+        method: &str,
+        uri: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::Service;
+
+        let builder = Request::builder().method(method).uri(uri);
+        let req = match body {
+            Some(b) => builder
+                .header("content-type", "application/json")
+                .body(Body::from(b.to_string()))
+                .unwrap(),
+            None => builder.body(Body::empty()).unwrap(),
+        };
+
+        let res = Service::call(app, req).await.unwrap();
+        let status = res.status();
+        let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null)
+        };
+        (status, json)
+    }
+
+    #[tokio::test]
+    async fn test_router_health_endpoint() {
+        let mut app = build_router(None);
+        let (status, body) = call_router(&mut app, "GET", "/health", None).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["status"], "ok");
+    }
+
+    #[tokio::test]
+    async fn test_router_decode_endpoint() {
+        let mut app = build_router(None);
+        let token = jwt::encode(
+            &serde_json::json!({"sub": "1234", "name": "Jane"}),
+            "s",
+            "HS256",
+        )
+        .unwrap();
+        let (status, body) =
+            call_router(&mut app, "POST", "/decode", Some(json!({"token": token}))).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["success"], true);
+        assert_eq!(body["payload"]["name"], "Jane");
+    }
+
+    #[tokio::test]
+    async fn test_router_encode_then_verify_roundtrip() {
+        let mut app = build_router(None);
+
+        // Encode
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/encode",
+            Some(json!({"payload": {"sub": "abc"}, "secret": "topsecret", "algorithm": "HS256"})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["success"], true);
+        let token = body["token"].as_str().expect("token").to_string();
+
+        // Verify (correct secret)
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/verify",
+            Some(json!({"token": token, "secret": "topsecret"})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["valid"], true);
+
+        // Verify (wrong secret)
+        let (_status, body) = call_router(
+            &mut app,
+            "POST",
+            "/verify",
+            Some(json!({"token": token, "secret": "nope"})),
+        )
+        .await;
+        assert_eq!(body["valid"], false);
+    }
+
+    #[tokio::test]
+    async fn test_router_crack_brute_endpoint() {
+        let mut app = build_router(None);
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "ab", "HS256").unwrap();
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/crack",
+            Some(json!({"token": token, "mode": "brute", "chars": "ab", "min": 1, "max": 3})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["success"], true);
+        assert_eq!(body["secret"], "ab");
+    }
+
+    #[tokio::test]
+    async fn test_router_crack_dict_inline_endpoint() {
+        let mut app = build_router(None);
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "hunter2", "HS256").unwrap();
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/crack",
+            Some(json!({
+                "token": token,
+                "mode": "dict",
+                "wordlist_content": ["foo", "hunter2", "bar"]
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["secret"], "hunter2");
+    }
+
+    #[tokio::test]
+    async fn test_router_payload_endpoint() {
+        let mut app = build_router(None);
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "s", "HS256").unwrap();
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/payload",
+            Some(json!({"token": token, "target": "none"})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["success"], true);
+        assert!(
+            body["payloads"]
+                .as_array()
+                .map(|a| !a.is_empty())
+                .unwrap_or(false),
+            "expected at least one payload"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_router_scan_endpoint_finds_weak_secret() {
+        let mut app = build_router(None);
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "test", "HS256").unwrap();
+        let (status, body) = call_router(
+            &mut app,
+            "POST",
+            "/scan",
+            Some(json!({
+                "token": token,
+                "skip_payloads": true,
+                "wordlist_content": ["nope", "test"]
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["success"], true);
+        assert_eq!(body["secret"], "test");
+    }
+
+    #[tokio::test]
+    async fn test_router_unknown_route_is_404() {
+        let mut app = build_router(None);
+        let (status, _body) =
+            call_router(&mut app, "POST", "/does-not-exist", Some(json!({}))).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_router_invalid_json_is_client_error() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::Service;
+
+        let mut app = build_router(None);
+        let req = Request::builder()
+            .method("POST")
+            .uri("/decode")
+            .header("content-type", "application/json")
+            .body(Body::from("this is not json"))
+            .unwrap();
+        let res = Service::call(&mut app, req).await.unwrap();
+        assert!(
+            res.status().is_client_error(),
+            "malformed JSON should yield a 4xx, got {}",
+            res.status()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_router_api_key_gates_endpoints() {
+        let mut app = build_router(Some("secret-key".to_string()));
+
+        // Without the key, a normal endpoint is rejected.
+        let (status, _b) =
+            call_router(&mut app, "POST", "/decode", Some(json!({"token": "a.b.c"}))).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+        // With the key, the request is processed.
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::Service;
+        let token = jwt::encode(&serde_json::json!({"sub": "x"}), "s", "HS256").unwrap();
+        let req = Request::builder()
+            .method("POST")
+            .uri("/decode")
+            .header("content-type", "application/json")
+            .header("X-API-KEY", "secret-key")
+            .body(Body::from(json!({"token": token}).to_string()))
+            .unwrap();
+        let res = Service::call(&mut app, req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
     }
 }

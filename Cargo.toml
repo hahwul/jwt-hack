@@ -47,6 +47,9 @@ num-bigint = "0.4"
 zeroize = "1.8.2"
 mimalloc = { version = "0.1", default-features = false }
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
 [profile.release]
 opt-level = 3
 lto = true
@@ -61,3 +64,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "jwt-hack"
 path = "src/main.rs"
+
+[[bench]]
+name = "jwt_benchmarks"
+harness = false

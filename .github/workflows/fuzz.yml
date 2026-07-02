@@ -1,0 +1,33 @@
+---
+name: Fuzz
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly short fuzzing run (Mondays 04:00 UTC).
+    - cron: "0 4 * * 1"
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  fuzz:
+    name: cargo-fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [jwt_decode, jwe_decode, header_parsing]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Run fuzz target (time-boxed)
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=120
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/

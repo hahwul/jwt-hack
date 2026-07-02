@@ -53,3 +53,13 @@ test:
     cargo clippy --tests -- --deny warnings
     cargo fmt --check
     cargo doc --workspace --all-features --no-deps --document-private-items
+
+# Run criterion performance benchmarks.
+[group('test')]
+bench:
+    cargo bench
+
+# Run a cargo-fuzz target (requires nightly + cargo-fuzz). Usage: just fuzz jwt_decode
+[group('test')]
+fuzz target="jwt_decode" time="60":
+    cargo +nightly fuzz run {{target}} -- -max_total_time={{time}}
