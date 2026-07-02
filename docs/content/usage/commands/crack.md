@@ -23,6 +23,30 @@ jwt-hack crack -w wordlist.txt <TOKEN>
 jwt-hack crack --wordlist=/path/to/custom/wordlist.txt <TOKEN>
 ```
 
+### Preset Wordlists
+
+Instead of managing wordlist files yourself, use a numbered preset. The wordlist
+is downloaded once into the config directory (`<config>/jwt-hack/wordlists/`) and
+reused on subsequent runs. A checksum sidecar is stored alongside each download,
+so a cached copy with a matching hash is served straight from disk — the
+download is skipped.
+
+```bash
+# Download (first run) and use the raft-medium-words wordlist
+jwt-hack crack -p 1 <TOKEN>
+
+# Long form
+jwt-hack crack --wordlist-preset 2 <TOKEN>
+```
+
+Available presets:
+
+| Preset | Name              | Source                                   |
+|--------|-------------------|------------------------------------------|
+| `1`    | raft-medium-words | SecLists (medium web-content wordlist)   |
+| `2`    | raft-large-words  | SecLists (large web-content wordlist)    |
+| `3`    | jwt-secrets       | Wallarm jwt-secrets (common JWT secrets) |
+
 ## Brute Force Attack
 
 Generate and test password combinations:
@@ -95,6 +119,7 @@ jwt-hack crack -w wordlist.txt <TOKEN> --verbose
 
 ### Attack Mode Options
 - `-w, --wordlist <FILE>` - Path to wordlist file
+- `-p, --wordlist-preset <ID>` - Download & use a preset wordlist (1=raft-medium-words, 2=raft-large-words, 3=jwt-secrets)
 - `-m, --mode <MODE>` - Attack mode: dictionary (default) or brute
 
 ### Performance Options

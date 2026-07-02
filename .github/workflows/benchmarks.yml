@@ -1,0 +1,40 @@
+---
+name: Benchmarks
+on:
+  push:
+    branches: [main]
+    paths: ["**/*.rs", Cargo.toml, "benches/**"]
+  pull_request:
+    branches: [main]
+    paths: ["**/*.rs", Cargo.toml, "benches/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+  deployments: write
+  pull-requests: write
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  benchmark:
+    name: Criterion benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run benchmarks
+        run: cargo bench --bench jwt_benchmarks -- --output-format bencher | tee output.txt
+      - name: Store benchmark result & compare against baseline
+        uses: benchmark-action/github-action-benchmark@v1
+        continue-on-error: true
+        with:
+          name: jwt-hack benchmarks
+          tool: cargo
+          output-file-path: output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Publish the baseline only from main; PRs compare against it read-only.
+          auto-push: ${{ github.ref == 'refs/heads/main' }}
+          comment-on-alert: true
+          summary-always: true
+          # Flag >200% regressions in a PR comment, but never fail the job.
+          alert-threshold: "200%"
+          fail-on-alert: false

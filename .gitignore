@@ -19,3 +19,10 @@
 *.swo
 
 docs/public
+
+# cargo-fuzz build artifacts and generated corpora
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+/fuzz/Cargo.lock

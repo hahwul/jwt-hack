@@ -1,0 +1,39 @@
+[package]
+name = "jwt-hack-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.jwt-hack]
+path = ".."
+
+# Prevent this crate from being pulled into (or pulling in) the parent package;
+# cargo-fuzz builds it as its own standalone workspace on nightly.
+[workspace]
+
+[[bin]]
+name = "jwt_decode"
+path = "fuzz_targets/jwt_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "jwe_decode"
+path = "fuzz_targets/jwe_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "header_parsing"
+path = "fuzz_targets/header_parsing.rs"
+test = false
+doc = false
+bench = false

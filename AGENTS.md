@@ -33,6 +33,15 @@ Always reference these instructions first and fallback to search or bash command
 - Format check: `cargo fmt --check`
 - Format code: `just fix` or `cargo fmt`
 
+### Benchmarks and Fuzzing
+- Run performance benchmarks (criterion): `just bench` or `cargo bench`
+  - Covers encode, decode, verify, and cracking (dictionary + brute force).
+  - CI tracks results against a baseline via `.github/workflows/benchmarks.yml`.
+- Run a fuzz target (requires nightly + `cargo install cargo-fuzz`):
+  - `just fuzz jwt_decode` (or `jwe_decode`, `header_parsing`)
+  - `cargo +nightly fuzz run <target> -- -max_total_time=60`
+  - Fuzz targets live in `fuzz/fuzz_targets/`; scheduled/manual CI is in `.github/workflows/fuzz.yml`.
+
 ### Development Tasks
 - List available Just commands: `just --list`
 - Format and fix linting: `just fix`
