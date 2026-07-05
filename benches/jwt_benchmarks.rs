@@ -3,9 +3,10 @@
 //! Covers the operations called out in issue #184: encode, decode, verify, and
 //! cracking (dictionary + brute force). Run with `cargo bench`.
 
+use std::hint::black_box;
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use jwt_hack::crack::brute;
 use jwt_hack::jwt::{self, EncodeOptions, KeyData};
 use serde_json::json;
