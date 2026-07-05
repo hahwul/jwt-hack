@@ -1779,7 +1779,7 @@ dependencies = [
  "jsonwebtoken",
  "log",
  "mimalloc",
- "num-bigint",
+ "num-bigint 0.5.0",
  "openssl",
  "ratatui",
  "rayon",
@@ -2030,9 +2030,19 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.6"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+checksum = "c863e9ab5e7bf9c99ba75e1050f1e4d624ae87ed3532d6238ffbdc7b585dbbe6"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7032fbb7ef662c18e806aa75b311f68ddf5c94e8fc62832c0039d79095ab6abf"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -3309,7 +3319,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
 dependencies = [
- "num-bigint",
+ "num-bigint 0.4.7",
  "num-traits",
  "thiserror 2.0.18",
  "time",
