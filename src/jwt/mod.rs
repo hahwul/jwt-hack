@@ -827,13 +827,17 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
 
             let cipher = Aes128Gcm::new(&key_128.into());
             key_128.zeroize();
+            let nonce: [u8; 12] = iv_bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow!("Invalid IV"))?;
             let payload = Payload {
                 msg: &ciphertext_with_tag,
                 aad,
             };
 
             cipher
-                .decrypt((&iv_bytes[..]).into(), payload)
+                .decrypt((&nonce).into(), payload)
                 .map_err(|_| anyhow!("Decryption failed - incorrect key"))
                 .and_then(|plaintext| {
                     String::from_utf8(plaintext)
@@ -867,13 +871,17 @@ pub fn decrypt_jwe(token: &str, key: &str) -> Result<String> {
 
             let cipher = Aes256Gcm::new(&key_256.into());
             key_256.zeroize();
+            let nonce: [u8; 12] = iv_bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow!("Invalid IV"))?;
             let payload = Payload {
                 msg: &ciphertext_with_tag,
                 aad,
             };
 
             cipher
-                .decrypt((&iv_bytes[..]).into(), payload)
+                .decrypt((&nonce).into(), payload)
                 .map_err(|_| anyhow!("Decryption failed - incorrect key"))
                 .and_then(|plaintext| {
                     String::from_utf8(plaintext)
