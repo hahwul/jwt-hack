@@ -30,7 +30,7 @@ tempfile = "3.20.0"
 flate2 = "1.0"
 josekit = "0.10.3"
 openssl = { version = "0.10", features = ["vendored"] }
-rmcp = { version = "1.1.0", features = ["server", "transport-io"] }
+rmcp = { version = "2.1.0", features = ["server", "transport-io"] }
 dirs = "6.0"
 crossterm = "0.29"
 ratatui = { version = "0.30", features = ["crossterm"] }
@@ -40,7 +40,7 @@ toml = "1.0"
 axum = "0.8"
 tower = "0.5"
 tower-http = { version = "0.7", features = ["cors"] }
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 rsa = { version = "0.9", features = ["pem"] }
 num-bigint = "0.5"

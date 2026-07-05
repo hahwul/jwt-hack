@@ -164,9 +164,9 @@ impl JwtHackServer {
                         .unwrap_or_else(|_| "Invalid claims".to_string()),
                     token_info.algorithm
                 );
-                Ok(CallToolResult::success(vec![Content::text(output)]))
+                Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
             }
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "Failed to decode JWT: {}",
                 e
             ))])),
@@ -182,7 +182,7 @@ impl JwtHackServer {
         let claims: serde_json::Value = match serde_json::from_str(&args.json) {
             Ok(c) => c,
             Err(e) => {
-                return Ok(CallToolResult::error(vec![Content::text(format!(
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "Invalid JSON: {}",
                     e
                 ))]))
@@ -195,7 +195,7 @@ impl JwtHackServer {
         } else if let Some(ref secret) = args.secret {
             crate::jwt::KeyData::Secret(secret.as_str())
         } else {
-            return Ok(CallToolResult::error(vec![Content::text(
+            return Ok(CallToolResult::error(vec![ContentBlock::text(
                 "No secret provided for signed token".to_string(),
             )]));
         };
@@ -208,8 +208,8 @@ impl JwtHackServer {
         };
 
         match crate::jwt::encode_with_options(&claims, &options) {
-            Ok(token) => Ok(CallToolResult::success(vec![Content::text(token)])),
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Ok(token) => Ok(CallToolResult::success(vec![ContentBlock::text(token)])),
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "Failed to encode JWT: {}",
                 e
             ))])),
@@ -235,7 +235,7 @@ impl JwtHackServer {
                         .map(|a| a.eq_ignore_ascii_case("none"))
                         .unwrap_or(false);
                     if is_none {
-                        return Ok(CallToolResult::success(vec![Content::text(
+                        return Ok(CallToolResult::success(vec![ContentBlock::text(
                             "✗ Token uses 'none' algorithm and carries no signature; cannot be verified against the provided secret".to_string(),
                         )]));
                     }
@@ -260,17 +260,17 @@ impl JwtHackServer {
                     } else {
                         "✗ JWT signature is invalid"
                     };
-                    Ok(CallToolResult::success(vec![Content::text(
+                    Ok(CallToolResult::success(vec![ContentBlock::text(
                         message.to_string(),
                     )]))
                 }
-                Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "Verification failed: {}",
                     e
                 ))])),
             }
         } else {
-            Ok(CallToolResult::error(vec![Content::text(
+            Ok(CallToolResult::error(vec![ContentBlock::text(
                 "No secret provided for verification".to_string(),
             )]))
         }
@@ -290,7 +290,7 @@ impl JwtHackServer {
             for password in common_passwords {
                 if let Ok(is_valid) = crate::jwt::verify(&args.token, password) {
                     if is_valid {
-                        return Ok(CallToolResult::success(vec![Content::text(format!(
+                        return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                             "✓ JWT cracked! Secret found: {}",
                             password
                         ))]));
@@ -298,7 +298,7 @@ impl JwtHackServer {
                 }
             }
 
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 "✗ Dictionary attack failed. Secret not found in built-in wordlist.".to_string(),
             )]))
         } else if args.mode == "brute" {
@@ -307,7 +307,7 @@ impl JwtHackServer {
                 match crate::cmd::crack::get_preset_chars(preset) {
                     Some(preset_chars) => preset_chars,
                     None => {
-                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                        return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                             "Unknown preset: '{}'. Available presets: az, AZ, aZ, 19, aZ19, ascii",
                             preset
                         ))]));
@@ -319,7 +319,7 @@ impl JwtHackServer {
 
             // For brute force, only try very short combinations due to performance constraints
             if args.min < 1 || args.min > args.max {
-                return Ok(CallToolResult::error(vec![Content::text(format!(
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "Invalid min/max lengths: min must be >= 1 and <= max (got min={}, max={})",
                     args.min, args.max
                 ))]));
@@ -335,7 +335,7 @@ impl JwtHackServer {
             // empty range (min_len > max_len) and the tool silently reports "not found"
             // having searched nothing. Reject it explicitly so the caller is not misled.
             if min_len > max_len {
-                return Ok(CallToolResult::error(vec![Content::text(format!(
+                return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "MCP brute-force is capped at {} characters; requested min length {} cannot be searched.",
                     MCP_MAX_BRUTE_LEN, min_len
                 ))]));
@@ -348,7 +348,7 @@ impl JwtHackServer {
                     // Limit attempts
                     if let Ok(is_valid) = crate::jwt::verify(&args.token, &combination) {
                         if is_valid {
-                            return Ok(CallToolResult::success(vec![Content::text(format!(
+                            return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                                 "✓ JWT cracked! Secret found: {}",
                                 combination
                             ))]));
@@ -357,13 +357,13 @@ impl JwtHackServer {
                 }
             }
 
-            Ok(CallToolResult::success(vec![Content::text(format!(
+            Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                 "✗ Brute force attack failed. Secret not found in the limited MCP search space \
                  (lengths {}-{}, charset capped at {} chars, {} attempts per length).",
                 min_len, max_len, MCP_MAX_CHARSET, MCP_MAX_ATTEMPTS
             ))]))
         } else {
-            Ok(CallToolResult::error(vec![Content::text(
+            Ok(CallToolResult::error(vec![ContentBlock::text(
                 "Invalid crack mode. Use 'dict' or 'brute'.".to_string(),
             )]))
         }
@@ -391,13 +391,13 @@ impl JwtHackServer {
         match result {
             Ok(payloads) => {
                 let output = payloads.join("\n");
-                Ok(CallToolResult::success(vec![Content::text(format!(
+                Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                     "Generated {} attack payloads:\n{}",
                     payloads.len(),
                     output
                 ))]))
             }
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                 "Failed to generate payloads: {}",
                 e
             ))])),
@@ -525,7 +525,7 @@ mod tests {
         };
         let call_result = server.verify(Parameters(args)).await.unwrap();
         if let Some(content) = call_result.content.first() {
-            if let RawContent::Text(text) = &content.raw {
+            if let Some(text) = content.as_text() {
                 assert!(
                     !text.text.contains("✓ JWT signature is valid"),
                     "a none token with a secret must not be reported valid: {}",
@@ -565,16 +565,11 @@ mod tests {
 
         // Check that the content contains a meaningful response
         if let Some(content) = call_result.content.first() {
-            match &content.raw {
-                RawContent::Text(text) => {
-                    assert!(
-                        text.text.contains("JWT cracked!")
-                            || text.text.contains("Dictionary attack failed")
-                    );
-                }
-                _ => {
-                    // For other content types, we just pass the test
-                }
+            if let Some(text) = content.as_text() {
+                assert!(
+                    text.text.contains("JWT cracked!")
+                        || text.text.contains("Dictionary attack failed")
+                );
             }
         }
     }
