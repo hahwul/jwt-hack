@@ -1,21 +1,23 @@
-{% extends "base.html" %}
-
-{% block body %}
+{% include "header.html" %}
+{% include "partials/nav.html" %}
+{% include "partials/search.html" %}
 <div class="docs-layout">
-  {% include "sidebar.html" %}
-  <main class="docs-main">
-    <div class="docs-content">
-      <h1>{{ page.title }}</h1>
-      {{ content }}
-
-      {% if section.list %}
-      <h2>In This Section</h2>
-      <ul class="section-list">
-        {{ section.list }}
-      </ul>
-      {% endif %}
-      {{ pagination }}
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  {% include "partials/sidebar.html" %}
+  <main id="main" class="docs-main">
+    <div class="docs-grid no-toc">
+      <article class="docs-content">
+        <h1>{{ page.title | e }}</h1>
+        {{ content }}
+        {% if section.list %}
+        <h2>In this section</h2>
+        <ul class="section-list">
+          {{ section.list }}
+        </ul>
+        {% endif %}
+        {{ pagination }}
+      </article>
     </div>
   </main>
 </div>
-{% endblock %}
+{% include "footer.html" %}

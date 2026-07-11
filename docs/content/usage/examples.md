@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Examples"
 weight = 4
 +++

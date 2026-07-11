@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "FAQ"
 weight = 2
 +++

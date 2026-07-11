@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Decode Command"
 weight = 1
 +++

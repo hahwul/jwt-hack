@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Scripting & Automation"
 weight = 2
 +++

@@ -1,9 +1,210 @@
 <footer class="site-footer">
-  <div class="footer-content">
-    <a href="https://www.hahwul.com" target="_blank" rel="noopener noreferrer">
-      <img src="https://www.hahwul.com/images/logo.webp" alt="HAHWUL" class="footer-logo">
-    </a>
-    <span class="separator">&bull;</span>
-    <span>Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="{{ base_url }}/" class="header-logo" aria-label="jwt-hack home">
+        <img src="{{ base_url }}/images/logo.png" alt="jwt-hack" class="logo-light">
+        <img src="{{ base_url }}/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+      </a>
+      <p>A fast, single-binary toolkit for testing, analyzing, and attacking JSON Web Tokens.</p>
+      <div class="footer-meta">
+        <span>MIT License</span>
+        <span>v2.6.0</span>
+        <span>by <a href="https://www.hahwul.com" target="_blank" rel="noopener">hahwul</a></span>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <h4>Docs</h4>
+      <ul>
+        <li><a href="{{ base_url }}/get_started/introduction/">Introduction</a></li>
+        <li><a href="{{ base_url }}/get_started/installation/">Installation</a></li>
+        <li><a href="{{ base_url }}/usage/commands/">Commands</a></li>
+        <li><a href="{{ base_url }}/usage/configuration/">Configuration</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">crates.io</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/releases" target="_blank" rel="noopener">Releases</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>MIT Licensed &middot; &copy; hahwul</span>
+    <span class="powered">Powered by <a href="https://github.com/hahwul/hwaro" target="_blank" rel="noopener">Hwaro</a></span>
   </div>
 </footer>
+
+{{ highlight_js }}
+<script src="{{ base_url }}/js/search.js"></script>
+<script>
+/* 3-mode theme toggle (auto / light / dark) */
+(function () {
+  var KEY = "hwaro-theme";
+  var MODES = ["auto", "light", "dark"];
+  var root = document.documentElement;
+  var btn = document.querySelector(".theme-toggle");
+  if (!btn) return;
+  function apply(mode) {
+    if (mode === "auto") {
+      root.removeAttribute("data-theme");
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    } else {
+      root.setAttribute("data-theme", mode);
+      try { localStorage.setItem(KEY, mode); } catch (e) {}
+    }
+    btn.setAttribute("data-mode", mode);
+    btn.setAttribute("aria-label", "Theme: " + mode);
+    btn.title = "Theme: " + mode + " - click to switch";
+  }
+  var stored = "auto";
+  try { var t = localStorage.getItem(KEY); if (t === "light" || t === "dark") stored = t; } catch (e) {}
+  btn.addEventListener("click", function () {
+    apply(MODES[(MODES.indexOf(btn.getAttribute("data-mode")) + 1) % MODES.length]);
+  });
+  apply(stored);
+})();
+</script>
+<script>
+/* Progressive enhancements: drawer, copy, tables, anchors, TOC spy, reveal */
+document.addEventListener('DOMContentLoaded', function () {
+  function copyText(text, btn, label) {
+    navigator.clipboard.writeText(text).then(function () {
+      var l = btn.querySelector('.copy-label');
+      if (l) l.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        if (l) l.textContent = label;
+        btn.classList.remove('copied');
+      }, 1600);
+    });
+  }
+
+  // Mobile drawer
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var sidebar = document.querySelector('.docs-sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (menuBtn && sidebar) {
+    menuBtn.addEventListener('click', function () {
+      sidebar.classList.toggle('open');
+      if (overlay) overlay.classList.toggle('active');
+    });
+    if (overlay) overlay.addEventListener('click', function () {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    });
+  }
+
+  // Active sidebar link
+  var path = window.location.pathname.replace(/\/$/, '') || '/';
+  document.querySelectorAll('.sidebar-links a').forEach(function (link) {
+    var href = link.getAttribute('href').replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') || '/';
+    if (href === path) link.classList.add('active');
+  });
+
+  var content = document.querySelector('.docs-content');
+  if (content) {
+    // Wrap tables for horizontal scroll
+    content.querySelectorAll('table').forEach(function (tbl) {
+      if (tbl.closest('.table-scroll')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'table-scroll';
+      tbl.parentNode.insertBefore(wrap, tbl);
+      wrap.appendChild(tbl);
+    });
+
+    // Code blocks: language label + copy button
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.closest('.code-block')) return;
+      var codeEl = pre.querySelector('code');
+      var lang = '';
+      if (codeEl) {
+        var m = (codeEl.className || '').match(/(?:language|lang)-([a-z0-9]+)/i);
+        if (m) lang = m[1];
+      }
+      var block = document.createElement('div');
+      block.className = 'code-block';
+      pre.parentNode.insertBefore(block, pre);
+      var bar = document.createElement('div');
+      bar.className = 'code-bar';
+      var langSpan = document.createElement('span');
+      langSpan.className = 'code-lang';
+      langSpan.textContent = lang || 'code';
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.innerHTML = '<span class="copy-label">copy</span>';
+      btn.addEventListener('click', function () { copyText(pre.innerText, btn, 'copy'); });
+      bar.appendChild(langSpan);
+      bar.appendChild(btn);
+      block.appendChild(bar);
+      block.appendChild(pre);
+    });
+
+    // Heading anchors (Hwaro already adds ids)
+    content.querySelectorAll('h2[id], h3[id]').forEach(function (h) {
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.textContent = '#';
+      a.setAttribute('aria-label', 'Link to this section');
+      h.appendChild(a);
+    });
+  }
+
+  // Generic copy targets (hero install lines, etc.)
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      copyText(btn.getAttribute('data-copy'), btn, btn.dataset.copyLabel || 'copy');
+    });
+  });
+
+  // TOC scroll-spy over the native {{ toc }} links
+  var tocLinks = document.querySelectorAll('.docs-toc a[href^="#"]');
+  if (tocLinks.length) {
+    var byId = {}, targets = [];
+    tocLinks.forEach(function (l) {
+      var id = decodeURIComponent(l.getAttribute('href').slice(1));
+      var el = document.getElementById(id);
+      if (el) { byId[id] = l; targets.push(el); }
+    });
+    if (targets.length && 'IntersectionObserver' in window) {
+      var spy = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            tocLinks.forEach(function (l) { l.classList.remove('active'); });
+            var a = byId[e.target.id];
+            if (a) a.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+      targets.forEach(function (t) { spy.observe(t); });
+    }
+  }
+
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length) {
+    if (!('IntersectionObserver' in window) ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reveals.forEach(function (el) { el.classList.add('in'); });
+    } else {
+      var ro = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+      reveals.forEach(function (el) { ro.observe(el); });
+    }
+  }
+});
+</script>
+{{ auto_includes_js }}
+</body>
+</html>
