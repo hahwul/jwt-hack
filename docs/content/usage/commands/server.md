@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Server Command"
 weight = 8
 +++
@@ -43,13 +44,13 @@ Note on configuration: the `--config` option is global. The server loads configu
 
 ## Endpoints
 
-- GET/POST `/health` — Health check with version info
-- POST `/decode` — Decode a JWT
-- POST `/encode` — Create a JWT
-- POST `/verify` — Verify a JWT signature
-- POST `/crack` — Attempt to find a weak secret (dictionary or brute force)
-- POST `/payload` — Generate attack payload tokens (for testing)
-- POST `/scan` — Basic vulnerability scan and weak secret check
+- GET/POST `/health` - Health check with version info
+- POST `/decode` - Decode a JWT
+- POST `/encode` - Create a JWT
+- POST `/verify` - Verify a JWT signature
+- POST `/crack` - Attempt to find a weak secret (dictionary or brute force)
+- POST `/payload` - Generate attack payload tokens (for testing)
+- POST `/scan` - Basic vulnerability scan and weak secret check
 
 All endpoints return JSON. Most errors are reported as HTTP 200 with `success:false` and an `error` string. In rare internal failures, HTTP 500 may be returned with the same JSON shape via `{ success:false, error:"..." }`.
 

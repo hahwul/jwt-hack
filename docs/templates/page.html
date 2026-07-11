@@ -1,16 +1,18 @@
-{% extends "base.html" %}
-
-{% block body %}
+{% include "header.html" %}
+{% include "partials/nav.html" %}
+{% include "partials/search.html" %}
 <div class="docs-layout">
-  {% include "sidebar.html" %}
-  <main class="docs-main">
-    <div class="docs-content">
-      {% if page.section %}
-      <div class="page-eyebrow">{{ page.section | replace("_", " ") | title }}</div>
-      {% endif %}
-      <h1>{{ page.title }}</h1>
-      {{ content }}
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  {% include "partials/sidebar.html" %}
+  <main id="main" class="docs-main">
+    <div class="docs-grid{% if not toc %} no-toc{% endif %}">
+      <article class="docs-content">
+        {% if page.section %}<div class="page-eyebrow">{{ page.section | replace("_", " ") | title }}</div>{% endif %}
+        <h1>{{ page.title | e }}</h1>
+        {{ content }}
+      </article>
+      {% if toc %}<nav class="docs-toc" aria-label="On this page"><p class="docs-toc-title">On this page</p>{{ toc }}</nav>{% endif %}
     </div>
   </main>
 </div>
-{% endblock %}
+{% include "footer.html" %}

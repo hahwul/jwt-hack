@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Encode Command"
 weight = 2
 +++

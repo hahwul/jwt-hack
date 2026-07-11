@@ -1,12 +1,5 @@
 +++
-title = "JWT-HACK"
+title = "JWT & JWE Security Toolkit"
+description = "A fast, single-binary CLI for encoding, decoding, cracking, and attacking JWT and JWE tokens. Built in Rust."
 template = "landing"
-hero_badge = "v2.6.0"
-hero_description = "A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens"
-features_title = "Essential Features"
-features_description = "Discover jwt-hack's essential features for comprehensive attack surface detection and analysis."
-cta_title = "Contributing"
-cta_description = "JWT-HACK is an open-source project. If you want to contribute to this project, please see CONTRIBUTING.md and submit a pull request!"
-cta_button_text = "View Contributing Guide"
-cta_button_url = "https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md"
 +++

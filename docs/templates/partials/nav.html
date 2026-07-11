@@ -1,0 +1,30 @@
+<header class="site-header">
+  <div class="header-left">
+    <a href="{{ base_url }}{{ lang_prefix }}/" class="header-logo" aria-label="jwt-hack home">
+      <img src="{{ base_url }}/images/logo.png" alt="jwt-hack" class="logo-light">
+      <img src="{{ base_url }}/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+    </a>
+    <nav class="header-nav">
+      <a href="{{ base_url }}/get_started/introduction/">Docs</a>
+      <a href="{{ base_url }}/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.6.0</span>
+    <button class="search-trigger" onclick="openSearch()" aria-label="Search" title="Search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+      <kbd>&#8984;K</kbd>
+    </button>
+    <button class="theme-toggle" type="button" data-mode="auto" aria-label="Theme: auto" title="Theme: auto - click to switch">
+      <svg class="tt-auto" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg>
+      <svg class="tt-light" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .9v2M8 13.1v2M.9 8h2M13.1 8h2M2.98 2.98l1.42 1.42M11.6 11.6l1.42 1.42M13.02 2.98L11.6 4.4M4.4 11.6l-1.42 1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg class="tt-dark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.4 9.9A5.8 5.8 0 0 1 6.1 2.6a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle navigation menu">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>

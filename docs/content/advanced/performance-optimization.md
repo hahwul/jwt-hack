@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Performance Optimization"
 weight = 1
 +++

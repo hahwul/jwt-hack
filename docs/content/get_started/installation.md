@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Installation"
 weight = 2
 +++

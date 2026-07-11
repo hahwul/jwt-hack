@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Contributing"
 weight = 4
 +++

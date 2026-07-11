@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "MCP Server Mode"
 weight = 6
 +++

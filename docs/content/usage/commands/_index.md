@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Commands"
 weight = 1
 sort_by = "weight"

@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Verify Command"
 weight = 3
 +++

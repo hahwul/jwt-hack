@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Crack Command"
 weight = 4
 +++
@@ -28,7 +29,7 @@ jwt-hack crack --wordlist=/path/to/custom/wordlist.txt <TOKEN>
 Instead of managing wordlist files yourself, use a numbered preset. The wordlist
 is downloaded once into the config directory (`<config>/jwt-hack/wordlists/`) and
 reused on subsequent runs. A checksum sidecar is stored alongside each download,
-so a cached copy with a matching hash is served straight from disk — the
+so a cached copy with a matching hash is served straight from disk, and the
 download is skipped.
 
 ```bash

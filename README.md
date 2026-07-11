@@ -1,8 +1,8 @@
 <div align="center">
     <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/static/images/jwt-hack-dark.png" width="500px;">
-        <source media="(prefers-color-scheme: light)" srcset="docs/static/images/jwt-hack-light.png" width="500px;">
-        <img alt="DevSecOps Logo" src="docs/static/images/jwt-hack-dark.png" width="500px;">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/static/images/logo-white.png" width="220px;">
+        <source media="(prefers-color-scheme: light)" srcset="docs/static/images/logo.png" width="220px;">
+        <img alt="jwt-hack" src="docs/static/images/logo.png" width="220px;">
     </picture>
   <p>JSON Web Token Hack Toolkit</p>
 </div>

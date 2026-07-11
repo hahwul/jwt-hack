@@ -1,4 +1,5 @@
 +++
+toc = true
 title = "Scan Command"
 weight = 7
 +++
@@ -49,10 +50,10 @@ jwt-hack scan <TOKEN> -w /path/to/wordlist.txt
 jwt-hack scan <TOKEN> --max-crack-attempts 100
 ```
 
-- `--skip-crack` — Skip dictionary-based weak-secret checks (only affects HS*).
-- `--skip-payloads` — Skip the payload suggestion/generation section.
-- `-w, --wordlist <FILE>` — Wordlist for weak-secret detection. If not provided or cannot be opened, a small built‑in list is used.
-- `--max-crack-attempts <N>` — Limit tested secrets (default: 100).
+- `--skip-crack` - Skip dictionary-based weak-secret checks (only affects HS*).
+- `--skip-payloads` - Skip the payload suggestion/generation section.
+- `-w, --wordlist <FILE>` - Wordlist for weak-secret detection. If not provided or cannot be opened, a small built‑in list is used.
+- `--max-crack-attempts <N>` - Limit tested secrets (default: 100).
 
 Tip: Large wordlists can significantly increase scan time. Use `--max-crack-attempts` to cap work during triage or CI.
 
