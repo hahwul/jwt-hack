@@ -55,37 +55,50 @@ pub fn setup_logger() -> Result<(), log::SetLoggerError> {
     log::set_logger(&PrettyLogger).map(|()| log::set_max_level(LevelFilter::Info))
 }
 
-// Print the banner with version information
+// Print the banner with version information.
+//
+// The mark stacks two words — "JWT" over "HACK". The identity metadata (tagline,
+// version/author, URL) is tucked into the whitespace to the right of the "JWT"
+// rows so the name and description read as one unit with the art rather than a
+// detached footer. Art is padded to a fixed column *before* coloring so the
+// metadata stays aligned regardless of the (variable-length) version string.
 pub fn banner() {
-    eprintln!(
-        "{}",
-        r#"
-      ██ ██████ ██ █████ █  ██
+    // Top word ("JWT") — each row pairs with one identity line to its right.
+    const JWT: [&str; 3] = [
+        "    █ █  █  █ ████",
+        "    █  █ █ █   ██",
+        "   ██  ██ █    ██",
+    ];
+    // Bottom word ("HACK") — stands on its own beneath the paired rows.
+    const HACK: [&str; 3] = [
+        "  █ █   █   █   ███",
+        "  █ █  ███  █   ██",
+        "  █ █ █   █  ██ █ █",
+    ];
+    // Column the metadata starts at (art padded to this width + a 3-space gutter).
+    const ART_COL: usize = 20;
 
-      ██  ██   █  ██  ███████
-      ██   ██ ██  ██     ██
-      ██   ████████      ██
-     ███    ███ ██       ██
+    let meta = [
+        "JSON Web Token Hack Toolkit".dimmed().to_string(),
+        format!(
+            "{}  {}  {}",
+            VERSION.green().bold(),
+            "·".dimmed(),
+            "@hahwul".red().bold()
+        ),
+        "https://github.com/hahwul/jwt-hack".dimmed().to_string(),
+    ];
 
-
-   █   ██   ███    █████ ██ ██
-   ██████   ████   ██    ████
-   █   ██  █████   ██    █████
-   █   ██  █   ██  ███   ██  ██
-
-   █ █ █   █  █ █         ██
-"#
-        .red()
-        .bold()
-    );
-    // Single, dot-separated identity line keeps the metadata compact and modern.
-    eprintln!(
-        "   {}  {}  {}  {}  {}",
-        "JSON Web Token Hack Toolkit".dimmed(),
-        "·".dimmed(),
-        VERSION.green().bold(),
-        "·".dimmed(),
-        "@hahwul".red()
-    );
-    eprintln!("   {}\n", "https://github.com/hahwul/jwt-hack".dimmed());
+    eprintln!();
+    for (art, info) in JWT.iter().zip(meta.iter()) {
+        // Pad the plain art first, then color — padding a ColoredString would
+        // count ANSI escape bytes and misalign the metadata column.
+        let padded = format!("{art:<ART_COL$}");
+        eprintln!("{}   {}", padded.red().bold(), info);
+    }
+    eprintln!();
+    for row in HACK {
+        eprintln!("{}", row.red().bold());
+    }
+    eprintln!();
 }
