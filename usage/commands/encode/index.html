@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <title>Encode Command - JWT-HACK</title>
+  <link rel="icon" type="image/png" href="https://jwt-hack.hahwul.com/images/logo.png">
+  <link rel="alternate icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <script>(function(){try{var t=localStorage.getItem("hwaro-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})()</script>
+  <meta property="og:title" content="Encode Command">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://jwt-hack.hahwul.com/usage/commands/encode/">
+  <meta property="og:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Encode Command">
+  <meta name="twitter:description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:site" content="@hahwul">
+  <meta name="twitter:creator" content="@hahwul">
+  <link rel="canonical" href="https://jwt-hack.hahwul.com/usage/commands/encode/">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Encode Command","url":"https://jwt-hack.hahwul.com/usage/commands/encode/"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"JWT-HACK","item":"https://jwt-hack.hahwul.com/"},{"@type":"ListItem","position":2,"name":"Usage","item":"https://jwt-hack.hahwul.com/usage/"},{"@type":"ListItem","position":3,"name":"Commands","item":"https://jwt-hack.hahwul.com/usage/commands/"},{"@type":"ListItem","position":4,"name":"Encode Command"}]}</script>
+  
+  
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  
+  
+</head>
+<body data-section="usage/commands">
+  <a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo" aria-label="jwt-hack home">
+      <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="jwt-hack" class="logo-light">
+      <img src="https://jwt-hack.hahwul.com/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.6.0</span>
+    <button class="search-trigger" onclick="openSearch()" aria-label="Search" title="Search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+      <kbd>&#8984;K</kbd>
+    </button>
+    <button class="theme-toggle" type="button" data-mode="auto" aria-label="Theme: auto" title="Theme: auto - click to switch">
+      <svg class="tt-auto" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg>
+      <svg class="tt-light" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .9v2M8 13.1v2M.9 8h2M13.1 8h2M2.98 2.98l1.42 1.42M11.6 11.6l1.42 1.42M13.02 2.98L11.6 4.4M4.4 11.6l-1.42 1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg class="tt-dark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.4 9.9A5.8 5.8 0 0 1 6.1 2.6a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle navigation menu">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+<div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()">
+  <div class="search-modal">
+    <div class="search-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" id="searchInput" aria-label="Search" placeholder="Search jwt-hack docs..." autocomplete="off">
+      <kbd onclick="closeSearch()">ESC</kbd>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  <aside class="docs-sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/decode/">decode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/encode/">encode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/verify/">verify</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/crack/">crack</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/payload/">payload</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/scan/">scan</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/server/">server</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="https://jwt-hack.hahwul.com/usage/examples/">Examples</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/advanced/scripting-automation/">Scripting &amp; Automation</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/faq/">FAQ</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/community/">Community</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main id="main" class="docs-main">
+    <div class="docs-grid">
+      <article class="docs-content">
+        <div class="page-eyebrow">Usage/commands</div>
+        <h1>Encode Command</h1>
+        <p>The <code>encode</code> command creates JWT tokens from JSON payloads with various signing options and algorithms.</p>
+<h2 id="basic-usage">Basic Usage</h2>
+<pre><code class="language-bash hljs">jwt-hack encode &lt;JSON_PAYLOAD&gt; [OPTIONS]
+</code></pre>
+<h2 id="secret-based-signing-hmac">Secret-Based Signing (HMAC)</h2>
+<p>Create JWT tokens using HMAC algorithms with a shared secret:</p>
+<pre><code class="language-bash hljs"># HS256 (default)
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --secret=mysecret
+
+# HS384
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --secret=mysecret --algorithm=HS384
+
+# HS512
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --secret=mysecret --algorithm=HS512
+</code></pre>
+<h2 id="key-based-signing-rsaecdsa">Key-Based Signing (RSA/ECDSA)</h2>
+<p>Create JWT tokens using asymmetric algorithms with private keys:</p>
+<pre><code class="language-bash hljs"># RSA256
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --private-key=private.pem --algorithm=RS256
+
+# RSA384
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --private-key=private.pem --algorithm=RS384
+
+# RSA512
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --private-key=private.pem --algorithm=RS512
+
+# ECDSA256
+jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --private-key=ec-private.pem --algorithm=ES256
+</code></pre>
+<h2 id="unsigned-tokens">Unsigned Tokens</h2>
+<p>Create unsigned JWT tokens for testing:</p>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;name&quot;:&quot;John Doe&quot;}' --no-signature
+</code></pre>
+<h2 id="custom-headers">Custom Headers</h2>
+<p>Add custom header fields to the JWT:</p>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;}' --secret=test --header='{&quot;kid&quot;:&quot;key1&quot;,&quot;typ&quot;:&quot;JWT&quot;}'
+</code></pre>
+<h2 id="deflate-compression">DEFLATE Compression</h2>
+<p>Create compressed JWT tokens:</p>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;sub&quot;:&quot;1234&quot;, &quot;data&quot;:&quot;large payload&quot;}' --secret=test --compress
+</code></pre>
+<p>The <code>--compress</code> flag:</p>
+<ul>
+<li>Compresses the payload using DEFLATE</li>
+<li>Reduces token size for large payloads</li>
+<li>Maintains compatibility with JWT standards</li>
+<li>Can be decoded automatically by the decode command</li>
+</ul>
+<h2 id="jwe-json-web-encryption">JWE (JSON Web Encryption)</h2>
+<p>Create encrypted JWT tokens:</p>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;sensitive&quot;:&quot;data&quot;}' --secret=test --jwe
+</code></pre>
+<p>JWE encoding:</p>
+<ul>
+<li>Encrypts the payload content</li>
+<li>Uses symmetric encryption with the provided secret</li>
+<li>Creates 5-part JWE structure</li>
+<li>Provides confidentiality in addition to integrity</li>
+</ul>
+<h2 id="command-options">Command Options</h2>
+<h3 id="required">Required</h3>
+<ul>
+<li><code>&lt;JSON_PAYLOAD&gt;</code> - The JSON payload to encode</li>
+</ul>
+<h3 id="authentication-options">Authentication Options</h3>
+<ul>
+<li><code>--secret &lt;SECRET&gt;</code> - Secret for HMAC algorithms</li>
+<li><code>--private-key &lt;PATH&gt;</code> - Path to private key file for RSA/ECDSA</li>
+</ul>
+<h3 id="algorithm-options">Algorithm Options</h3>
+<ul>
+<li><code>--algorithm &lt;ALG&gt;</code> - Algorithm to use (HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384)</li>
+<li><code>--no-signature</code> - Create unsigned token</li>
+</ul>
+<h3 id="additional-options">Additional Options</h3>
+<ul>
+<li><code>--header &lt;JSON&gt;</code> - Custom header fields as JSON</li>
+<li><code>--compress</code> - Enable DEFLATE compression</li>
+<li><code>--jwe</code> - Create JWE encrypted token</li>
+</ul>
+<h2 id="examples">Examples</h2>
+<h3 id="standard-jwt-with-hmac">Standard JWT with HMAC</h3>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;sub&quot;:&quot;user123&quot;,&quot;role&quot;:&quot;admin&quot;,&quot;exp&quot;:1640995200}' --secret=my-secret-key
+</code></pre>
+<h3 id="jwt-with-rsa-signature">JWT with RSA Signature</h3>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;iss&quot;:&quot;myapp&quot;,&quot;aud&quot;:&quot;users&quot;,&quot;exp&quot;:1640995200}' --private-key=rsa-key.pem --algorithm=RS256
+</code></pre>
+<h3 id="jwt-with-custom-headers">JWT with Custom Headers</h3>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;user&quot;:&quot;john&quot;}' --secret=test --header='{&quot;kid&quot;:&quot;key-1&quot;,&quot;alg&quot;:&quot;HS256&quot;,&quot;typ&quot;:&quot;JWT&quot;}'
+</code></pre>
+<h3 id="compressed-jwt">Compressed JWT</h3>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;data&quot;:&quot;very long payload content here...&quot;}' --secret=test --compress
+</code></pre>
+<h3 id="unsigned-jwt-for-testing">Unsigned JWT for Testing</h3>
+<pre><code class="language-bash hljs">jwt-hack encode '{&quot;test&quot;:&quot;payload&quot;}' --no-signature
+</code></pre>
+<h2 id="key-file-formats">Key File Formats</h2>
+<p>JWT-HACK supports standard key file formats:</p>
+<h3 id="rsa-private-keys">RSA Private Keys</h3>
+<ul>
+<li><strong>PKCS#1 format</strong> - <code>-----BEGIN RSA PRIVATE KEY-----</code></li>
+<li><strong>PKCS#8 format</strong> - <code>-----BEGIN PRIVATE KEY-----</code></li>
+</ul>
+<h3 id="ecdsa-private-keys">ECDSA Private Keys</h3>
+<ul>
+<li><strong>SEC1 format</strong> - <code>-----BEGIN EC PRIVATE KEY-----</code></li>
+<li><strong>PKCS#8 format</strong> - <code>-----BEGIN PRIVATE KEY-----</code></li>
+</ul>
+<h2 id="output">Output</h2>
+<p>The encode command outputs:</p>
+<ul>
+<li>The complete JWT token</li>
+<li>Token structure breakdown</li>
+<li>Algorithm and signing information</li>
+<li>Any compression or encryption details</li>
+</ul>
+
+      </article>
+      <nav class="docs-toc" aria-label="On this page"><p class="docs-toc-title">On this page</p><ul><li><a href="#basic-usage">Basic Usage</a></li><li><a href="#secret-based-signing-hmac">Secret-Based Signing (HMAC)</a></li><li><a href="#key-based-signing-rsaecdsa">Key-Based Signing (RSA/ECDSA)</a></li><li><a href="#unsigned-tokens">Unsigned Tokens</a></li><li><a href="#custom-headers">Custom Headers</a></li><li><a href="#deflate-compression">DEFLATE Compression</a></li><li><a href="#jwe-json-web-encryption">JWE (JSON Web Encryption)</a></li><li><a href="#command-options">Command Options</a><ul><li><a href="#required">Required</a></li><li><a href="#authentication-options">Authentication Options</a></li><li><a href="#algorithm-options">Algorithm Options</a></li><li><a href="#additional-options">Additional Options</a></li></ul></li><li><a href="#examples">Examples</a><ul><li><a href="#standard-jwt-with-hmac">Standard JWT with HMAC</a></li><li><a href="#jwt-with-rsa-signature">JWT with RSA Signature</a></li><li><a href="#jwt-with-custom-headers">JWT with Custom Headers</a></li><li><a href="#compressed-jwt">Compressed JWT</a></li><li><a href="#unsigned-jwt-for-testing">Unsigned JWT for Testing</a></li></ul></li><li><a href="#key-file-formats">Key File Formats</a><ul><li><a href="#rsa-private-keys">RSA Private Keys</a></li><li><a href="#ecdsa-private-keys">ECDSA Private Keys</a></li></ul></li><li><a href="#output">Output</a></li></ul></nav>
+    </div>
+  </main>
+</div>
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="https://jwt-hack.hahwul.com/" class="header-logo" aria-label="jwt-hack home">
+        <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="jwt-hack" class="logo-light">
+        <img src="https://jwt-hack.hahwul.com/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+      </a>
+      <p>A fast, single-binary toolkit for testing, analyzing, and attacking JSON Web Tokens.</p>
+      <div class="footer-meta">
+        <span>MIT License</span>
+        <span>v2.6.0</span>
+        <span>by <a href="https://www.hahwul.com" target="_blank" rel="noopener">hahwul</a></span>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <h4>Docs</h4>
+      <ul>
+        <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">crates.io</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/releases" target="_blank" rel="noopener">Releases</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-mark">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener" aria-label="hahwul">
+      <span class="hahwul-img" role="img" aria-label="hahwul"></span>
+    </a>
+    <p class="footer-love">Built with Love</p>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="https://jwt-hack.hahwul.com/js/search.js"></script>
+<script>
+/* 3-mode theme toggle (auto / light / dark) */
+(function () {
+  var KEY = "hwaro-theme";
+  var MODES = ["auto", "light", "dark"];
+  var root = document.documentElement;
+  var btn = document.querySelector(".theme-toggle");
+  if (!btn) return;
+  function apply(mode) {
+    if (mode === "auto") {
+      root.removeAttribute("data-theme");
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    } else {
+      root.setAttribute("data-theme", mode);
+      try { localStorage.setItem(KEY, mode); } catch (e) {}
+    }
+    btn.setAttribute("data-mode", mode);
+    btn.setAttribute("aria-label", "Theme: " + mode);
+    btn.title = "Theme: " + mode + " - click to switch";
+  }
+  var stored = "auto";
+  try { var t = localStorage.getItem(KEY); if (t === "light" || t === "dark") stored = t; } catch (e) {}
+  btn.addEventListener("click", function () {
+    apply(MODES[(MODES.indexOf(btn.getAttribute("data-mode")) + 1) % MODES.length]);
+  });
+  apply(stored);
+})();
+</script>
+<script>
+/* Progressive enhancements: drawer, copy, tables, anchors, TOC spy, reveal */
+document.addEventListener('DOMContentLoaded', function () {
+  function copyText(text, btn, label) {
+    navigator.clipboard.writeText(text).then(function () {
+      var l = btn.querySelector('.copy-label');
+      if (l) l.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        if (l) l.textContent = label;
+        btn.classList.remove('copied');
+      }, 1600);
+    });
+  }
+
+  // Mobile drawer
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var sidebar = document.querySelector('.docs-sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (menuBtn && sidebar) {
+    menuBtn.addEventListener('click', function () {
+      sidebar.classList.toggle('open');
+      if (overlay) overlay.classList.toggle('active');
+    });
+    if (overlay) overlay.addEventListener('click', function () {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    });
+  }
+
+  // Active sidebar link
+  var path = window.location.pathname.replace(/\/$/, '') || '/';
+  document.querySelectorAll('.sidebar-links a').forEach(function (link) {
+    var href = link.getAttribute('href').replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') || '/';
+    if (href === path) link.classList.add('active');
+  });
+
+  var content = document.querySelector('.docs-content');
+  if (content) {
+    // Wrap tables for horizontal scroll
+    content.querySelectorAll('table').forEach(function (tbl) {
+      if (tbl.closest('.table-scroll')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'table-scroll';
+      tbl.parentNode.insertBefore(wrap, tbl);
+      wrap.appendChild(tbl);
+    });
+
+    // Code blocks: language label + copy button
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.closest('.code-block')) return;
+      var codeEl = pre.querySelector('code');
+      var lang = '';
+      if (codeEl) {
+        var m = (codeEl.className || '').match(/(?:language|lang)-([a-z0-9]+)/i);
+        if (m) lang = m[1];
+      }
+      var block = document.createElement('div');
+      block.className = 'code-block';
+      pre.parentNode.insertBefore(block, pre);
+      var bar = document.createElement('div');
+      bar.className = 'code-bar';
+      var langSpan = document.createElement('span');
+      langSpan.className = 'code-lang';
+      langSpan.textContent = lang || 'code';
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.innerHTML = '<span class="copy-label">copy</span>';
+      btn.addEventListener('click', function () { copyText(pre.innerText, btn, 'copy'); });
+      bar.appendChild(langSpan);
+      bar.appendChild(btn);
+      block.appendChild(bar);
+      block.appendChild(pre);
+    });
+
+    // Heading anchors (Hwaro already adds ids)
+    content.querySelectorAll('h2[id], h3[id]').forEach(function (h) {
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.textContent = '#';
+      a.setAttribute('aria-label', 'Link to this section');
+      h.appendChild(a);
+    });
+  }
+
+  // Generic copy targets (hero install lines, etc.)
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      copyText(btn.getAttribute('data-copy'), btn, btn.dataset.copyLabel || 'copy');
+    });
+  });
+
+  // TOC scroll-spy over the native <ul><li><a href="#basic-usage">Basic Usage</a></li><li><a href="#secret-based-signing-hmac">Secret-Based Signing (HMAC)</a></li><li><a href="#key-based-signing-rsaecdsa">Key-Based Signing (RSA/ECDSA)</a></li><li><a href="#unsigned-tokens">Unsigned Tokens</a></li><li><a href="#custom-headers">Custom Headers</a></li><li><a href="#deflate-compression">DEFLATE Compression</a></li><li><a href="#jwe-json-web-encryption">JWE (JSON Web Encryption)</a></li><li><a href="#command-options">Command Options</a><ul><li><a href="#required">Required</a></li><li><a href="#authentication-options">Authentication Options</a></li><li><a href="#algorithm-options">Algorithm Options</a></li><li><a href="#additional-options">Additional Options</a></li></ul></li><li><a href="#examples">Examples</a><ul><li><a href="#standard-jwt-with-hmac">Standard JWT with HMAC</a></li><li><a href="#jwt-with-rsa-signature">JWT with RSA Signature</a></li><li><a href="#jwt-with-custom-headers">JWT with Custom Headers</a></li><li><a href="#compressed-jwt">Compressed JWT</a></li><li><a href="#unsigned-jwt-for-testing">Unsigned JWT for Testing</a></li></ul></li><li><a href="#key-file-formats">Key File Formats</a><ul><li><a href="#rsa-private-keys">RSA Private Keys</a></li><li><a href="#ecdsa-private-keys">ECDSA Private Keys</a></li></ul></li><li><a href="#output">Output</a></li></ul> links
+  var tocLinks = document.querySelectorAll('.docs-toc a[href^="#"]');
+  if (tocLinks.length) {
+    var byId = {}, targets = [];
+    tocLinks.forEach(function (l) {
+      var id = decodeURIComponent(l.getAttribute('href').slice(1));
+      var el = document.getElementById(id);
+      if (el) { byId[id] = l; targets.push(el); }
+    });
+    if (targets.length && 'IntersectionObserver' in window) {
+      var spy = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            tocLinks.forEach(function (l) { l.classList.remove('active'); });
+            var a = byId[e.target.id];
+            if (a) a.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+      targets.forEach(function (t) { spy.observe(t); });
+    }
+  }
+
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length) {
+    if (!('IntersectionObserver' in window) ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reveals.forEach(function (el) { el.classList.add('in'); });
+    } else {
+      var ro = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+      reveals.forEach(function (el) { ro.observe(el); });
+    }
+  }
+});
+</script>
+
+</body>
+</html>
