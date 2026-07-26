@@ -50,6 +50,6 @@ jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.INVALI
 
 ## Next Steps
 
-- Explore the [Usage Guide](/usage/decode) for detailed command explanations
-- Learn about [Advanced Features](/advanced/configuration) and configuration options
-- Check out the [Contributing Guide](/contributing) if you want to help improve JWT-HACK
+- Explore the [Usage Guide](/usage/commands/decode) for detailed command explanations
+- Learn about [Advanced Features](/usage/configuration) and configuration options
+- Check out the [Contributing Guide](/support/contributing) if you want to help improve JWT-HACK
