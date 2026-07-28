@@ -103,6 +103,7 @@ You can use the `--compress` option to apply DEFLATE compression to the JWT payl
 jwt-hack encode '{"sub":"1234"}' --secret=your-secret --compress
 ```
 
+```bash
 # With Private Key
 ssh-keygen -t rsa -b 4096 -E SHA256 -m PEM -P "" -f RS256.key
 jwt-hack encode '{"a":"z"}' --private-key RS256.key --algorithm=RS256
