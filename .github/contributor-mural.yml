@@ -1,0 +1,26 @@
+# https://github.com/crystal-actions/contributor-mural
+style: grid
+
+output: CONTRIBUTORS.svg
+
+contributors:
+  include_bots: false
+
+users:
+  - login: hahwul
+    role: Creator
+
+exclude:
+  - "*[bot]"
+  - Copilot
+  - Claude
+  - Codex
+  - renovate-bot
+  - ImgBotApp
+
+grid:
+  columns: 8
+  avatar_size: 64
+  shape: rounded
+  margin: 8
+  show_names: true
