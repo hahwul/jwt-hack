@@ -760,7 +760,7 @@ fn handle_payload(parts: &[&str], app: &mut App) {
         }
     };
     let output = capture::capture_command_output(|| {
-        super::payload::execute(&token, None, None, "https", None);
+        super::payload::execute(&token, None, None, "https", None, None);
     });
     app.push_output(output.text);
 }

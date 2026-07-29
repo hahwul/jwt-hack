@@ -171,9 +171,14 @@ pub enum Commands {
         #[arg(long, default_value = "https")]
         jwk_protocol: String,
 
-        /// Target payload types (comma-separated: all,none,jku,x5u,ssrf,alg_confusion,alg_edge,kid_sql,kid_traversal,kid_predictable,x5c,x5c_signed,cty,jwk_embed,crit,b64,empty_sig,psychic,typ_confusion,zip)
+        /// Target payload types (comma-separated: all,none,jku,x5u,ssrf,alg_confusion,alg_edge,kid_sql,kid_traversal,kid_predictable,x5c,x5c_signed,cty,jwk_embed,crit,b64,empty_sig,psychic,typ_confusion,zip,claims_privesc,claims_exp,claims_confusion,jwe,sig_malleability,kid_injection,claim_injection)
         #[arg(long, default_value = "all")]
         target: Option<String>,
+
+        /// Server public key (PEM literal or file path) — forges a fully signed
+        /// RS/ES→HS alg-confusion HMAC token using the key bytes as the secret
+        #[arg(long)]
+        public_key: Option<String>,
     },
 
     /// Scans a JWT token for common vulnerabilities and security issues
@@ -403,12 +408,14 @@ pub fn execute() {
                 jwk_attack,
                 jwk_protocol,
                 target,
+                public_key,
             }) => payload::execute_json(
                 token,
                 jwk_trust.as_deref(),
                 jwk_attack.as_deref(),
                 jwk_protocol,
                 target.as_deref(),
+                public_key.as_deref(),
             ),
             Some(Commands::Scan {
                 token,
@@ -579,6 +586,7 @@ pub fn execute() {
             jwk_attack,
             jwk_protocol,
             target,
+            public_key,
         }) => {
             payload::execute(
                 token,
@@ -586,6 +594,7 @@ pub fn execute() {
                 jwk_attack.as_deref(),
                 jwk_protocol,
                 target.as_deref(),
+                public_key.as_deref(),
             );
         }
         Some(Commands::Scan {
