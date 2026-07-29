@@ -129,6 +129,8 @@ pub struct PayloadRequest {
     pub jwk_protocol: String,
     #[serde(default)]
     pub target: Option<String>,
+    #[serde(default)]
+    pub public_key: Option<String>,
 }
 
 fn default_jwk_protocol() -> String {
@@ -554,6 +556,7 @@ async fn handle_payload(
         req.jwk_attack.as_deref(),
         &req.jwk_protocol,
         target,
+        req.public_key.as_deref(),
     ) {
         Ok(payloads) => {
             let payload_items: Vec<PayloadItem> = payloads

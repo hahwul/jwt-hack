@@ -100,6 +100,10 @@ pub struct PayloadArgs {
     /// Protocol for jku&x5u attacks (http/https)
     #[serde(default = "default_protocol")]
     pub jwk_protocol: String,
+    /// Server public key (PEM literal or file path) — forges a fully signed
+    /// RS/ES→HS alg-confusion HMAC token using the key bytes as the secret
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
 }
 
 fn default_algorithm() -> String {
@@ -380,12 +384,14 @@ impl JwtHackServer {
             Some(args.target.as_str())
         };
 
+        let resolved_key = super::payload::resolve_public_key(args.public_key.as_deref());
         let result = crate::payload::generate_all_payloads(
             &args.token,
             None, // jwk_trust
             args.jwk_attack.as_deref(),
             &args.jwk_protocol,
             target,
+            resolved_key.as_deref(),
         );
 
         match result {

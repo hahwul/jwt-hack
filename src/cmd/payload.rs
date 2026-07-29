@@ -9,6 +9,16 @@ use crate::jwt;
 use crate::printing::theme;
 use crate::utils;
 
+/// Resolve a `--public-key` argument: if it names a readable file, load its
+/// contents; otherwise treat the value as a literal PEM string.
+pub(crate) fn resolve_public_key(public_key: Option<&str>) -> Option<String> {
+    let value = public_key?;
+    match std::fs::read_to_string(value) {
+        Ok(contents) => Some(contents),
+        Err(_) => Some(value.to_string()),
+    }
+}
+
 /// Generates different JWT attack payloads based on the given token and parameters
 pub fn execute(
     token: &str,
@@ -16,8 +26,17 @@ pub fn execute(
     jwk_attack: Option<&str>,
     jwk_protocol: &str,
     target: Option<&str>,
+    public_key: Option<&str>,
 ) {
-    if let Err(e) = generate_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target) {
+    let resolved_key = resolve_public_key(public_key);
+    if let Err(e) = generate_payloads(
+        token,
+        jwk_trust,
+        jwk_attack,
+        jwk_protocol,
+        target,
+        resolved_key.as_deref(),
+    ) {
         utils::log_error(format!("Error generating payloads: {e}"));
         utils::log_error("e.g jwt-hack payload {JWT_CODE} --jwk-attack attack.example.com --jwk-trust trust.example.com --target none,jku,alg_confusion");
     }
@@ -29,9 +48,17 @@ pub fn execute_json(
     jwk_attack: Option<&str>,
     jwk_protocol: &str,
     target: Option<&str>,
+    public_key: Option<&str>,
 ) -> Result<Value> {
-    let payloads =
-        crate::payload::generate_all_payloads(token, jwk_trust, jwk_attack, jwk_protocol, target)?;
+    let resolved_key = resolve_public_key(public_key);
+    let payloads = crate::payload::generate_all_payloads(
+        token,
+        jwk_trust,
+        jwk_attack,
+        jwk_protocol,
+        target,
+        resolved_key.as_deref(),
+    )?;
     Ok(serde_json::json!({
         "success": true,
         "count": payloads.len(),
@@ -45,6 +72,7 @@ fn generate_payloads(
     jwk_attack: Option<&str>,
     jwk_protocol: &str,
     target: Option<&str>,
+    public_key: Option<&str>,
 ) -> Result<()> {
     // Decode JWT token to validate format
     let _ = jwt::decode(token)?;
@@ -93,6 +121,13 @@ fn generate_payloads(
         "none_sig",
         "header_quirks",
         "kid_wildcard",
+        "claims_privesc",
+        "claims_exp",
+        "claims_confusion",
+        "jwe",
+        "sig_malleability",
+        "kid_injection",
+        "claim_injection",
     ];
     for t in &targets {
         if !valid_targets.contains(&t.as_str()) && t != "all" {
@@ -131,7 +166,7 @@ fn generate_payloads(
 
     // Generate algorithm confusion attack payloads (RS256->HS256)
     if should_generate_all || targets.contains("alg_confusion") {
-        if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, None) {
+        if let Ok(payloads) = crate::payload::generate_alg_confusion_payload(token, public_key) {
             for payload in payloads {
                 println!(
                     "\n{}",
@@ -414,6 +449,101 @@ fn generate_payloads(
         }
     }
 
+    // Claim privilege-escalation payloads
+    if should_generate_all || targets.contains("claims_privesc") {
+        if let Ok(payloads) = crate::payload::generate_claims_privesc_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Claims Privilege Escalation (alg:none)")
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Claim exp/nbf/iat manipulation payloads
+    if should_generate_all || targets.contains("claims_exp") {
+        if let Ok(payloads) = crate::payload::generate_claims_exp_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Claims exp/nbf/iat Manipulation (alg:none)")
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Claim iss/aud/sub confusion payloads
+    if should_generate_all || targets.contains("claims_confusion") {
+        if let Ok(payloads) = crate::payload::generate_claims_confusion_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line("Claims iss/aud/sub Confusion (alg:none)")
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // JWE header-confusion / PBES2 DoS probes
+    if should_generate_all || targets.contains("jwe") {
+        if let Ok(payloads) = crate::payload::generate_jwe_probe_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line("JWE Header Confusion / PBES2 DoS Probe")
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Signature malleability / structural signature probes
+    if should_generate_all || targets.contains("sig_malleability") {
+        if let Ok(payloads) = crate::payload::generate_sig_malleability_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line(
+                        "Signature Malleability (ECDSA high-S / DER / structural)"
+                    )
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // kid injection beyond SQL (NoSQL/command/SSTI/LDAP/CRLF)
+    if should_generate_all || targets.contains("kid_injection") {
+        if let Ok(payloads) = crate::payload::generate_kid_injection_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line("kid Injection (NoSQL/Command/SSTI/LDAP/CRLF)")
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
+    // Claim-value injection (XSS/SQLi/SSTI/log4j/path)
+    if should_generate_all || targets.contains("claim_injection") {
+        if let Ok(payloads) = crate::payload::generate_claim_injection_payload(token) {
+            for payload in payloads {
+                println!(
+                    "\n{}",
+                    theme::subsection_line(
+                        "Claim-value Injection (XSS/SQLi/SSTI/log4j/path, alg:none)"
+                    )
+                );
+                println!("  {payload}");
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -527,7 +657,7 @@ mod tests {
 
         // Test with minimal parameters
         let result = std::panic::catch_unwind(|| {
-            execute(&token, None, None, "https", None);
+            execute(&token, None, None, "https", None, None);
         });
 
         assert!(
@@ -543,7 +673,7 @@ mod tests {
 
         // Test with specific target
         let result = std::panic::catch_unwind(|| {
-            execute(&token, None, None, "https", Some("none"));
+            execute(&token, None, None, "https", Some("none"), None);
         });
 
         assert!(
@@ -565,6 +695,7 @@ mod tests {
                 Some("attack.example.com"),
                 "https",
                 Some("jku,x5u"),
+                None,
             );
         });
 
@@ -581,7 +712,7 @@ mod tests {
 
         // Test with invalid token
         let result = std::panic::catch_unwind(|| {
-            execute(token, None, None, "https", None);
+            execute(token, None, None, "https", None, None);
         });
 
         assert!(

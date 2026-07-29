@@ -62,7 +62,7 @@ docker pull hahwul/jwt-hack:v2.6.0
 | Decode  | JWT/JWE Decoder              | Algorithm, Issued At Check, DEFLATE Compression, JWE Structure |
 | Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
 | Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
-| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
+| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion (signed via `--public-key`) / kid & claim injection / claims tampering / signature malleability / JWE probes / x5c / cty |
 | Scan    | Vulnerability Scanner        | Automated security checks for common JWT vulnerabilities     |
 | Server  | API Server                    | Run API Server Mode (http://localhost:3000)                 |
 | MCP     | Model Context Protocol Server | AI model integration via standardized protocol              |
@@ -212,7 +212,7 @@ The MCP server exposes the following tools:
 | `encode` | Encode JSON to JWT | `json` (string), `secret` (optional), `algorithm` (default: HS256), `no_signature` (boolean) |
 | `verify` | Verify JWT signatures | `token` (string), `secret` (optional), `validate_exp` (boolean) |
 | `crack` | Crack JWT tokens | `token` (string), `mode` (dict/brute), `chars` (string), `max` (number) |
-| `payload` | Generate attack payloads | `token` (string), `target` (string), `jwk_attack` (optional), `jwk_protocol` (default: https) |
+| `payload` | Generate attack payloads | `token` (string), `target` (string), `jwk_attack` (optional), `jwk_protocol` (default: https), `public_key` (optional PEM/path for signed alg-confusion) |
 
 #### Example MCP Usage
 
