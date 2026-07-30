@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785417839817,
+  "lastUpdate": 1785418150621,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -329,6 +329,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 27101469,
             "range": "± 436267",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57e3b06967e5c0f14091f07867ef14ffb36d26b6",
+          "message": "fix(jwks): verify against oct keys with raw bytes, not lossy UTF-8 (#264)\n\n`verify_with_jwks` fed a symmetric `oct` JWK key through\n`String::from_utf8_lossy` before HMAC verification. An `oct` key is\narbitrary bytes, so any non-UTF-8 byte (the common case for real random\nkeys) was replaced with U+FFFD, changing the key — a token correctly\nsigned with that key then failed to verify against its own JWKS.\n\nAdd `VerifyKeyData::SecretBytes(&[u8])` and route the HMAC verification\nlogic (shared with the existing `Secret(&str)` path) through the raw\nbytes verbatim. The JWKS `oct` branch now passes the decoded key bytes\ndirectly.\n\nAdds regression tests: a non-UTF-8 (0xFF) oct key verifies its own\ntoken, and a mismatched oct key is still rejected.",
+          "timestamp": "2026-07-30T22:22:32+09:00",
+          "tree_id": "3d89c4ab6433d7c3ac7ba5d16ee1e93f001a013e",
+          "url": "https://github.com/hahwul/jwt-hack/commit/57e3b06967e5c0f14091f07867ef14ffb36d26b6"
+        },
+        "date": 1785418149298,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1202,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12901,
+            "range": "± 1230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1392,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3277,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1488,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 11957,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26361820,
+            "range": "± 146046",
             "unit": "ns/iter"
           }
         ]
