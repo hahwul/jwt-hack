@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785417474526,
+  "lastUpdate": 1785417839817,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -263,6 +263,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 29366642,
             "range": "± 491656",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80d1361e3eb066458bb0206e7b7dd70bdf231776",
+          "message": "fix(scan): report both jku and x5u headers when both present (#263)\n\n`check_jku_x5u_vulnerabilities` picked a single header\n(`if has_jku { \"jku\" } else { \"x5u\" }`), so a token carrying both `jku`\nand `x5u` surfaced only the `jku` finding and silently hid the `x5u`\nURL-spoofing / SSRF risk. Collect every URL-bearing header present and\nlist them all in the finding.\n\nAdds regression tests for both-present, x5u-only, and none.",
+          "timestamp": "2026-07-30T22:17:37+09:00",
+          "tree_id": "898fd059184f66407424a017f5c2ecb96174a664",
+          "url": "https://github.com/hahwul/jwt-hack/commit/80d1361e3eb066458bb0206e7b7dd70bdf231776"
+        },
+        "date": 1785417838805,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1213,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12813,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1377,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3654,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1525,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 12244,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 27101469,
+            "range": "± 436267",
             "unit": "ns/iter"
           }
         ]
