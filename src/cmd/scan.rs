@@ -1034,29 +1034,35 @@ fn check_sensitive_claims(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
 
 /// Check for JKU/X5U header vulnerabilities
 fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
-    let has_jku = decoded.header.contains_key("jku");
-    let has_x5u = decoded.header.contains_key("x5u");
+    // Report every URL-bearing header that is present. Previously only the first
+    // of `jku`/`x5u` was surfaced (`if has_jku { "jku" } else { "x5u" }`), so a
+    // token carrying both silently hid the `x5u` spoofing/SSRF risk.
+    let present: Vec<String> = ["jku", "x5u"]
+        .iter()
+        .filter_map(|h| {
+            decoded.header.get(*h).map(|v| {
+                let value = v
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| v.to_string());
+                format!("'{}' ({})", h, value)
+            })
+        })
+        .collect();
 
-    let result = if has_jku || has_x5u {
-        let header_type = if has_jku { "jku" } else { "x5u" };
-        let header_value = decoded.header.get(header_type);
-
-        VulnerabilityResult {
-            name: "JKU/X5U Header".to_string(),
-            vulnerable: true,
-            details: format!(
-                "Has '{}' header ({}), URL spoofing risk",
-                header_type,
-                header_value.map(|v| v.to_string()).unwrap_or_default()
-            ),
-            severity: Severity::High,
-        }
-    } else {
+    let result = if present.is_empty() {
         VulnerabilityResult {
             name: "JKU/X5U Header".to_string(),
             vulnerable: false,
             details: "No JKU/X5U headers".to_string(),
             severity: Severity::Info,
+        }
+    } else {
+        VulnerabilityResult {
+            name: "JKU/X5U Header".to_string(),
+            vulnerable: true,
+            details: format!("Has {} — URL spoofing / SSRF risk", present.join(" and ")),
+            severity: Severity::High,
         }
     };
 
@@ -1662,6 +1668,44 @@ mod tests {
         let result = check_token_expiration(&decoded).unwrap();
         assert!(!result.vulnerable);
         assert_eq!(result.details, "Proper expiration claims");
+    }
+
+    #[test]
+    fn test_check_jku_x5u_reports_both_when_present() {
+        // Regression: a token carrying both jku and x5u must surface both; the old
+        // code reported only jku and hid the x5u spoofing/SSRF risk.
+        let token = synthetic_token(
+            json!({ "jku": "https://evil.example/jwks", "x5u": "https://evil.example/cert" }),
+            json!({ "sub": "x" }),
+        );
+        let decoded = jwt::decode(&token).unwrap();
+        let result = check_jku_x5u_vulnerabilities(&decoded).unwrap();
+        assert!(result.vulnerable);
+        assert!(
+            result.details.contains("jku"),
+            "details: {}",
+            result.details
+        );
+        assert!(
+            result.details.contains("x5u"),
+            "details: {}",
+            result.details
+        );
+    }
+
+    #[test]
+    fn test_check_jku_x5u_single_and_none() {
+        // Only x5u present -> reported.
+        let x5u_only = synthetic_token(json!({ "x5u": "https://e/cert" }), json!({ "sub": "x" }));
+        let d = jwt::decode(&x5u_only).unwrap();
+        let r = check_jku_x5u_vulnerabilities(&d).unwrap();
+        assert!(r.vulnerable && r.details.contains("x5u") && !r.details.contains("jku"));
+
+        // Neither present -> not vulnerable.
+        let none = synthetic_token(json!({}), json!({ "sub": "x" }));
+        let d = jwt::decode(&none).unwrap();
+        let r = check_jku_x5u_vulnerabilities(&d).unwrap();
+        assert!(!r.vulnerable);
     }
 
     #[test]
