@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785418150621,
+  "lastUpdate": 1785424147683,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -395,6 +395,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26361820,
             "range": "± 146046",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5e8ddc2daf620d50fbc24676560a3c3b45bacefc",
+          "message": "Merge pull request #265 from hahwul/hahwul/bugfix-round-based-audit\n\nRound-based bug audit: 15 fixes (EC/JWE/ES512, alg:none, scan false-positives)",
+          "timestamp": "2026-07-31T00:02:18+09:00",
+          "tree_id": "b6191013ea635575476b7fc1017dc0dbe52dc65b",
+          "url": "https://github.com/hahwul/jwt-hack/commit/5e8ddc2daf620d50fbc24676560a3c3b45bacefc"
+        },
+        "date": 1785424146500,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1178,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12522,
+            "range": "± 196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1365,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3246,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1522,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 12008,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26444110,
+            "range": "± 139786",
             "unit": "ns/iter"
           }
         ]
