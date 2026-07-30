@@ -371,9 +371,12 @@ pub fn verify_with_jwks(token: &str, jwks: &JwkSet) -> Result<Vec<KeyVerifyResul
                 if let Some(k) = &jwk.k {
                     match URL_SAFE_NO_PAD.decode(k) {
                         Ok(secret_bytes) => {
-                            let secret = String::from_utf8_lossy(&secret_bytes);
+                            // Use the raw key bytes verbatim. A JWKS `oct` key is
+                            // arbitrary binary; `from_utf8_lossy` would replace any
+                            // non-UTF-8 byte with U+FFFD and make verification of a
+                            // correctly-signed token fail.
                             let options = crate::jwt::VerifyOptions {
-                                key_data: crate::jwt::VerifyKeyData::Secret(&secret),
+                                key_data: crate::jwt::VerifyKeyData::SecretBytes(&secret_bytes),
                                 validate_exp: false,
                                 validate_nbf: false,
                                 leeway: 0,
@@ -753,6 +756,63 @@ mod tests {
         let jwks = JwkSet { keys: vec![] };
         let results = verify_with_jwks(&token, &jwks).unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_verify_with_jwks_oct_binary_key() {
+        // Regression: an `oct` JWK key is arbitrary bytes. Verifying a token
+        // signed with a non-UTF-8 key used to fail because the key was routed
+        // through `String::from_utf8_lossy`, replacing invalid bytes with U+FFFD.
+        // A key with an 0xFF byte is not valid UTF-8.
+        let key: [u8; 32] = [
+            0xff, 0xfe, 0x00, 0x80, 0x01, 0x02, 0x03, 0x90, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6,
+            0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x9f, 0xaf, 0xbf, 0xcf, 0xdf, 0xef,
+            0xff, 0x00, 0x11, 0x22,
+        ];
+        // The 0xFF bytes make this key invalid UTF-8, which is exactly the case
+        // `from_utf8_lossy` used to corrupt.
+
+        // Sign an HS256 token with the raw key bytes.
+        let h_b64 = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let c_b64 = URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let signing_input = format!("{h_b64}.{c_b64}");
+        let mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), key);
+        let sig_b64 = URL_SAFE_NO_PAD.encode(mac.as_slice());
+        let token = format!("{signing_input}.{sig_b64}");
+
+        let k_b64 = URL_SAFE_NO_PAD.encode(key);
+        let jwks_json =
+            format!(r#"{{"keys":[{{"kty":"oct","kid":"k1","alg":"HS256","k":"{k_b64}"}}]}}"#);
+        let jwks = parse_jwks(&jwks_json).unwrap();
+
+        let results = verify_with_jwks(&token, &jwks).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(
+            results[0].valid,
+            "binary oct key must verify its correctly-signed token; error={:?}",
+            results[0].error
+        );
+    }
+
+    #[test]
+    fn test_verify_with_jwks_oct_wrong_key_is_invalid() {
+        // A different oct key must NOT verify (guards against the fix accepting
+        // everything).
+        let h_b64 = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let c_b64 = URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let signing_input = format!("{h_b64}.{c_b64}");
+        let mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), [0xaa_u8; 32]);
+        let sig_b64 = URL_SAFE_NO_PAD.encode(mac.as_slice());
+        let token = format!("{signing_input}.{sig_b64}");
+
+        let k_b64 = URL_SAFE_NO_PAD.encode([0xbb_u8; 32]);
+        let jwks_json =
+            format!(r#"{{"keys":[{{"kty":"oct","kid":"k1","alg":"HS256","k":"{k_b64}"}}]}}"#);
+        let jwks = parse_jwks(&jwks_json).unwrap();
+
+        let results = verify_with_jwks(&token, &jwks).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].valid, "wrong oct key must not verify");
     }
 
     #[test]

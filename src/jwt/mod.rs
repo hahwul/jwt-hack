@@ -525,8 +525,16 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
 
 /// Verification key types for JWT
 pub enum VerifyKeyData<'a> {
-    /// Secret for HMAC algorithms
+    /// Secret for HMAC algorithms (text)
     Secret(&'a str),
+    /// Raw secret bytes for HMAC algorithms.
+    ///
+    /// Use this instead of [`VerifyKeyData::Secret`] whenever the key is not
+    /// guaranteed to be valid UTF-8 — e.g. a JWKS `oct` key, whose bytes are
+    /// arbitrary. Forcing such a key through a `&str` (via `from_utf8_lossy`)
+    /// silently replaces invalid bytes with U+FFFD, changing the key and making
+    /// verification of a correctly-signed token fail.
+    SecretBytes(&'a [u8]),
     /// RSA or ECDSA public key in PEM format
     #[allow(dead_code)]
     PublicKeyPem(&'a str),
@@ -725,52 +733,80 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
 
     // Get decoding key based on algorithm and key data
     match &options.key_data {
-        VerifyKeyData::Secret(secret) => {
-            match decoded_token.algorithm {
-                Algorithm::HS256 => {
-                    // Manual signature check
-                    let mut calculated_sig =
-                        hmac_sha256::HMAC::mac(message.as_bytes(), secret.as_bytes());
-                    let sig_matches =
-                        crate::utils::constant_time_eq(&signature, calculated_sig.as_slice());
-                    calculated_sig.zeroize();
-                    if !sig_matches {
-                        return Ok(false); // Signature mismatch
-                    }
-
-                    // If signature is OK, and time validation is requested, perform it.
-                    if options.validate_exp || options.validate_nbf {
-                        let validation = create_validation(Algorithm::HS256, options);
-                        let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-                        match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                            Ok(_) => Ok(true), // Token is valid and passed time checks
-                            Err(e) => Err(anyhow::anyhow!(JwtError::from(e.kind().clone()))), // Convert to our JwtError type
-                        }
-                    } else {
-                        Ok(true) // Signature is OK, no time validation requested
-                    }
-                }
-                Algorithm::HS384 | Algorithm::HS512 => {
-                    // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation.
-                    // Route through handle_verification_result so expired/not-yet-valid tokens surface as
-                    // distinct errors instead of collapsing into a plain `false`, matching the HS256/RSA/EC paths.
-                    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-                    let validation = create_validation(decoded_token.algorithm, options);
-                    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-                    handle_verification_result(result)
-                }
-                _ => Err(anyhow!(
-                    "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
-                    decoded_token.algorithm
-                )),
-            }
-        }
+        VerifyKeyData::Secret(secret) => verify_with_secret_bytes(
+            token,
+            &message,
+            &signature,
+            secret.as_bytes(),
+            decoded_token.algorithm,
+            options,
+        ),
+        VerifyKeyData::SecretBytes(secret) => verify_with_secret_bytes(
+            token,
+            &message,
+            &signature,
+            secret,
+            decoded_token.algorithm,
+            options,
+        ),
         VerifyKeyData::PublicKeyPem(pem) => {
             verify_with_public_key_pem(token, pem, decoded_token.algorithm, options)
         }
         VerifyKeyData::PublicKeyDer(der) => {
             verify_with_public_key_der(token, der, decoded_token.algorithm, options)
         }
+    }
+}
+
+/// Verify an HMAC-signed token against a raw secret key (arbitrary bytes).
+///
+/// Shared by [`VerifyKeyData::Secret`] and [`VerifyKeyData::SecretBytes`] so the
+/// key is used verbatim — never routed through a lossy UTF-8 conversion that
+/// would corrupt a binary HMAC key.
+fn verify_with_secret_bytes(
+    token: &str,
+    message: &str,
+    signature: &[u8],
+    secret: &[u8],
+    algorithm: Algorithm,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    match algorithm {
+        Algorithm::HS256 => {
+            // Manual signature check
+            let mut calculated_sig = hmac_sha256::HMAC::mac(message.as_bytes(), secret);
+            let sig_matches =
+                crate::utils::constant_time_eq(signature, calculated_sig.as_slice());
+            calculated_sig.zeroize();
+            if !sig_matches {
+                return Ok(false); // Signature mismatch
+            }
+
+            // If signature is OK, and time validation is requested, perform it.
+            if options.validate_exp || options.validate_nbf {
+                let validation = create_validation(Algorithm::HS256, options);
+                let decoding_key = DecodingKey::from_secret(secret);
+                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
+                    Ok(_) => Ok(true), // Token is valid and passed time checks
+                    Err(e) => Err(anyhow::anyhow!(JwtError::from(e.kind().clone()))), // Convert to our JwtError type
+                }
+            } else {
+                Ok(true) // Signature is OK, no time validation requested
+            }
+        }
+        Algorithm::HS384 | Algorithm::HS512 => {
+            // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation.
+            // Route through handle_verification_result so expired/not-yet-valid tokens surface as
+            // distinct errors instead of collapsing into a plain `false`, matching the HS256/RSA/EC paths.
+            let decoding_key = DecodingKey::from_secret(secret);
+            let validation = create_validation(algorithm, options);
+            let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
+            handle_verification_result(result)
+        }
+        _ => Err(anyhow!(
+            "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
+            algorithm
+        )),
     }
 }
 
