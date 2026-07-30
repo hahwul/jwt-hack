@@ -204,8 +204,17 @@ impl JwtHackServer {
             )]));
         };
 
+        // For an unsigned token the algorithm must be "none"; otherwise the
+        // requested/default algorithm (e.g. HS256) is paired with KeyData::None and
+        // encode_with_options fails with "No key or secret provided".
+        let algorithm: &str = if args.no_signature {
+            "none"
+        } else {
+            &args.algorithm
+        };
+
         let options = crate::jwt::EncodeOptions {
-            algorithm: &args.algorithm,
+            algorithm,
             key_data,
             header_params: None::<std::collections::HashMap<&str, &str>>,
             compress_payload: false,
@@ -509,6 +518,34 @@ mod tests {
 
         let call_result = result.unwrap();
         assert!(call_result.is_error != Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_encode_tool_no_signature_emits_none() {
+        // no_signature must produce an alg:none token, not fail because the default
+        // algorithm (HS256) was left paired with KeyData::None.
+        let server = JwtHackServer::new();
+        let args = EncodeArgs {
+            json: r#"{"sub":"x"}"#.to_string(),
+            secret: None,
+            algorithm: default_algorithm(), // "HS256"
+            no_signature: true,
+        };
+        let call_result = server.encode(Parameters(args)).await.unwrap();
+        assert!(
+            call_result.is_error != Some(true),
+            "no_signature encode errored"
+        );
+        let text = call_result
+            .content
+            .first()
+            .and_then(|c| c.as_text().map(|t| t.text.clone()))
+            .expect("token text");
+        let decoded = crate::jwt::decode(&text).expect("decode none token");
+        assert_eq!(
+            decoded.header.get("alg").and_then(|v| v.as_str()),
+            Some("none")
+        );
     }
 
     #[tokio::test]

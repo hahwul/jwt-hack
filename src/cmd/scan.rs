@@ -226,8 +226,162 @@ fn run_scan(token: &str, options: &ScanOptions, report_path: Option<&PathBuf>) -
     Ok(())
 }
 
+/// Analyze a JWE (encrypted) token for encryption-layer misconfigurations.
+///
+/// Unlike the JWS path this evaluates the `alg` (key management) and `enc`
+/// (content encryption) choices plus IV/tag/compression, rather than signature
+/// shape — a JWE has no signature to reason about.
+fn scan_jwe_token(token: &str) -> Result<ScanReport> {
+    use base64::Engine;
+    let decoded = jwt::decode_jwe(token)?;
+    let mut results: Vec<VulnerabilityResult> = Vec::new();
+
+    // Key management: `none` = encryption bypass.
+    let alg = decoded.algorithm.as_str();
+    if alg.eq_ignore_ascii_case("none") {
+        results.push(VulnerabilityResult {
+            name: "JWE Key Management".to_string(),
+            vulnerable: true,
+            details: "'alg' is 'none' — encryption/key-management bypass".to_string(),
+            severity: Severity::Critical,
+        });
+    } else {
+        results.push(VulnerabilityResult {
+            name: "JWE Key Management".to_string(),
+            vulnerable: false,
+            details: format!("Key management algorithm: {}", alg),
+            severity: Severity::Info,
+        });
+    }
+
+    // Direct symmetric encryption is brute-forceable when a weak CEK is used.
+    if alg == "dir" {
+        results.push(VulnerabilityResult {
+            name: "Direct Encryption".to_string(),
+            vulnerable: true,
+            details: "'dir' mode — the content-encryption key is used directly and may be brute-forced if weak".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    // Content encryption: CBC modes are padding-oracle prone.
+    let enc = decoded.encryption.as_str();
+    let enc_result = match enc {
+        "A128CBC-HS256" | "A192CBC-HS384" | "A256CBC-HS512" => VulnerabilityResult {
+            name: "Content Encryption".to_string(),
+            vulnerable: true,
+            details: format!(
+                "{enc} uses CBC mode — potentially vulnerable to padding-oracle attacks"
+            ),
+            severity: Severity::High,
+        },
+        "A128GCM" => VulnerabilityResult {
+            name: "Content Encryption".to_string(),
+            vulnerable: true,
+            details: "A128GCM — 128-bit content encryption; prefer A256GCM".to_string(),
+            severity: Severity::Low,
+        },
+        "A256GCM" | "A192GCM" => VulnerabilityResult {
+            name: "Content Encryption".to_string(),
+            vulnerable: false,
+            details: format!("{enc} (AEAD)"),
+            severity: Severity::Info,
+        },
+        other => VulnerabilityResult {
+            name: "Content Encryption".to_string(),
+            vulnerable: true,
+            details: format!("Unrecognized 'enc' value: {other}"),
+            severity: Severity::Medium,
+        },
+    };
+    results.push(enc_result);
+
+    // Compression enabled -> CRIME-like risk.
+    let zip_def = decoded
+        .header
+        .get("zip")
+        .and_then(|v| v.as_str())
+        .map(|s| s.eq_ignore_ascii_case("DEF"))
+        .unwrap_or(false);
+    results.push(if zip_def {
+        VulnerabilityResult {
+            name: "Compression (zip)".to_string(),
+            vulnerable: true,
+            details: "'zip' is DEF — compression before encryption enables CRIME-like attacks"
+                .to_string(),
+            severity: Severity::Medium,
+        }
+    } else {
+        VulnerabilityResult {
+            name: "Compression (zip)".to_string(),
+            vulnerable: false,
+            details: "No pre-encryption compression".to_string(),
+            severity: Severity::Info,
+        }
+    });
+
+    // IV length (GCM wants a 96-bit / 12-byte nonce).
+    if !decoded.iv.is_empty() {
+        if let Ok(iv) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv) {
+            if iv.len() < 12 {
+                results.push(VulnerabilityResult {
+                    name: "IV".to_string(),
+                    vulnerable: true,
+                    details: format!("IV is {} bytes — GCM expects a 12-byte nonce", iv.len()),
+                    severity: Severity::Medium,
+                });
+            }
+        }
+    }
+
+    // Auth tag length.
+    if !decoded.tag.is_empty() {
+        if let Ok(tag) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.tag) {
+            if tag.len() < 16 {
+                results.push(VulnerabilityResult {
+                    name: "Authentication Tag".to_string(),
+                    vulnerable: true,
+                    details: format!("Auth tag is {} bytes — expected at least 16", tag.len()),
+                    severity: Severity::Medium,
+                });
+            }
+        }
+    }
+
+    let summary = summarize_results(&results);
+    Ok(ScanReport {
+        success: true,
+        token_type: "jwe".to_string(),
+        algorithm: decoded.algorithm.clone(),
+        typ: decoded
+            .header
+            .get("typ")
+            .and_then(|v| v.as_str())
+            .unwrap_or("JWE")
+            .to_string(),
+        strict_decode_ok: true,
+        strict_decode_error: None,
+        results,
+        summary,
+        attack_payloads: None,
+    })
+}
+
 fn scan_token(token: &str, options: &ScanOptions, include_payloads: bool) -> Result<ScanReport> {
     let token_type = jwt::detect_token_type(token);
+
+    // A JWE (5 segments) is an *encrypted* token, not a JWS. Running the signature
+    // and typ checks on it produces false positives — most glaringly a HIGH
+    // "Unexpected segment count: 5" for what is a perfectly valid JWE — while never
+    // surfacing the actual JWE risks (weak enc, CBC padding oracle, CRIME, etc.).
+    // Route JWEs through a dedicated analysis instead.
+    if token_type == jwt::TokenType::Jwe {
+        if let Ok(report) = scan_jwe_token(token) {
+            return Ok(report);
+        }
+        // Fall through to the JWS path only if the JWE failed to parse.
+    }
+
     let token_type_str = match token_type {
         jwt::TokenType::Jwt => "jwt",
         jwt::TokenType::Jwe => "jwe",
@@ -407,6 +561,24 @@ fn collect_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Resu
     if targets.contains("alg_confusion") {
         if let Ok(payloads) = payload::generate_alg_confusion_payload(token, None) {
             payloads_out.extend(payloads.into_iter().take(2));
+        }
+    }
+
+    // A flagged JKU/X5U Header finding records both "jku" and "x5u" targets, but
+    // previously nothing consumed them here — so a HIGH-severity JKU/X5U detection
+    // produced an empty attack_payloads list while every other finding contributed
+    // payloads. generate_jku_x5u_ssrf_payload emits jku variants first, then x5u
+    // variants; sample from both ends so the report shows one of each header type.
+    if targets.contains("jku") || targets.contains("x5u") {
+        if let Ok(payloads) = payload::generate_jku_x5u_ssrf_payload(token) {
+            if let Some(first) = payloads.first() {
+                payloads_out.push(first.clone());
+            }
+            if payloads.len() > 1 {
+                if let Some(last) = payloads.last() {
+                    payloads_out.push(last.clone());
+                }
+            }
         }
     }
 
@@ -718,6 +890,27 @@ fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerabilit
             details: "No 'kid' header".to_string(),
             severity: Severity::Info,
         },
+        // A non-string `kid` (object/array) is itself a strong signal: a JSON
+        // object like {"$ne": null} is a NoSQL operator-injection payload, and
+        // arrays trip parser-confusion. Previously `as_str().unwrap_or("")`
+        // collapsed these to an empty string, hiding both the value and the risk.
+        Some(kid_value) if !kid_value.is_string() => VulnerabilityResult {
+            name: "Kid Header".to_string(),
+            vulnerable: true,
+            details: format!(
+                "'kid' is a non-string {} ({}) — parser confusion / NoSQL operator injection vector",
+                match kid_value {
+                    serde_json::Value::Object(_) => "object",
+                    serde_json::Value::Array(_) => "array",
+                    serde_json::Value::Number(_) => "number",
+                    serde_json::Value::Bool(_) => "boolean",
+                    serde_json::Value::Null => "null",
+                    serde_json::Value::String(_) => "string",
+                },
+                kid_value
+            ),
+            severity: Severity::High,
+        },
         Some(kid_value) => {
             let kid_str = kid_value.as_str().unwrap_or("").to_string();
             let lower = kid_str.to_lowercase();
@@ -864,7 +1057,9 @@ fn check_signature_segment(
     let is_none = alg_str.contains("none") || header_alg == "none";
 
     let sig = parts.get(2).copied().unwrap_or("");
-    // The encoder writes `''` for the none-alg sentinel; treat that as empty too.
+    // Defensively treat a literal `''` third segment as empty too: older jwt-hack
+    // builds (and some third-party tools) emit `header.payload.''` for alg:none
+    // instead of a truly empty signature.
     let sig_trim = sig.trim_matches('\'');
     let is_empty = sig_trim.is_empty();
 
@@ -1072,6 +1267,21 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
 /// Check for `typ` confusion (non-standard or omitted media types).
 fn check_typ_confusion(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
     let name = "typ Confusion".to_string();
+    // A present-but-non-string `typ` (object/array/number) is a parser-confusion
+    // signal, not a "missing typ". Detecting it explicitly avoids reporting it as
+    // absent (`get("typ").and_then(as_str)` returns None for both cases).
+    if let Some(v) = decoded.header.get("typ") {
+        if !v.is_string() {
+            return Ok(VulnerabilityResult {
+                name,
+                vulnerable: true,
+                details: format!(
+                    "'typ' is a non-string value ({v}) — parser confusion; validators may disagree on the media type"
+                ),
+                severity: Severity::Medium,
+            });
+        }
+    }
     let result = match decoded.header.get("typ").and_then(|v| v.as_str()) {
         Some("JWT") => VulnerabilityResult {
             name,
@@ -1709,6 +1919,50 @@ mod tests {
     }
 
     #[test]
+    fn test_jku_x5u_finding_emits_attack_payloads() {
+        // Regression: a flagged JKU/X5U Header finding records "jku"/"x5u" targets,
+        // but collect_attack_payloads used to drop them, yielding an empty payload
+        // list for a HIGH-severity finding. It must now emit jku/x5u SSRF payloads.
+        let token = synthetic_token(
+            json!({ "jku": "https://evil.example/jwks" }),
+            json!({ "sub": "x" }),
+        );
+        let results = vec![check_jku_x5u_vulnerabilities(&jwt::decode(&token).unwrap()).unwrap()];
+        assert!(results[0].vulnerable, "jku token should be flagged");
+
+        let payloads = collect_attack_payloads(&token, &results).expect("collect payloads");
+        assert!(
+            !payloads.is_empty(),
+            "JKU/X5U finding must contribute attack payloads, got none"
+        );
+        // The sampled payloads should carry a jku and/or x5u header injecting a
+        // probe URL rather than being empty or unrelated.
+        let has_jku = payloads.iter().any(|p| {
+            get_header_from_token(p)
+                .and_then(|h| h.get("jku").cloned())
+                .is_some()
+        });
+        let has_x5u = payloads.iter().any(|p| {
+            get_header_from_token(p)
+                .and_then(|h| h.get("x5u").cloned())
+                .is_some()
+        });
+        assert!(
+            has_jku || has_x5u,
+            "expected jku/x5u header injection payloads, got {payloads:?}"
+        );
+    }
+
+    fn get_header_from_token(token_str: &str) -> Option<serde_json::Value> {
+        use base64::Engine;
+        let part = token_str.split('.').next()?;
+        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(part)
+            .ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
+
+    #[test]
     fn test_check_missing_claims() {
         let token = create_test_token("HS256", "secret");
         let decoded = jwt::decode(&token).unwrap();
@@ -1851,6 +2105,21 @@ mod tests {
     }
 
     #[test]
+    fn test_check_kid_header_object_is_high_and_shows_value() {
+        // A JSON-object kid (e.g. a NoSQL {"$ne": null} operator) must be flagged
+        // High and its value surfaced, not collapsed to an empty string.
+        let decoded = header_only_decoded(r#"{"alg":"HS256","kid":{"$ne":null}}"#);
+        let r = check_kid_vulnerabilities(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+        assert!(
+            r.details.contains("$ne") && r.details.contains("non-string"),
+            "details should surface the object value: {}",
+            r.details
+        );
+    }
+
+    #[test]
     fn test_check_signature_segment_empty_with_alg_is_critical() {
         // Build header.payload. (empty third segment) with alg=HS256.
         use base64::Engine;
@@ -1933,6 +2202,21 @@ mod tests {
     }
 
     #[test]
+    fn test_check_typ_confusion_non_string_is_flagged_not_missing() {
+        // A present-but-non-string typ must be flagged as parser confusion, not
+        // reported as a missing typ.
+        let decoded = header_only_decoded(r#"{"alg":"HS256","typ":{"x":1}}"#);
+        let r = check_typ_confusion(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Medium);
+        assert!(
+            r.details.contains("non-string") && !r.details.contains("missing"),
+            "details: {}",
+            r.details
+        );
+    }
+
+    #[test]
     fn test_check_alg_edge_array_value() {
         use base64::Engine;
         let raw_header = r#"{"alg":["none","HS256"],"typ":"JWT"}"#;
@@ -1998,6 +2282,50 @@ mod tests {
         let r = check_psychic_signature(&token, &decoded).unwrap();
         assert!(r.vulnerable);
         assert_eq!(r.severity, Severity::Critical);
+    }
+
+    #[test]
+    fn test_scan_jwe_uses_jwe_checks_not_signature_shape() {
+        // A real A128GCM JWE must be analyzed as encrypted content, never flagged
+        // for its (valid) 5-segment shape via the JWS "Signature Segment" check.
+        let jwe = jwt::encode_jwe(
+            r#"{"sub":"a"}"#,
+            jwt::JweKeyManagement::Direct("0123456789abcdef"),
+            jwt::JweContentEncryption::A128GCM,
+        )
+        .expect("build jwe");
+        let report = scan_jwe_token(&jwe).expect("scan jwe");
+        assert_eq!(report.token_type, "jwe");
+        assert!(
+            report.results.iter().all(|r| r.name != "Signature Segment"),
+            "JWE must not be scored with the JWS signature-shape check"
+        );
+        assert!(report
+            .results
+            .iter()
+            .any(|r| r.name == "Content Encryption"));
+    }
+
+    #[test]
+    fn test_scan_jwe_flags_none_and_cbc() {
+        use base64::Engine;
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"none","enc":"A128CBC-HS256"}"#);
+        // header.encrypted_key.iv.ciphertext.tag  (dummy but well-formed base64url)
+        let jwe = format!("{header}..aXYaXYaXYaXYaXYa.Y3Q.dGFndGFndGFndGFn");
+        let report = scan_jwe_token(&jwe).expect("scan jwe");
+        assert!(
+            report.results.iter().any(|r| r.name == "JWE Key Management"
+                && r.vulnerable
+                && r.severity == Severity::Critical),
+            "alg:none must be Critical"
+        );
+        assert!(
+            report.results.iter().any(|r| r.name == "Content Encryption"
+                && r.vulnerable
+                && r.severity == Severity::High),
+            "CBC enc must be High (padding oracle)"
+        );
     }
 
     #[test]

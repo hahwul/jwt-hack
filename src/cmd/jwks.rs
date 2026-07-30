@@ -243,6 +243,24 @@ pub fn execute_fetch(url: &str) {
                         if let Some(y) = &key.y {
                             println!("{}", theme::kv_line("Y", y, 18));
                         }
+
+                        // Offer the extractable public-key PEM, mirroring the RSA
+                        // branch, so users can feed it straight to `verify`.
+                        match jwks::jwk_ec_to_pem(key) {
+                            Ok(pem) => {
+                                println!(
+                                    "{}",
+                                    theme::kv_line("PEM", "OK (extractable)".green(), 18)
+                                );
+                                println!("\n{}", pem);
+                            }
+                            Err(e) => {
+                                println!(
+                                    "{}",
+                                    theme::kv_line("PEM", format!("Error: {}", e).red(), 18)
+                                );
+                            }
+                        }
                     }
                     "oct" => {
                         println!(

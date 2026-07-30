@@ -105,6 +105,30 @@ fn algorithm_from_str(alg: &str) -> Option<Algorithm> {
     }
 }
 
+/// Normalize an EC private-key PEM to PKCS#8.
+///
+/// `jsonwebtoken::EncodingKey::from_ec_pem` accepts only the PKCS#8 form
+/// (`BEGIN PRIVATE KEY`), but `openssl ecparam -genkey` and many other tools
+/// emit the SEC1 form (`BEGIN EC PRIVATE KEY`). A SEC1 key is converted to
+/// PKCS#8 via OpenSSL; anything else is passed through unchanged.
+fn ec_pem_to_pkcs8(pem: &str) -> Result<std::borrow::Cow<'_, str>> {
+    if !pem.contains("BEGIN EC PRIVATE KEY") {
+        return Ok(std::borrow::Cow::Borrowed(pem));
+    }
+    use openssl::ec::EcKey;
+    use openssl::pkey::PKey;
+    let ec = EcKey::private_key_from_pem(pem.as_bytes())
+        .map_err(|e| anyhow!("Failed to parse SEC1 EC private key: {}", e))?;
+    let pkey =
+        PKey::from_ec_key(ec).map_err(|e| anyhow!("Failed to wrap EC private key: {}", e))?;
+    let pkcs8 = pkey
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow!("Failed to convert EC key to PKCS#8: {}", e))?;
+    Ok(std::borrow::Cow::Owned(String::from_utf8(pkcs8).map_err(
+        |e| anyhow!("PKCS#8 PEM is not valid UTF-8: {}", e),
+    )?))
+}
+
 /// JWE Decoded token data
 #[derive(Debug, Clone)]
 pub struct DecodedJweToken {
@@ -258,7 +282,11 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         let encoded_claims =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims_json.as_bytes());
 
-        return Ok(format!("{encoded_header}.{encoded_claims}.''"));
+        // RFC 7519 alg:none tokens carry an EMPTY signature: `header.payload.`.
+        // Emitting the literal `''` produced a non-standard third segment that is
+        // neither valid base64url nor an empty signature, so real servers would not
+        // treat the output as a proper unsigned token.
+        return Ok(format!("{encoded_header}.{encoded_claims}."));
     }
 
     // Create encoding key based on the key data
@@ -281,7 +309,15 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             | Algorithm::PS256
             | Algorithm::PS384
             | Algorithm::PS512 => EncodingKey::from_rsa_pem(pem.as_bytes())?,
-            Algorithm::ES256 | Algorithm::ES384 => EncodingKey::from_ec_pem(pem.as_bytes())?,
+            Algorithm::ES256 | Algorithm::ES384 => {
+                // jsonwebtoken's from_ec_pem accepts only PKCS#8 EC keys, but many
+                // tools (e.g. `openssl ecparam -genkey`) emit the SEC1 "EC PRIVATE
+                // KEY" form. Normalize so ES256/ES384 accept the same keys ES512
+                // (signed via josekit) already does, instead of failing with an
+                // opaque InvalidKeyFormat.
+                let normalized = ec_pem_to_pkcs8(pem)?;
+                EncodingKey::from_ec_pem(normalized.as_bytes())?
+            }
             Algorithm::EdDSA => EncodingKey::from_ed_pem(pem.as_bytes())?,
             _ => {
                 return Err(anyhow!(
@@ -357,9 +393,10 @@ fn encode_compressed_jwt(
     let encoded_payload =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&compressed_payload);
 
-    // Handle "none" algorithm specially
+    // Handle "none" algorithm specially: emit an empty signature (`header.payload.`)
+    // rather than the non-standard literal `''` third segment.
     if options.algorithm.to_uppercase() == "NONE" {
-        return Ok(format!("{encoded_header}.{encoded_payload}.''"));
+        return Ok(format!("{encoded_header}.{encoded_payload}."));
     }
 
     // Create message to sign
@@ -700,6 +737,12 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
         .get("alg")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
+    // ES512 cannot be represented by jsonwebtoken's `Algorithm` enum, so it is
+    // verified through josekit — mirroring how this tool *signs* ES512. Without
+    // this branch the tool could produce ES512 tokens it was then unable to verify.
+    if raw_alg.eq_ignore_ascii_case("ES512") {
+        return verify_es512(token, options);
+    }
     if algorithm_from_str(raw_alg).is_none() {
         return Err(anyhow!(
             "Unsupported algorithm for verification: {}",
@@ -866,6 +909,74 @@ fn verify_with_public_key_der(
     let validation = create_validation(algorithm, options);
     let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
     handle_verification_result(result)
+}
+
+/// Verify an ES512 token via josekit.
+///
+/// `jsonwebtoken`'s `Algorithm` enum has no ES512 variant, so — exactly as ES512
+/// signing is routed through josekit — ES512 verification is too. Only public-key
+/// material is meaningful for an EC signature; an HMAC secret is rejected. When
+/// `validate_exp`/`validate_nbf` are requested, the corresponding time claims are
+/// checked after the signature (with `leeway`), surfacing expired / not-yet-valid
+/// tokens as errors like the other verification paths.
+fn verify_es512(token: &str, options: &VerifyOptions) -> Result<bool> {
+    use josekit::jws::ES512;
+
+    let verifier = match &options.key_data {
+        VerifyKeyData::PublicKeyPem(pem) => ES512
+            .verifier_from_pem(pem.as_bytes())
+            .map_err(|e| anyhow!("Failed to load ES512 public key (PEM): {}", e))?,
+        VerifyKeyData::PublicKeyDer(der) => ES512
+            .verifier_from_der(der)
+            .map_err(|e| anyhow!("Failed to load ES512 public key (DER): {}", e))?,
+        VerifyKeyData::Secret(_) | VerifyKeyData::SecretBytes(_) => {
+            return Err(anyhow!(
+                "ES512 verification requires an EC public key, not a secret"
+            ));
+        }
+    };
+
+    // deserialize_compact validates the signature against the verifier; an Err is a
+    // verification failure (bad signature / wrong key), reported as invalid.
+    let payload = match josekit::jws::deserialize_compact(token, &*verifier) {
+        Ok((payload, _header)) => payload,
+        Err(_) => return Ok(false),
+    };
+
+    if options.validate_exp || options.validate_nbf {
+        let claims: Value = serde_json::from_slice(&payload).unwrap_or(Value::Null);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| anyhow!("system clock is before the UNIX epoch"))?
+            .as_secs() as i64;
+        let leeway = options.leeway as i64;
+
+        // Match jsonwebtoken's semantics: expired when now - leeway > exp; not yet
+        // valid when nbf > now + leeway. A missing claim is not an error (our other
+        // paths clear required-claim enforcement too).
+        if options.validate_exp {
+            if let Some(exp) = claims
+                .get("exp")
+                .and_then(crate::utils::numeric_date_seconds)
+            {
+                if now - leeway > exp {
+                    return Err(anyhow!(JwtError::ExpiredSignature));
+                }
+            }
+        }
+        if options.validate_nbf {
+            if let Some(nbf) = claims
+                .get("nbf")
+                .and_then(crate::utils::numeric_date_seconds)
+            {
+                if nbf > now + leeway {
+                    return Err(anyhow!(JwtError::ImmatureSignature));
+                }
+            }
+        }
+    }
+
+    Ok(true)
 }
 
 /// Attempt to decrypt JWE token with a candidate key (for brute forcing)
@@ -1412,6 +1523,38 @@ mod tests {
     }
 
     #[test]
+    fn test_encode_es256_accepts_sec1_ec_key() {
+        // Regression: `openssl ecparam -genkey` emits SEC1 ("BEGIN EC PRIVATE KEY"),
+        // which jsonwebtoken's from_ec_pem rejects with an opaque InvalidKeyFormat.
+        // ES512 (via josekit) already accepts SEC1, so ES256/ES384 must too.
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let ec = EcKey::generate(&group).unwrap();
+        let sec1_pem = String::from_utf8(ec.private_key_to_pem().unwrap()).unwrap();
+        assert!(
+            sec1_pem.contains("BEGIN EC PRIVATE KEY"),
+            "expected SEC1 PEM"
+        );
+
+        let claims = json!({ "user": "sec1" });
+        let options = EncodeOptions {
+            algorithm: "ES256",
+            key_data: KeyData::PrivateKeyPem(&sec1_pem),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&claims, &options)
+            .expect("ES256 signing must accept a SEC1-format EC key");
+        let decoded = decode(&token).expect("decode signed ES256 token");
+        assert_eq!(
+            decoded.header.get("alg").unwrap().as_str().unwrap(),
+            "ES256"
+        );
+    }
+
+    #[test]
     fn test_encode_eddsa() {
         let ed25519_private_key = fs::read_to_string(ED25519_PRIVATE_KEY_PEM_PATH)
             .expect("Should have been able to read the Ed25519 private key file");
@@ -1452,9 +1595,9 @@ mod tests {
         let parts: Vec<&str> = token_str.split('.').collect();
         assert_eq!(parts.len(), 3, "Token should have three parts");
         assert_eq!(
-            parts[2], "''",
-            "Signature part should be empty for 'none' algorithm"
-        ); // Note: The prompt says empty, but your code produces two single quotes.
+            parts[2], "",
+            "Signature part must be empty for the 'none' algorithm (RFC 7519 unsigned token: header.payload.)"
+        );
 
         let header_b64 = parts[0];
         let header_bytes_result =
@@ -2483,6 +2626,92 @@ mod tests {
     }
 
     #[test]
+    fn test_verify_es512_round_trip() {
+        // The tool signs ES512 via josekit; verification must accept those tokens
+        // too (previously rejected with "Unsupported algorithm for verification").
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+        use openssl::pkey::PKey;
+
+        let priv_pem = include_str!("test_ec_p521_private.pem");
+        let claims = json!({ "sub": "es512" });
+        let token = encode_with_options(
+            &claims,
+            &EncodeOptions {
+                algorithm: "ES512",
+                key_data: KeyData::PrivateKeyPem(priv_pem),
+                header_params: None,
+                compress_payload: false,
+            },
+        )
+        .expect("sign ES512 token");
+
+        // Correct public key -> valid.
+        let ec = EcKey::private_key_from_pem(priv_pem.as_bytes()).expect("read P-521 key");
+        let pub_pem =
+            String::from_utf8(PKey::from_ec_key(ec).unwrap().public_key_to_pem().unwrap()).unwrap();
+        let ok_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&pub_pem),
+            ..Default::default()
+        };
+        assert!(
+            verify_with_options(&token, &ok_opts).expect("verify"),
+            "ES512 token must verify with its public key"
+        );
+
+        // A different P-521 key -> invalid (Ok(false), not an error).
+        let group = EcGroup::from_curve_name(Nid::SECP521R1).unwrap();
+        let other = EcKey::generate(&group).unwrap();
+        let other_pub = String::from_utf8(
+            PKey::from_ec_key(other)
+                .unwrap()
+                .public_key_to_pem()
+                .unwrap(),
+        )
+        .unwrap();
+        let bad_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&other_pub),
+            ..Default::default()
+        };
+        assert!(
+            !verify_with_options(&token, &bad_opts).expect("verify"),
+            "ES512 token must not verify with a different key"
+        );
+
+        // An HMAC secret is meaningless for ES512 and must error, not silently pass.
+        let secret_opts = VerifyOptions {
+            key_data: VerifyKeyData::Secret("whatever"),
+            ..Default::default()
+        };
+        assert!(verify_with_options(&token, &secret_opts).is_err());
+
+        // --validate-exp must be honored for ES512: an expired token surfaces as an
+        // ExpiredSignature error, not a silently-valid result.
+        let expired_claims = json!({ "sub": "es512", "exp": 1_000_000_000i64 });
+        let expired = encode_with_options(
+            &expired_claims,
+            &EncodeOptions {
+                algorithm: "ES512",
+                key_data: KeyData::PrivateKeyPem(priv_pem),
+                header_params: None,
+                compress_payload: false,
+            },
+        )
+        .expect("sign expired ES512 token");
+        let exp_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&pub_pem),
+            validate_exp: true,
+            ..Default::default()
+        };
+        let err = verify_with_options(&expired, &exp_opts).unwrap_err();
+        assert!(
+            err.downcast_ref::<JwtError>()
+                .is_some_and(|e| matches!(e, JwtError::ExpiredSignature)),
+            "expected ExpiredSignature, got: {err}"
+        );
+    }
+
+    #[test]
     fn test_decode_none_reports_none_not_hs256() {
         // `decode` maps `none` to an HS256 sentinel internally, but the reported
         // alg (via `alg_str`) must be the real `none`, not the misleading HS256.
@@ -2512,8 +2741,10 @@ mod tests {
         // decode's tolerance must not let verification silently treat an
         // unrepresentable alg as HS256: it should return a clear error, never
         // Ok(false) (which would imply a valid HMAC comparison was performed).
+        // `ES256K` (secp256k1) is a real alg neither jsonwebtoken nor this tool
+        // supports — unlike ES512, which is now verified via josekit.
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .encode(br#"{"alg":"ES512","typ":"JWT"}"#);
+            .encode(br#"{"alg":"ES256K","typ":"JWT"}"#);
         let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.AAAA");
         let err = verify(&token, "secret").unwrap_err().to_string();

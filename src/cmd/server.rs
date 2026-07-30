@@ -234,7 +234,15 @@ async fn handle_decode(Json(req): Json<DecodeRequest>) -> Result<Json<DecodeResp
 
 /// Encode endpoint handler
 async fn handle_encode(Json(req): Json<EncodeRequest>) -> Result<Json<EncodeResponse>, ApiError> {
-    let algorithm = req.algorithm.as_deref().unwrap_or("HS256");
+    // `no_signature` means an unsigned alg:none token. The algorithm must be
+    // forced to "none" (as the CLI does); leaving it at the requested/default
+    // algorithm while passing KeyData::None makes encode_with_options fail with
+    // "No key or secret provided".
+    let algorithm = if req.no_signature {
+        "none"
+    } else {
+        req.algorithm.as_deref().unwrap_or("HS256")
+    };
     let headers = req.headers.unwrap_or_default();
 
     let options = jwt::EncodeOptions {
@@ -848,6 +856,35 @@ mod tests {
         let response = result.unwrap().0;
         assert!(response.success);
         assert!(response.token.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_encode_no_signature_produces_none_token() {
+        // no_signature must yield an unsigned alg:none token, not an error. The
+        // handler previously kept algorithm=HS256 while passing KeyData::None, so
+        // encoding failed with "No key or secret provided".
+        let req = EncodeRequest {
+            payload: serde_json::json!({"sub": "test"}),
+            secret: None,
+            algorithm: None,
+            no_signature: true,
+            headers: None,
+            compress: false,
+        };
+
+        let response = handle_encode(Json(req)).await.unwrap().0;
+        assert!(
+            response.success,
+            "no_signature encode failed: {:?}",
+            response.error
+        );
+        let token = response.token.expect("token");
+        let decoded = jwt::decode(&token).expect("decode none token");
+        assert_eq!(
+            decoded.header.get("alg").and_then(|v| v.as_str()),
+            Some("none"),
+            "no_signature must emit alg:none"
+        );
     }
 
     #[tokio::test]

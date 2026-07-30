@@ -15,7 +15,7 @@ fn format_unix_timestamp(seconds: i64) -> Option<String> {
         .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
 }
 
-/// Reads a NumericDate claim (`exp`/`iat`) as seconds. Accepts both integer and
+/// Reads a NumericDate claim (`exp`/`nbf`/`iat`) as seconds. Accepts both integer and
 /// float JSON numbers (RFC 7519 allows non-integer NumericDate). Out-of-range
 /// values are later dropped by `format_unix_timestamp` rather than panicking.
 fn claim_seconds(value: &Value) -> Option<i64> {
@@ -48,6 +48,37 @@ fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
                     obj.insert(
                         "exp_status".to_string(),
                         Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Annotate not-before claim with human-readable timestamp and active status.
+///
+/// `nbf` (RFC 7519 §4.1.5) is a NumericDate like `iat`/`exp`; it was previously
+/// left un-annotated, so a token that is not yet valid gave no hint of that in
+/// the decoded output.
+fn process_not_before_claim(claims: &Value, claims_map: &mut Value) {
+    if let Some(nbf) = claims.get("nbf") {
+        if let Some(nbf_seconds) = claim_seconds(nbf) {
+            if let Some(formatted_time) = format_unix_timestamp(nbf_seconds) {
+                let now = chrono::Utc::now().timestamp();
+                let not_yet_valid = now < nbf_seconds;
+
+                if let Some(obj) = claims_map.as_object_mut() {
+                    obj.insert("nbf_time".to_string(), Value::String(formatted_time));
+                    obj.insert(
+                        "nbf_status".to_string(),
+                        Value::String(
+                            if not_yet_valid {
+                                "NOT_YET_VALID"
+                            } else {
+                                "ACTIVE"
+                            }
+                            .to_string(),
+                        ),
                     );
                 }
             }
@@ -121,6 +152,7 @@ fn decode_jwt_token(token: &str) -> Result<()> {
 
     let mut claims_map: Value = decoded.claims.clone();
     process_issued_at_claim(&decoded.claims, &mut claims_map);
+    process_not_before_claim(&decoded.claims, &mut claims_map);
     process_expiration_claim(&decoded.claims, &mut claims_map);
 
     println!("\n{}", theme::subsection_line("Payload"));
@@ -142,6 +174,7 @@ fn decode_jwt_token_json(token: &str) -> Result<Value> {
 
     let mut claims_map: Value = decoded.claims.clone();
     process_issued_at_claim(&decoded.claims, &mut claims_map);
+    process_not_before_claim(&decoded.claims, &mut claims_map);
     process_expiration_claim(&decoded.claims, &mut claims_map);
 
     Ok(serde_json::json!({
@@ -390,6 +423,34 @@ mod tests {
         assert!(
             payload.get("iat_time").is_some(),
             "float iat should be annotated with iat_time"
+        );
+    }
+
+    #[test]
+    fn test_decode_annotates_nbf() {
+        // nbf is a NumericDate like iat/exp and must be annotated with a
+        // human-readable time and an active/not-yet-valid status.
+        let future = Utc::now().timestamp() + 86_400; // 1 day out -> not yet valid
+        let past = Utc::now().timestamp() - 86_400; // active
+        let claims = json!({ "sub": "u", "nbf": future });
+        let token = jwt::encode(&claims, "", "HS256").expect("token");
+        let payload = execute_json(&token).expect("decode");
+        let p = payload.get("payload").expect("payload");
+        assert!(p.get("nbf_time").is_some(), "nbf should be annotated");
+        assert_eq!(
+            p.get("nbf_status").and_then(|v| v.as_str()),
+            Some("NOT_YET_VALID")
+        );
+
+        let claims = json!({ "sub": "u", "nbf": past });
+        let token = jwt::encode(&claims, "", "HS256").expect("token");
+        let payload = execute_json(&token).expect("decode");
+        assert_eq!(
+            payload
+                .get("payload")
+                .and_then(|p| p.get("nbf_status"))
+                .and_then(|v| v.as_str()),
+            Some("ACTIVE")
         );
     }
 
