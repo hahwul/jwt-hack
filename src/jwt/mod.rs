@@ -741,7 +741,7 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     // verified through josekit — mirroring how this tool *signs* ES512. Without
     // this branch the tool could produce ES512 tokens it was then unable to verify.
     if raw_alg.eq_ignore_ascii_case("ES512") {
-        return verify_es512(token, &options.key_data);
+        return verify_es512(token, options);
     }
     if algorithm_from_str(raw_alg).is_none() {
         return Err(anyhow!(
@@ -915,13 +915,14 @@ fn verify_with_public_key_der(
 ///
 /// `jsonwebtoken`'s `Algorithm` enum has no ES512 variant, so — exactly as ES512
 /// signing is routed through josekit — ES512 verification is too. Only public-key
-/// material is meaningful for an EC signature; an HMAC secret is rejected.
-/// Time-based claims are not evaluated here (signature check only), matching the
-/// base verification path when `validate_exp`/`validate_nbf` are unset.
-fn verify_es512(token: &str, key_data: &VerifyKeyData) -> Result<bool> {
+/// material is meaningful for an EC signature; an HMAC secret is rejected. When
+/// `validate_exp`/`validate_nbf` are requested, the corresponding time claims are
+/// checked after the signature (with `leeway`), surfacing expired / not-yet-valid
+/// tokens as errors like the other verification paths.
+fn verify_es512(token: &str, options: &VerifyOptions) -> Result<bool> {
     use josekit::jws::ES512;
 
-    let verifier = match key_data {
+    let verifier = match &options.key_data {
         VerifyKeyData::PublicKeyPem(pem) => ES512
             .verifier_from_pem(pem.as_bytes())
             .map_err(|e| anyhow!("Failed to load ES512 public key (PEM): {}", e))?,
@@ -937,7 +938,45 @@ fn verify_es512(token: &str, key_data: &VerifyKeyData) -> Result<bool> {
 
     // deserialize_compact validates the signature against the verifier; an Err is a
     // verification failure (bad signature / wrong key), reported as invalid.
-    Ok(josekit::jws::deserialize_compact(token, &*verifier).is_ok())
+    let payload = match josekit::jws::deserialize_compact(token, &*verifier) {
+        Ok((payload, _header)) => payload,
+        Err(_) => return Ok(false),
+    };
+
+    if options.validate_exp || options.validate_nbf {
+        let claims: Value = serde_json::from_slice(&payload).unwrap_or(Value::Null);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| anyhow!("system clock is before the UNIX epoch"))?
+            .as_secs() as i64;
+        let leeway = options.leeway as i64;
+
+        // Match jsonwebtoken's semantics: expired when now - leeway > exp; not yet
+        // valid when nbf > now + leeway. A missing claim is not an error (our other
+        // paths clear required-claim enforcement too).
+        if options.validate_exp {
+            if let Some(exp) = claims
+                .get("exp")
+                .and_then(crate::utils::numeric_date_seconds)
+            {
+                if now - leeway > exp {
+                    return Err(anyhow!(JwtError::ExpiredSignature));
+                }
+            }
+        }
+        if options.validate_nbf {
+            if let Some(nbf) = claims
+                .get("nbf")
+                .and_then(crate::utils::numeric_date_seconds)
+            {
+                if nbf > now + leeway {
+                    return Err(anyhow!(JwtError::ImmatureSignature));
+                }
+            }
+        }
+    }
+
+    Ok(true)
 }
 
 /// Attempt to decrypt JWE token with a candidate key (for brute forcing)
@@ -2645,6 +2684,31 @@ mod tests {
             ..Default::default()
         };
         assert!(verify_with_options(&token, &secret_opts).is_err());
+
+        // --validate-exp must be honored for ES512: an expired token surfaces as an
+        // ExpiredSignature error, not a silently-valid result.
+        let expired_claims = json!({ "sub": "es512", "exp": 1_000_000_000i64 });
+        let expired = encode_with_options(
+            &expired_claims,
+            &EncodeOptions {
+                algorithm: "ES512",
+                key_data: KeyData::PrivateKeyPem(priv_pem),
+                header_params: None,
+                compress_payload: false,
+            },
+        )
+        .expect("sign expired ES512 token");
+        let exp_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&pub_pem),
+            validate_exp: true,
+            ..Default::default()
+        };
+        let err = verify_with_options(&expired, &exp_opts).unwrap_err();
+        assert!(
+            err.downcast_ref::<JwtError>()
+                .is_some_and(|e| matches!(e, JwtError::ExpiredSignature)),
+            "expected ExpiredSignature, got: {err}"
+        );
     }
 
     #[test]
