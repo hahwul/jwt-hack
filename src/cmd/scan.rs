@@ -882,7 +882,9 @@ fn check_signature_segment(
     let is_none = alg_str.contains("none") || header_alg == "none";
 
     let sig = parts.get(2).copied().unwrap_or("");
-    // The encoder writes `''` for the none-alg sentinel; treat that as empty too.
+    // Defensively treat a literal `''` third segment as empty too: older jwt-hack
+    // builds (and some third-party tools) emit `header.payload.''` for alg:none
+    // instead of a truly empty signature.
     let sig_trim = sig.trim_matches('\'');
     let is_empty = sig_trim.is_empty();
 

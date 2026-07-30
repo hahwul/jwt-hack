@@ -258,7 +258,11 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         let encoded_claims =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims_json.as_bytes());
 
-        return Ok(format!("{encoded_header}.{encoded_claims}.''"));
+        // RFC 7519 alg:none tokens carry an EMPTY signature: `header.payload.`.
+        // Emitting the literal `''` produced a non-standard third segment that is
+        // neither valid base64url nor an empty signature, so real servers would not
+        // treat the output as a proper unsigned token.
+        return Ok(format!("{encoded_header}.{encoded_claims}."));
     }
 
     // Create encoding key based on the key data
@@ -357,9 +361,10 @@ fn encode_compressed_jwt(
     let encoded_payload =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&compressed_payload);
 
-    // Handle "none" algorithm specially
+    // Handle "none" algorithm specially: emit an empty signature (`header.payload.`)
+    // rather than the non-standard literal `''` third segment.
     if options.algorithm.to_uppercase() == "NONE" {
-        return Ok(format!("{encoded_header}.{encoded_payload}.''"));
+        return Ok(format!("{encoded_header}.{encoded_payload}."));
     }
 
     // Create message to sign
@@ -1452,9 +1457,9 @@ mod tests {
         let parts: Vec<&str> = token_str.split('.').collect();
         assert_eq!(parts.len(), 3, "Token should have three parts");
         assert_eq!(
-            parts[2], "''",
-            "Signature part should be empty for 'none' algorithm"
-        ); // Note: The prompt says empty, but your code produces two single quotes.
+            parts[2], "",
+            "Signature part must be empty for the 'none' algorithm (RFC 7519 unsigned token: header.payload.)"
+        );
 
         let header_b64 = parts[0];
         let header_bytes_result =
