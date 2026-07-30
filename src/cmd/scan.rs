@@ -410,6 +410,24 @@ fn collect_attack_payloads(token: &str, results: &[VulnerabilityResult]) -> Resu
         }
     }
 
+    // A flagged JKU/X5U Header finding records both "jku" and "x5u" targets, but
+    // previously nothing consumed them here — so a HIGH-severity JKU/X5U detection
+    // produced an empty attack_payloads list while every other finding contributed
+    // payloads. generate_jku_x5u_ssrf_payload emits jku variants first, then x5u
+    // variants; sample from both ends so the report shows one of each header type.
+    if targets.contains("jku") || targets.contains("x5u") {
+        if let Ok(payloads) = payload::generate_jku_x5u_ssrf_payload(token) {
+            if let Some(first) = payloads.first() {
+                payloads_out.push(first.clone());
+            }
+            if payloads.len() > 1 {
+                if let Some(last) = payloads.last() {
+                    payloads_out.push(last.clone());
+                }
+            }
+        }
+    }
+
     if targets.contains("kid_sql") {
         if let Ok(payloads) = payload::generate_kid_sql_payload(token) {
             payloads_out.extend(payloads.into_iter().take(2));
@@ -1706,6 +1724,50 @@ mod tests {
         let d = jwt::decode(&none).unwrap();
         let r = check_jku_x5u_vulnerabilities(&d).unwrap();
         assert!(!r.vulnerable);
+    }
+
+    #[test]
+    fn test_jku_x5u_finding_emits_attack_payloads() {
+        // Regression: a flagged JKU/X5U Header finding records "jku"/"x5u" targets,
+        // but collect_attack_payloads used to drop them, yielding an empty payload
+        // list for a HIGH-severity finding. It must now emit jku/x5u SSRF payloads.
+        let token = synthetic_token(
+            json!({ "jku": "https://evil.example/jwks" }),
+            json!({ "sub": "x" }),
+        );
+        let results = vec![check_jku_x5u_vulnerabilities(&jwt::decode(&token).unwrap()).unwrap()];
+        assert!(results[0].vulnerable, "jku token should be flagged");
+
+        let payloads = collect_attack_payloads(&token, &results).expect("collect payloads");
+        assert!(
+            !payloads.is_empty(),
+            "JKU/X5U finding must contribute attack payloads, got none"
+        );
+        // The sampled payloads should carry a jku and/or x5u header injecting a
+        // probe URL rather than being empty or unrelated.
+        let has_jku = payloads.iter().any(|p| {
+            get_header_from_token(p)
+                .and_then(|h| h.get("jku").cloned())
+                .is_some()
+        });
+        let has_x5u = payloads.iter().any(|p| {
+            get_header_from_token(p)
+                .and_then(|h| h.get("x5u").cloned())
+                .is_some()
+        });
+        assert!(
+            has_jku || has_x5u,
+            "expected jku/x5u header injection payloads, got {payloads:?}"
+        );
+    }
+
+    fn get_header_from_token(token_str: &str) -> Option<serde_json::Value> {
+        use base64::Engine;
+        let part = token_str.split('.').next()?;
+        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(part)
+            .ok()?;
+        serde_json::from_slice(&bytes).ok()
     }
 
     #[test]
