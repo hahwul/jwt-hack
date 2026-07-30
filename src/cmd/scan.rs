@@ -736,6 +736,27 @@ fn check_kid_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerabilit
             details: "No 'kid' header".to_string(),
             severity: Severity::Info,
         },
+        // A non-string `kid` (object/array) is itself a strong signal: a JSON
+        // object like {"$ne": null} is a NoSQL operator-injection payload, and
+        // arrays trip parser-confusion. Previously `as_str().unwrap_or("")`
+        // collapsed these to an empty string, hiding both the value and the risk.
+        Some(kid_value) if !kid_value.is_string() => VulnerabilityResult {
+            name: "Kid Header".to_string(),
+            vulnerable: true,
+            details: format!(
+                "'kid' is a non-string {} ({}) — parser confusion / NoSQL operator injection vector",
+                match kid_value {
+                    serde_json::Value::Object(_) => "object",
+                    serde_json::Value::Array(_) => "array",
+                    serde_json::Value::Number(_) => "number",
+                    serde_json::Value::Bool(_) => "boolean",
+                    serde_json::Value::Null => "null",
+                    serde_json::Value::String(_) => "string",
+                },
+                kid_value
+            ),
+            severity: Severity::High,
+        },
         Some(kid_value) => {
             let kid_str = kid_value.as_str().unwrap_or("").to_string();
             let lower = kid_str.to_lowercase();
@@ -1912,6 +1933,21 @@ mod tests {
         let decoded = jwt::decode(&token).unwrap();
         let r = check_kid_vulnerabilities(&decoded).unwrap();
         assert_eq!(r.severity, Severity::Medium);
+    }
+
+    #[test]
+    fn test_check_kid_header_object_is_high_and_shows_value() {
+        // A JSON-object kid (e.g. a NoSQL {"$ne": null} operator) must be flagged
+        // High and its value surfaced, not collapsed to an empty string.
+        let decoded = header_only_decoded(r#"{"alg":"HS256","kid":{"$ne":null}}"#);
+        let r = check_kid_vulnerabilities(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::High);
+        assert!(
+            r.details.contains("$ne") && r.details.contains("non-string"),
+            "details should surface the object value: {}",
+            r.details
+        );
     }
 
     #[test]
