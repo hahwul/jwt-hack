@@ -737,6 +737,12 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
         .get("alg")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
+    // ES512 cannot be represented by jsonwebtoken's `Algorithm` enum, so it is
+    // verified through josekit — mirroring how this tool *signs* ES512. Without
+    // this branch the tool could produce ES512 tokens it was then unable to verify.
+    if raw_alg.eq_ignore_ascii_case("ES512") {
+        return verify_es512(token, &options.key_data);
+    }
     if algorithm_from_str(raw_alg).is_none() {
         return Err(anyhow!(
             "Unsupported algorithm for verification: {}",
@@ -903,6 +909,35 @@ fn verify_with_public_key_der(
     let validation = create_validation(algorithm, options);
     let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
     handle_verification_result(result)
+}
+
+/// Verify an ES512 token via josekit.
+///
+/// `jsonwebtoken`'s `Algorithm` enum has no ES512 variant, so — exactly as ES512
+/// signing is routed through josekit — ES512 verification is too. Only public-key
+/// material is meaningful for an EC signature; an HMAC secret is rejected.
+/// Time-based claims are not evaluated here (signature check only), matching the
+/// base verification path when `validate_exp`/`validate_nbf` are unset.
+fn verify_es512(token: &str, key_data: &VerifyKeyData) -> Result<bool> {
+    use josekit::jws::ES512;
+
+    let verifier = match key_data {
+        VerifyKeyData::PublicKeyPem(pem) => ES512
+            .verifier_from_pem(pem.as_bytes())
+            .map_err(|e| anyhow!("Failed to load ES512 public key (PEM): {}", e))?,
+        VerifyKeyData::PublicKeyDer(der) => ES512
+            .verifier_from_der(der)
+            .map_err(|e| anyhow!("Failed to load ES512 public key (DER): {}", e))?,
+        VerifyKeyData::Secret(_) | VerifyKeyData::SecretBytes(_) => {
+            return Err(anyhow!(
+                "ES512 verification requires an EC public key, not a secret"
+            ));
+        }
+    };
+
+    // deserialize_compact validates the signature against the verifier; an Err is a
+    // verification failure (bad signature / wrong key), reported as invalid.
+    Ok(josekit::jws::deserialize_compact(token, &*verifier).is_ok())
 }
 
 /// Attempt to decrypt JWE token with a candidate key (for brute forcing)
@@ -2552,6 +2587,67 @@ mod tests {
     }
 
     #[test]
+    fn test_verify_es512_round_trip() {
+        // The tool signs ES512 via josekit; verification must accept those tokens
+        // too (previously rejected with "Unsupported algorithm for verification").
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+        use openssl::pkey::PKey;
+
+        let priv_pem = include_str!("test_ec_p521_private.pem");
+        let claims = json!({ "sub": "es512" });
+        let token = encode_with_options(
+            &claims,
+            &EncodeOptions {
+                algorithm: "ES512",
+                key_data: KeyData::PrivateKeyPem(priv_pem),
+                header_params: None,
+                compress_payload: false,
+            },
+        )
+        .expect("sign ES512 token");
+
+        // Correct public key -> valid.
+        let ec = EcKey::private_key_from_pem(priv_pem.as_bytes()).expect("read P-521 key");
+        let pub_pem =
+            String::from_utf8(PKey::from_ec_key(ec).unwrap().public_key_to_pem().unwrap()).unwrap();
+        let ok_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&pub_pem),
+            ..Default::default()
+        };
+        assert!(
+            verify_with_options(&token, &ok_opts).expect("verify"),
+            "ES512 token must verify with its public key"
+        );
+
+        // A different P-521 key -> invalid (Ok(false), not an error).
+        let group = EcGroup::from_curve_name(Nid::SECP521R1).unwrap();
+        let other = EcKey::generate(&group).unwrap();
+        let other_pub = String::from_utf8(
+            PKey::from_ec_key(other)
+                .unwrap()
+                .public_key_to_pem()
+                .unwrap(),
+        )
+        .unwrap();
+        let bad_opts = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(&other_pub),
+            ..Default::default()
+        };
+        assert!(
+            !verify_with_options(&token, &bad_opts).expect("verify"),
+            "ES512 token must not verify with a different key"
+        );
+
+        // An HMAC secret is meaningless for ES512 and must error, not silently pass.
+        let secret_opts = VerifyOptions {
+            key_data: VerifyKeyData::Secret("whatever"),
+            ..Default::default()
+        };
+        assert!(verify_with_options(&token, &secret_opts).is_err());
+    }
+
+    #[test]
     fn test_decode_none_reports_none_not_hs256() {
         // `decode` maps `none` to an HS256 sentinel internally, but the reported
         // alg (via `alg_str`) must be the real `none`, not the misleading HS256.
@@ -2581,8 +2677,10 @@ mod tests {
         // decode's tolerance must not let verification silently treat an
         // unrepresentable alg as HS256: it should return a clear error, never
         // Ok(false) (which would imply a valid HMAC comparison was performed).
+        // `ES256K` (secp256k1) is a real alg neither jsonwebtoken nor this tool
+        // supports — unlike ES512, which is now verified via josekit.
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .encode(br#"{"alg":"ES512","typ":"JWT"}"#);
+            .encode(br#"{"alg":"ES256K","typ":"JWT"}"#);
         let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.AAAA");
         let err = verify(&token, "secret").unwrap_err().to_string();
