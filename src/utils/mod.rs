@@ -100,6 +100,20 @@ pub fn format_duration(duration: std::time::Duration) -> String {
     format!("{hours}h {remain_minutes}m {remain_seconds}s")
 }
 
+/// Read a JWT NumericDate claim (`exp`/`nbf`/`iat`) as whole seconds.
+///
+/// RFC 7519 §2 defines NumericDate as a JSON number that MAY be non-integer, so
+/// this accepts both integer and float JSON values (a float is truncated toward
+/// zero via a saturating cast; non-finite floats are rejected). Returns `None`
+/// for any non-numeric value. Centralizing this avoids the trap of reading a
+/// claim with a bare `as_i64()`, which silently returns `None` for a perfectly
+/// valid float date — causing e.g. an expired token to escape detection.
+pub fn numeric_date_seconds(value: &serde_json::Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_f64().filter(|f| f.is_finite()).map(|f| f as i64))
+}
+
 /// Compares two byte slices in constant time relative to their content.
 ///
 /// Returns `false` immediately on a length mismatch (lengths are not secret), but
@@ -270,6 +284,25 @@ mod tests {
         let input = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let expected = "ABCDEFGH...456789+/ (64 chars)";
         assert_eq!(format_base64_preview(input), expected);
+    }
+
+    #[test]
+    fn test_numeric_date_seconds() {
+        use serde_json::json;
+        assert_eq!(
+            numeric_date_seconds(&json!(1_700_000_000i64)),
+            Some(1_700_000_000)
+        );
+        // Float NumericDate (RFC 7519 §2) is truncated toward zero.
+        assert_eq!(
+            numeric_date_seconds(&json!(1_700_000_000.9_f64)),
+            Some(1_700_000_000)
+        );
+        assert_eq!(numeric_date_seconds(&json!(-1.0_f64)), Some(-1));
+        // Non-finite and non-numeric values are rejected.
+        assert_eq!(numeric_date_seconds(&json!("1700000000")), None);
+        assert_eq!(numeric_date_seconds(&json!(f64::INFINITY)), None);
+        assert_eq!(numeric_date_seconds(&serde_json::Value::Null), None);
     }
 
     #[test]

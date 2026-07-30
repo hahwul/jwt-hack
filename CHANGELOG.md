@@ -22,6 +22,7 @@
 ### Fixed
 - `decode` no longer rejects tokens whose `alg` is absent from jsonwebtoken's enum: ES512 tokens (which `encode` itself produces via josekit) and tokens with exotic/attacker-chosen `alg` values now decode for inspection instead of erroring with "Unsupported algorithm"
 - `decode` (CLI, `--json`, MCP, and REST server) now reports the token's real `alg` from the header — an `alg:none` token is shown as `none` rather than being mislabelled `HS256` (an artifact of the internal HS256 sentinel). Verification and the fast HS256 crack path still key off the real header `alg`, so an unrepresentable alg returns a clear "unsupported" error instead of a silent HMAC comparison
+- `scan` expiration check now reports an expired token even when `iat`/`nbf` are also missing (the "Token is expired" message was previously dropped in favour of the missing-claims list), and evaluates float `exp` values (RFC 7519 §2 allows non-integer NumericDate) that a bare `as_i64()` silently skipped — same float-aware reading now applies to the REST `/scan` endpoint
 
 ### Performance
 - Reduced peak memory ~99% (15.9 GB → ~10 MB) via mimalloc and 100K-entry streaming wordlist batches, while throughput rose ~53% (939K → 1.44M keys/sec); `--power` pool capped at 32 (#208)

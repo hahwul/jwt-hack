@@ -16,13 +16,10 @@ fn format_unix_timestamp(seconds: i64) -> Option<String> {
 }
 
 /// Reads a NumericDate claim (`exp`/`iat`) as seconds. Accepts both integer and
-/// float JSON numbers (RFC 7519 allows non-integer NumericDate). Float→int uses
-/// Rust's saturating cast and non-finite values are rejected; out-of-range values
-/// are later dropped by `format_unix_timestamp` rather than panicking.
+/// float JSON numbers (RFC 7519 allows non-integer NumericDate). Out-of-range
+/// values are later dropped by `format_unix_timestamp` rather than panicking.
 fn claim_seconds(value: &Value) -> Option<i64> {
-    value
-        .as_i64()
-        .or_else(|| value.as_f64().filter(|f| f.is_finite()).map(|f| f as i64))
+    utils::numeric_date_seconds(value)
 }
 
 /// Annotate issued-at claim with human-readable timestamp in the JSON output

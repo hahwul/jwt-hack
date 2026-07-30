@@ -628,9 +628,28 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
 
     let mut issues = Vec::new();
 
-    if !has_exp {
-        issues.push("Missing 'exp' (expiration) claim".to_string());
-    } else if let Some(exp) = decoded.claims.get("exp").and_then(|v| v.as_i64()) {
+    // Report missing lifetime claims first, then the expiry status. Both must be
+    // able to appear together: previously, when any claim was missing the details
+    // dropped the "Token is expired" message entirely (it showed only the missing
+    // claims), so an expired token that also lacked `iat`/`nbf` was never reported
+    // as expired.
+    let missing_claims: Vec<&str> = [(!has_exp, "exp"), (!has_nbf, "nbf"), (!has_iat, "iat")]
+        .iter()
+        .filter(|(missing, _)| *missing)
+        .map(|(_, name)| *name)
+        .collect();
+    if !missing_claims.is_empty() {
+        issues.push(format!("Missing '{}'", missing_claims.join("', '")));
+    }
+
+    // Evaluate expiry with a NumericDate reader that accepts float values too
+    // (RFC 7519 §2). A bare `as_i64()` returned `None` for a valid float `exp`,
+    // silently letting an expired float-dated token pass the expiration check.
+    if let Some(exp) = decoded
+        .claims
+        .get("exp")
+        .and_then(utils::numeric_date_seconds)
+    {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock before UNIX epoch")
@@ -641,29 +660,12 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
         }
     }
 
-    if !has_nbf {
-        issues.push("Missing 'nbf' (not before) claim".to_string());
-    }
-
-    if !has_iat {
-        issues.push("Missing 'iat' (issued at) claim".to_string());
-    }
-
     let vulnerable = !issues.is_empty();
-    let missing_claims: Vec<&str> = [(!has_exp, "exp"), (!has_nbf, "nbf"), (!has_iat, "iat")]
-        .iter()
-        .filter(|(missing, _)| *missing)
-        .map(|(_, name)| *name)
-        .collect();
     let result = VulnerabilityResult {
         name: "Token Expiration".to_string(),
         vulnerable,
         details: if vulnerable {
-            if missing_claims.is_empty() {
-                issues.join("; ")
-            } else {
-                format!("Missing '{}'", missing_claims.join("', '"))
-            }
+            issues.join("; ")
         } else {
             "Proper expiration claims".to_string()
         },
@@ -1612,6 +1614,54 @@ mod tests {
         // Token has exp claim, so might report missing nbf/iat but not critically vulnerable
         // The exact result depends on the token structure
         assert!(result.name == "Token Expiration");
+    }
+
+    #[test]
+    fn test_check_token_expiration_float_exp_is_detected() {
+        // RFC 7519 §2 allows a non-integer NumericDate. A float `exp` in the past
+        // must still be reported as expired (regression: `as_i64()` returned None
+        // for floats, silently skipping the check).
+        let token = synthetic_token(json!({}), json!({ "sub": "x", "exp": 1_000_000_000.5 }));
+        let decoded = jwt::decode(&token).unwrap();
+        let result = check_token_expiration(&decoded).unwrap();
+        assert!(result.vulnerable);
+        assert!(
+            result.details.contains("expired"),
+            "float exp should be reported as expired, got: {}",
+            result.details
+        );
+    }
+
+    #[test]
+    fn test_check_token_expiration_reports_expiry_even_when_claims_missing() {
+        // Regression: when `iat`/`nbf` were also missing, the details dropped the
+        // "Token is expired" message and showed only the missing claims.
+        let token = synthetic_token(json!({}), json!({ "sub": "x", "exp": 1_000_000_000 }));
+        let decoded = jwt::decode(&token).unwrap();
+        let result = check_token_expiration(&decoded).unwrap();
+        assert!(result.vulnerable);
+        assert!(
+            result.details.contains("expired"),
+            "expiry must be reported alongside missing claims, got: {}",
+            result.details
+        );
+        assert!(
+            result.details.contains("Missing"),
+            "missing claims should still be reported, got: {}",
+            result.details
+        );
+    }
+
+    #[test]
+    fn test_check_token_expiration_valid_when_all_present_and_fresh() {
+        let token = synthetic_token(
+            json!({}),
+            json!({ "sub": "x", "exp": 9_999_999_999i64, "nbf": 1, "iat": 1 }),
+        );
+        let decoded = jwt::decode(&token).unwrap();
+        let result = check_token_expiration(&decoded).unwrap();
+        assert!(!result.vulnerable);
+        assert_eq!(result.details, "Proper expiration claims");
     }
 
     #[test]
