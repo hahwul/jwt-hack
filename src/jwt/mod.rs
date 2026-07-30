@@ -105,6 +105,30 @@ fn algorithm_from_str(alg: &str) -> Option<Algorithm> {
     }
 }
 
+/// Normalize an EC private-key PEM to PKCS#8.
+///
+/// `jsonwebtoken::EncodingKey::from_ec_pem` accepts only the PKCS#8 form
+/// (`BEGIN PRIVATE KEY`), but `openssl ecparam -genkey` and many other tools
+/// emit the SEC1 form (`BEGIN EC PRIVATE KEY`). A SEC1 key is converted to
+/// PKCS#8 via OpenSSL; anything else is passed through unchanged.
+fn ec_pem_to_pkcs8(pem: &str) -> Result<std::borrow::Cow<'_, str>> {
+    if !pem.contains("BEGIN EC PRIVATE KEY") {
+        return Ok(std::borrow::Cow::Borrowed(pem));
+    }
+    use openssl::ec::EcKey;
+    use openssl::pkey::PKey;
+    let ec = EcKey::private_key_from_pem(pem.as_bytes())
+        .map_err(|e| anyhow!("Failed to parse SEC1 EC private key: {}", e))?;
+    let pkey =
+        PKey::from_ec_key(ec).map_err(|e| anyhow!("Failed to wrap EC private key: {}", e))?;
+    let pkcs8 = pkey
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow!("Failed to convert EC key to PKCS#8: {}", e))?;
+    Ok(std::borrow::Cow::Owned(String::from_utf8(pkcs8).map_err(
+        |e| anyhow!("PKCS#8 PEM is not valid UTF-8: {}", e),
+    )?))
+}
+
 /// JWE Decoded token data
 #[derive(Debug, Clone)]
 pub struct DecodedJweToken {
@@ -285,7 +309,15 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
             | Algorithm::PS256
             | Algorithm::PS384
             | Algorithm::PS512 => EncodingKey::from_rsa_pem(pem.as_bytes())?,
-            Algorithm::ES256 | Algorithm::ES384 => EncodingKey::from_ec_pem(pem.as_bytes())?,
+            Algorithm::ES256 | Algorithm::ES384 => {
+                // jsonwebtoken's from_ec_pem accepts only PKCS#8 EC keys, but many
+                // tools (e.g. `openssl ecparam -genkey`) emit the SEC1 "EC PRIVATE
+                // KEY" form. Normalize so ES256/ES384 accept the same keys ES512
+                // (signed via josekit) already does, instead of failing with an
+                // opaque InvalidKeyFormat.
+                let normalized = ec_pem_to_pkcs8(pem)?;
+                EncodingKey::from_ec_pem(normalized.as_bytes())?
+            }
             Algorithm::EdDSA => EncodingKey::from_ed_pem(pem.as_bytes())?,
             _ => {
                 return Err(anyhow!(
@@ -1414,6 +1446,38 @@ mod tests {
         // assert!(decoded_result.is_ok());
         // let decoded_token = decoded_result.unwrap();
         // assert_eq!(decoded_token.header.get("alg").unwrap().as_str().unwrap(), "ES256");
+    }
+
+    #[test]
+    fn test_encode_es256_accepts_sec1_ec_key() {
+        // Regression: `openssl ecparam -genkey` emits SEC1 ("BEGIN EC PRIVATE KEY"),
+        // which jsonwebtoken's from_ec_pem rejects with an opaque InvalidKeyFormat.
+        // ES512 (via josekit) already accepts SEC1, so ES256/ES384 must too.
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let ec = EcKey::generate(&group).unwrap();
+        let sec1_pem = String::from_utf8(ec.private_key_to_pem().unwrap()).unwrap();
+        assert!(
+            sec1_pem.contains("BEGIN EC PRIVATE KEY"),
+            "expected SEC1 PEM"
+        );
+
+        let claims = json!({ "user": "sec1" });
+        let options = EncodeOptions {
+            algorithm: "ES256",
+            key_data: KeyData::PrivateKeyPem(&sec1_pem),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&claims, &options)
+            .expect("ES256 signing must accept a SEC1-format EC key");
+        let decoded = decode(&token).expect("decode signed ES256 token");
+        assert_eq!(
+            decoded.header.get("alg").unwrap().as_str().unwrap(),
+            "ES256"
+        );
     }
 
     #[test]
