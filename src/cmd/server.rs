@@ -602,13 +602,16 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
                 }
             }
 
-            // Check for expired tokens
-            if let Some(exp) = decoded.claims.get("exp") {
-                if let Some(exp_val) = exp.as_i64() {
-                    let now = chrono::Utc::now().timestamp();
-                    if exp_val < now {
-                        vulnerabilities.push("Token is expired".to_string());
-                    }
+            // Check for expired tokens. Read the NumericDate with a float-aware
+            // helper (RFC 7519 §2) so a valid float `exp` isn't silently skipped.
+            if let Some(exp_val) = decoded
+                .claims
+                .get("exp")
+                .and_then(utils::numeric_date_seconds)
+            {
+                let now = chrono::Utc::now().timestamp();
+                if exp_val < now {
+                    vulnerabilities.push("Token is expired".to_string());
                 }
             }
         }

@@ -695,7 +695,11 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     if algorithm_from_str(raw_alg).is_none() {
         return Err(anyhow!(
             "Unsupported algorithm for verification: {}",
-            if raw_alg.is_empty() { "<missing>" } else { raw_alg }
+            if raw_alg.is_empty() {
+                "<missing>"
+            } else {
+                raw_alg
+            }
         ));
     }
 
@@ -2448,8 +2452,7 @@ mod tests {
         // alg (via `alg_str`) must be the real `none`, not the misleading HS256.
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(br#"{"alg":"none","typ":"JWT"}"#);
-        let claims_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.");
         let decoded = decode(&token).expect("decode of none token should succeed");
         assert_eq!(decoded.alg_str(), "none");
@@ -2462,8 +2465,7 @@ mod tests {
         // `alg`; `decode` should surface the raw value rather than erroring.
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(br#"{"alg":"FOO123","typ":"JWT"}"#);
-        let claims_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.AAAA");
         let decoded = decode(&token).expect("decode of unknown-alg token should succeed");
         assert_eq!(decoded.alg_str(), "FOO123");
@@ -2476,8 +2478,7 @@ mod tests {
         // Ok(false) (which would imply a valid HMAC comparison was performed).
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(br#"{"alg":"ES512","typ":"JWT"}"#);
-        let claims_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.AAAA");
         let err = verify(&token, "secret").unwrap_err().to_string();
         assert!(
@@ -2492,8 +2493,7 @@ mod tests {
         // cracking path must key off the real header alg and refuse it.
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(br#"{"alg":"FOO123","typ":"JWT"}"#);
-        let claims_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
         let token = format!("{header_b64}.{claims_b64}.AAAA");
         assert!(prepare_hs256_verifier(&token).is_err());
     }
