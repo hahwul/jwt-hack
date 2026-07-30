@@ -19,6 +19,10 @@
 - Redesigned documentation site with the Cipher Lab theme — brand-green-on-midnight surface, monospace editorial headings, corner-bracket feature cards, and a token-preview visualizer (#197)
 - `scan` now falls back to a header-only decode when strict parsing rejects a token, so shape detectors still fire on malformed inputs (array/null/whitespace `alg`, compressed-but-malformed payloads)
 
+### Fixed
+- `decode` no longer rejects tokens whose `alg` is absent from jsonwebtoken's enum: ES512 tokens (which `encode` itself produces via josekit) and tokens with exotic/attacker-chosen `alg` values now decode for inspection instead of erroring with "Unsupported algorithm"
+- `decode` (CLI, `--json`, MCP, and REST server) now reports the token's real `alg` from the header — an `alg:none` token is shown as `none` rather than being mislabelled `HS256` (an artifact of the internal HS256 sentinel). Verification and the fast HS256 crack path still key off the real header `alg`, so an unrepresentable alg returns a clear "unsupported" error instead of a silent HMAC comparison
+
 ### Performance
 - Reduced peak memory ~99% (15.9 GB → ~10 MB) via mimalloc and 100K-entry streaming wordlist batches, while throughput rose ~53% (939K → 1.44M keys/sec); `--power` pool capped at 32 (#208)
 - Index-based brute force reuses a per-worker buffer instead of allocating a `String` per candidate; a `String` is allocated only on a hit
