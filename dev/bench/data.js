@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785416606925,
+  "lastUpdate": 1785417166467,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -131,6 +131,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 22814530,
             "range": "± 34837",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3a8084d34e3fc5254373bfacedecc99b4f52a9d",
+          "message": "fix(scan): report expired tokens with missing claims or float exp (#261)\n\n`check_token_expiration` under-reported expired tokens in two ways:\n\n- When `iat`/`nbf` were also missing, the details string dropped the\n  \"Token is expired\" message entirely and showed only the missing claims,\n  so an expired token that lacked those claims was never flagged expired.\n- `exp` was read with a bare `as_i64()`, which returns `None` for a JSON\n  float. RFC 7519 §2 allows a non-integer NumericDate, so a float `exp` in\n  the past silently passed the expiration check. The REST `/scan` endpoint\n  had the same `as_i64()`-only bug.\n\nFix:\n- Merge missing-claims and expiry status so both appear together.\n- Add `utils::numeric_date_seconds` (integer + finite-float aware) and use\n  it in `scan` and the REST `/scan` handler; `decode::claim_seconds` now\n  delegates to it, removing the duplicate.\n\nAlso runs `cargo fmt`, which repairs formatting drift merged in #260.\n\nAdds regression tests for float exp, expiry-with-missing-claims, the\nall-present-and-fresh case, and the new helper.",
+          "timestamp": "2026-07-30T22:06:01+09:00",
+          "tree_id": "c28bca156099963e7e0fac08961877b066be0375",
+          "url": "https://github.com/hahwul/jwt-hack/commit/c3a8084d34e3fc5254373bfacedecc99b4f52a9d"
+        },
+        "date": 1785417165644,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1182,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 22641,
+            "range": "± 37",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1477,
+            "range": "± 58",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3513,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1649,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 13195,
+            "range": "± 391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 29408265,
+            "range": "± 47631",
             "unit": "ns/iter"
           }
         ]
