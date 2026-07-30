@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785417166467,
+  "lastUpdate": 1785417474526,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -197,6 +197,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 29408265,
             "range": "± 47631",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0499981c138a19bef560bb8c6c6c96dd943e1275",
+          "message": "fix(encode): actually encrypt with --jwe instead of emitting plaintext (#262)\n\n`jwt-hack encode --jwe` (both the CLI and `--json` paths) called the\ndeprecated `encode_jwe_demo`, which produced a token whose \"ciphertext\"\nwas just the base64url of the plaintext, with a hardcoded dummy IV/tag —\nand the `--secret` was ignored entirely. The header advertised\n`enc: A256GCM`, so the output looked encrypted while leaking the payload\nverbatim.\n\nWire both paths to the real `jwt::encode_jwe` (josekit AES-GCM, already\ntested for round-trips). In `dir` mode the key length selects the cipher:\n16 bytes → A128GCM, 32 bytes → A256GCM; any other length is now a clear\nerror instead of a bogus token.\n\nAdds regression tests: real round-trip decrypt, ciphertext != base64\n(plaintext), and key-length validation. Updates the existing\n`test_encode_jwe_function` (it asserted the old demo accepted any key).",
+          "timestamp": "2026-07-30T22:11:29+09:00",
+          "tree_id": "7a6c9f0a6954cd6071863c657fa604f60e8e8eba",
+          "url": "https://github.com/hahwul/jwt-hack/commit/0499981c138a19bef560bb8c6c6c96dd943e1275"
+        },
+        "date": 1785417474025,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1166,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 22872,
+            "range": "± 128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1422,
+            "range": "± 165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3508,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1645,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 13176,
+            "range": "± 17",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 29366642,
+            "range": "± 491656",
             "unit": "ns/iter"
           }
         ]
