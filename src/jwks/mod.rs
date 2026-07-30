@@ -134,6 +134,59 @@ pub fn jwk_rsa_to_pem(jwk: &Jwk) -> Result<String> {
     Ok(pem)
 }
 
+/// Convert a JWK EC public key (`crv`/`x`/`y`) to a SubjectPublicKeyInfo PEM.
+///
+/// Supports the P-256/P-384/P-521 curves used by ES256/ES384/ES512. Building the
+/// key through OpenSSL from the affine coordinates avoids hand-rolling EC point /
+/// named-curve DER encoding.
+pub fn jwk_ec_to_pem(jwk: &Jwk) -> Result<String> {
+    use openssl::bn::BigNum;
+    use openssl::ec::{EcGroup, EcKey};
+    use openssl::nid::Nid;
+    use openssl::pkey::PKey;
+
+    if jwk.kty != "EC" {
+        return Err(anyhow!("JWK is not an EC key (kty: {})", jwk.kty));
+    }
+
+    let crv = jwk
+        .crv
+        .as_deref()
+        .ok_or_else(|| anyhow!("Missing 'crv' parameter in EC JWK"))?;
+    let nid = match crv {
+        "P-256" => Nid::X9_62_PRIME256V1,
+        "P-384" => Nid::SECP384R1,
+        "P-521" => Nid::SECP521R1,
+        other => return Err(anyhow!("Unsupported EC curve: {}", other)),
+    };
+
+    let x = jwk
+        .x
+        .as_ref()
+        .ok_or_else(|| anyhow!("Missing 'x' parameter in EC JWK"))?;
+    let y = jwk
+        .y
+        .as_ref()
+        .ok_or_else(|| anyhow!("Missing 'y' parameter in EC JWK"))?;
+    let x_bytes = URL_SAFE_NO_PAD
+        .decode(x)
+        .map_err(|e| anyhow!("Failed to decode 'x': {}", e))?;
+    let y_bytes = URL_SAFE_NO_PAD
+        .decode(y)
+        .map_err(|e| anyhow!("Failed to decode 'y': {}", e))?;
+
+    let x_bn = BigNum::from_slice(&x_bytes)?;
+    let y_bn = BigNum::from_slice(&y_bytes)?;
+    let group = EcGroup::from_curve_name(nid)?;
+    let ec_key = EcKey::from_public_key_affine_coordinates(&group, &x_bn, &y_bn)?;
+    ec_key
+        .check_key()
+        .map_err(|e| anyhow!("EC public key is not valid for curve {}: {}", crv, e))?;
+    let pkey = PKey::from_ec_key(ec_key)?;
+    let pem = pkey.public_key_to_pem()?;
+    String::from_utf8(pem).map_err(|e| anyhow!("EC PEM is not valid UTF-8: {}", e))
+}
+
 /// Encode RSA public key components into DER (SubjectPublicKeyInfo) format
 fn encode_rsa_public_key_der(n: &[u8], e: &[u8]) -> Vec<u8> {
     // Encode n and e as ASN.1 INTEGERs
@@ -326,6 +379,48 @@ pub fn verify_with_jwks(token: &str, jwks: &JwkSet) -> Result<Vec<KeyVerifyResul
 
         match jwk.kty.as_str() {
             "RSA" => match jwk_rsa_to_pem(jwk) {
+                Ok(pem) => {
+                    let options = crate::jwt::VerifyOptions {
+                        key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&pem),
+                        validate_exp: false,
+                        validate_nbf: false,
+                        leeway: 0,
+                    };
+                    match crate::jwt::verify_with_options(token, &options) {
+                        Ok(valid) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid,
+                                error: None,
+                            });
+                        }
+                        Err(e) => {
+                            results.push(KeyVerifyResult {
+                                key_index: i,
+                                kid: kid.to_string(),
+                                kty: jwk.kty.clone(),
+                                alg: jwk.alg.clone(),
+                                valid: false,
+                                error: Some(e.to_string()),
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    results.push(KeyVerifyResult {
+                        key_index: i,
+                        kid: kid.to_string(),
+                        kty: jwk.kty.clone(),
+                        alg: jwk.alg.clone(),
+                        valid: false,
+                        error: Some(format!("Key conversion failed: {}", e)),
+                    });
+                }
+            },
+            "EC" => match jwk_ec_to_pem(jwk) {
                 Ok(pem) => {
                     let options = crate::jwt::VerifyOptions {
                         key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&pem),
@@ -726,6 +821,86 @@ mod tests {
     fn test_generate_spoofed_jwks_unsupported_alg() {
         let result = generate_spoofed_jwks("ES256", None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_with_jwks_ec_p256_key() {
+        // Regression: EC keys (kty:"EC") were reported "Unsupported key type", so an
+        // ES256 token — one of the most common JWT signatures — could never be
+        // verified against its JWKS. Build a real P-256 key, sign a token with it,
+        // publish the public key as an EC JWK, and confirm verification succeeds.
+        use openssl::bn::BigNumContext;
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+        use openssl::pkey::PKey;
+
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let ec = EcKey::generate(&group).unwrap();
+        let pkey = PKey::from_ec_key(ec.clone()).unwrap();
+        let priv_pem = String::from_utf8(pkey.private_key_to_pem_pkcs8().unwrap()).unwrap();
+
+        let claims = serde_json::json!({ "sub": "ec-user" });
+        let options = crate::jwt::EncodeOptions {
+            algorithm: "ES256",
+            key_data: crate::jwt::KeyData::PrivateKeyPem(&priv_pem),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = crate::jwt::encode_with_options(&claims, &options).expect("sign ES256 token");
+
+        // Extract affine coordinates for the JWK.
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut x = openssl::bn::BigNum::new().unwrap();
+        let mut y = openssl::bn::BigNum::new().unwrap();
+        ec.public_key()
+            .affine_coordinates_gfp(&group, &mut x, &mut y, &mut ctx)
+            .unwrap();
+        let jwk = Jwk {
+            kty: "EC".to_string(),
+            kid: Some("ec-1".to_string()),
+            alg: Some("ES256".to_string()),
+            key_use: Some("sig".to_string()),
+            key_ops: None,
+            n: None,
+            e: None,
+            crv: Some("P-256".to_string()),
+            x: Some(URL_SAFE_NO_PAD.encode(x.to_vec())),
+            y: Some(URL_SAFE_NO_PAD.encode(y.to_vec())),
+            k: None,
+            x5c: None,
+            x5t: None,
+            x5t_s256: None,
+            extra: HashMap::new(),
+        };
+
+        // jwk_ec_to_pem must produce a usable SPKI PEM.
+        assert!(jwk_ec_to_pem(&jwk).unwrap().contains("BEGIN PUBLIC KEY"));
+
+        let jwks = JwkSet {
+            keys: vec![jwk.clone()],
+        };
+        let results = verify_with_jwks(&token, &jwks).expect("verify");
+        assert!(
+            results[0].valid,
+            "ES256 token must verify against its EC JWK, got {:?}",
+            results[0]
+        );
+
+        // A different EC key must NOT verify (valid:false, not an error).
+        let other = EcKey::generate(&group).unwrap();
+        let mut x2 = openssl::bn::BigNum::new().unwrap();
+        let mut y2 = openssl::bn::BigNum::new().unwrap();
+        other
+            .public_key()
+            .affine_coordinates_gfp(&group, &mut x2, &mut y2, &mut ctx)
+            .unwrap();
+        let mut wrong = jwk;
+        wrong.x = Some(URL_SAFE_NO_PAD.encode(x2.to_vec()));
+        wrong.y = Some(URL_SAFE_NO_PAD.encode(y2.to_vec()));
+        let wrong_jwks = JwkSet { keys: vec![wrong] };
+        let wrong_results = verify_with_jwks(&token, &wrong_jwks).expect("verify");
+        assert!(!wrong_results[0].valid, "wrong EC key must not verify");
+        assert!(wrong_results[0].error.is_none());
     }
 
     #[test]
