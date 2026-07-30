@@ -1267,6 +1267,21 @@ fn check_jku_x5u_vulnerabilities(decoded: &jwt::DecodedToken) -> Result<Vulnerab
 /// Check for `typ` confusion (non-standard or omitted media types).
 fn check_typ_confusion(decoded: &jwt::DecodedToken) -> Result<VulnerabilityResult> {
     let name = "typ Confusion".to_string();
+    // A present-but-non-string `typ` (object/array/number) is a parser-confusion
+    // signal, not a "missing typ". Detecting it explicitly avoids reporting it as
+    // absent (`get("typ").and_then(as_str)` returns None for both cases).
+    if let Some(v) = decoded.header.get("typ") {
+        if !v.is_string() {
+            return Ok(VulnerabilityResult {
+                name,
+                vulnerable: true,
+                details: format!(
+                    "'typ' is a non-string value ({v}) — parser confusion; validators may disagree on the media type"
+                ),
+                severity: Severity::Medium,
+            });
+        }
+    }
     let result = match decoded.header.get("typ").and_then(|v| v.as_str()) {
         Some("JWT") => VulnerabilityResult {
             name,
@@ -2184,6 +2199,21 @@ mod tests {
         let token3 = synthetic_token(json!({ "typ": "JWT" }), json!({}));
         let r3 = check_typ_confusion(&jwt::decode(&token3).unwrap()).unwrap();
         assert!(!r3.vulnerable);
+    }
+
+    #[test]
+    fn test_check_typ_confusion_non_string_is_flagged_not_missing() {
+        // A present-but-non-string typ must be flagged as parser confusion, not
+        // reported as a missing typ.
+        let decoded = header_only_decoded(r#"{"alg":"HS256","typ":{"x":1}}"#);
+        let r = check_typ_confusion(&decoded).unwrap();
+        assert!(r.vulnerable);
+        assert_eq!(r.severity, Severity::Medium);
+        assert!(
+            r.details.contains("non-string") && !r.details.contains("missing"),
+            "details: {}",
+            r.details
+        );
     }
 
     #[test]
