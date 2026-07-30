@@ -106,7 +106,7 @@ fn decode_token_json(token: &str) -> Result<Value> {
 fn decode_jwt_token(token: &str) -> Result<()> {
     let decoded = jwt::decode(token)?;
 
-    let alg_str = format!("{:?}", decoded.algorithm);
+    let alg_str = decoded.alg_str();
     let typ = decoded
         .header
         .get("typ")
@@ -136,7 +136,7 @@ fn decode_jwt_token(token: &str) -> Result<()> {
 fn decode_jwt_token_json(token: &str) -> Result<Value> {
     let decoded = jwt::decode(token)?;
 
-    let alg_str = format!("{:?}", decoded.algorithm);
+    let alg_str = decoded.alg_str();
     let typ = decoded
         .header
         .get("typ")

@@ -61,6 +61,50 @@ pub struct DecodedToken {
     pub algorithm: Algorithm,
 }
 
+impl DecodedToken {
+    /// The token's real `alg` header value, as a string.
+    ///
+    /// Prefer this over the [`DecodedToken::algorithm`] field for display or
+    /// logic. `algorithm` is a [`jsonwebtoken::Algorithm`], which has no `none`
+    /// variant and cannot represent `ES512`; [`decode`] collapses both (and any
+    /// unrecognized value) onto an HS256 *sentinel*. This reads the value
+    /// straight from the header instead, so `none` shows as `none` and `ES512`
+    /// as `ES512` rather than the misleading `HS256`.
+    pub fn alg_str(&self) -> String {
+        self.header
+            .get("alg")
+            .map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string))
+            .unwrap_or_else(|| format!("{:?}", self.algorithm))
+    }
+}
+
+/// Map a JOSE `alg` header value to the [`jsonwebtoken::Algorithm`] that
+/// faithfully represents it, or `None` when no such variant exists.
+///
+/// Returns `None` for `none` (carries no signature — callers handle it
+/// specially), `ES512` (signed/verified through josekit; absent from
+/// jsonwebtoken's enum), and any unrecognized/garbage value. [`decode`], a pure
+/// inspection path, falls back to an HS256 sentinel for these so it never
+/// rejects a token merely for its `alg`; verification paths instead treat `None`
+/// as "not verifiable".
+fn algorithm_from_str(alg: &str) -> Option<Algorithm> {
+    match alg.to_uppercase().as_str() {
+        "HS256" => Some(Algorithm::HS256),
+        "HS384" => Some(Algorithm::HS384),
+        "HS512" => Some(Algorithm::HS512),
+        "RS256" => Some(Algorithm::RS256),
+        "RS384" => Some(Algorithm::RS384),
+        "RS512" => Some(Algorithm::RS512),
+        "ES256" => Some(Algorithm::ES256),
+        "ES384" => Some(Algorithm::ES384),
+        "PS256" => Some(Algorithm::PS256),
+        "PS384" => Some(Algorithm::PS384),
+        "PS512" => Some(Algorithm::PS512),
+        "EDDSA" => Some(Algorithm::EdDSA),
+        _ => None,
+    }
+}
+
 /// JWE Decoded token data
 #[derive(Debug, Clone)]
 pub struct DecodedJweToken {
@@ -437,23 +481,16 @@ pub fn decode(token: &str) -> Result<DecodedToken> {
         .as_str()
         .ok_or_else(|| anyhow!("'alg' is not a string"))?;
 
-    // Parse algorithm
-    let algorithm = match alg_str.to_uppercase().as_str() {
-        "HS256" => Algorithm::HS256,
-        "HS384" => Algorithm::HS384,
-        "HS512" => Algorithm::HS512,
-        "RS256" => Algorithm::RS256,
-        "RS384" => Algorithm::RS384,
-        "RS512" => Algorithm::RS512,
-        "ES256" => Algorithm::ES256,
-        "ES384" => Algorithm::ES384,
-        "PS256" => Algorithm::PS256,
-        "PS384" => Algorithm::PS384,
-        "PS512" => Algorithm::PS512,
-        "EDDSA" => Algorithm::EdDSA,
-        "NONE" => Algorithm::HS256, // Treat 'none' as HS256 for parsing
-        _ => return Err(anyhow!("Unsupported algorithm: {}", alg_str)),
-    };
+    // Map the header `alg` to a jsonwebtoken `Algorithm`. `decode` performs no
+    // verification — it exists to *inspect* a token — so it must succeed even for
+    // algorithms jsonwebtoken cannot represent: `none`, `ES512` (which this tool
+    // signs via josekit), or an exotic/attacker-chosen value. Previously such
+    // tokens were rejected outright, which meant `jwt-hack decode` could not read
+    // an ES512 token it had itself produced, nor inspect malformed attack tokens.
+    // The true `alg` is preserved in the returned `header`; the `algorithm` field
+    // falls back to an HS256 sentinel that callers needing the real value must
+    // read from the header instead (see [`DecodedToken::alg_str`]).
+    let algorithm = algorithm_from_str(alg_str).unwrap_or(Algorithm::HS256);
 
     // Extract payload (claims)
     let payload_b64 = parts[1];
@@ -557,7 +594,15 @@ impl Hs256Verifier {
 /// signature. Callers should fall back to [`verify`] in that case.
 pub fn prepare_hs256_verifier(token: &str) -> Result<Hs256Verifier> {
     let decoded = decode(token)?;
-    if decoded.algorithm != Algorithm::HS256 {
+    // Check the *real* alg from the header rather than `decoded.algorithm`, which
+    // is an HS256 sentinel for any alg jsonwebtoken can't represent — a `none` or
+    // garbage-alg token must not be silently treated as HS256 by the crack loop.
+    let is_hs256 = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .is_some_and(|a| a.eq_ignore_ascii_case("HS256"));
+    if !is_hs256 {
         return Err(anyhow!("token is not HS256"));
     }
     let mut parts = token.splitn(3, '.');
@@ -635,6 +680,23 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
                 return Ok(true);
             }
         }
+    }
+
+    // `decode` tolerates algorithms jsonwebtoken cannot represent by storing an
+    // HS256 sentinel in `decoded_token.algorithm`. Verification must not silently
+    // treat such a token as HS256, so reject anything whose real `alg` isn't a
+    // verifiable signature algorithm (e.g. `ES512`, or a garbage value) with a
+    // clear error rather than a misleading "signature invalid".
+    let raw_alg = decoded_token
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    if algorithm_from_str(raw_alg).is_none() {
+        return Err(anyhow!(
+            "Unsupported algorithm for verification: {}",
+            if raw_alg.is_empty() { "<missing>" } else { raw_alg }
+        ));
     }
 
     // Split the token
@@ -2367,6 +2429,73 @@ mod tests {
             "ES512",
             "Algorithm should be ES512"
         );
+
+        // Regression: `decode` must accept a token this tool itself produced.
+        // jsonwebtoken's `Algorithm` enum has no ES512 variant, so `decode`
+        // previously rejected ES512 tokens with "Unsupported algorithm: ES512".
+        let decoded = decode(&token).expect("decode must accept ES512 tokens");
+        assert_eq!(
+            decoded.alg_str(),
+            "ES512",
+            "decode should surface the real ES512 alg from the header"
+        );
+        assert_eq!(decoded.claims, claims, "claims should round-trip");
+    }
+
+    #[test]
+    fn test_decode_none_reports_none_not_hs256() {
+        // `decode` maps `none` to an HS256 sentinel internally, but the reported
+        // alg (via `alg_str`) must be the real `none`, not the misleading HS256.
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"none","typ":"JWT"}"#);
+        let claims_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let token = format!("{header_b64}.{claims_b64}.");
+        let decoded = decode(&token).expect("decode of none token should succeed");
+        assert_eq!(decoded.alg_str(), "none");
+        assert_eq!(decoded.algorithm, Algorithm::HS256); // internal sentinel
+    }
+
+    #[test]
+    fn test_decode_tolerates_unknown_alg() {
+        // An inspection tool must be able to read a token with an exotic/garbage
+        // `alg`; `decode` should surface the raw value rather than erroring.
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"FOO123","typ":"JWT"}"#);
+        let claims_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let token = format!("{header_b64}.{claims_b64}.AAAA");
+        let decoded = decode(&token).expect("decode of unknown-alg token should succeed");
+        assert_eq!(decoded.alg_str(), "FOO123");
+    }
+
+    #[test]
+    fn test_verify_rejects_unrepresentable_alg() {
+        // decode's tolerance must not let verification silently treat an
+        // unrepresentable alg as HS256: it should return a clear error, never
+        // Ok(false) (which would imply a valid HMAC comparison was performed).
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"ES512","typ":"JWT"}"#);
+        let claims_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let token = format!("{header_b64}.{claims_b64}.AAAA");
+        let err = verify(&token, "secret").unwrap_err().to_string();
+        assert!(
+            err.contains("Unsupported algorithm for verification"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_prepare_hs256_verifier_rejects_sentinel_alg() {
+        // A garbage-alg token decodes to the HS256 sentinel, but the fast HS256
+        // cracking path must key off the real header alg and refuse it.
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"FOO123","typ":"JWT"}"#);
+        let claims_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let token = format!("{header_b64}.{claims_b64}.AAAA");
+        assert!(prepare_hs256_verifier(&token).is_err());
     }
 
     // JWE Round-trip Tests

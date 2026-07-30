@@ -209,13 +209,16 @@ impl From<anyhow::Error> for ApiError {
 async fn handle_decode(Json(req): Json<DecodeRequest>) -> Result<Json<DecodeResponse>, ApiError> {
     match jwt::decode(&req.token) {
         Ok(decoded) => {
+            // Read the real `alg` before consuming `header`; `decoded.algorithm`
+            // is an HS256 sentinel for `none`/`ES512`/unrepresentable values.
+            let algorithm = decoded.alg_str();
             let header_map: serde_json::Map<String, Value> = decoded.header.into_iter().collect();
 
             Ok(Json(DecodeResponse {
                 success: true,
                 header: Some(header_map),
                 payload: Some(decoded.claims),
-                algorithm: Some(format!("{:?}", decoded.algorithm)),
+                algorithm: Some(algorithm),
                 error: None,
             }))
         }

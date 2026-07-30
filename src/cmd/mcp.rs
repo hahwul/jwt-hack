@@ -161,12 +161,12 @@ impl JwtHackServer {
         match decoded {
             Ok(token_info) => {
                 let output = format!(
-                    "Header: {}\nClaims: {}\nAlgorithm: {:?}",
+                    "Header: {}\nClaims: {}\nAlgorithm: {}",
                     serde_json::to_string_pretty(&token_info.header)
                         .unwrap_or_else(|_| "Invalid header".to_string()),
                     serde_json::to_string_pretty(&token_info.claims)
                         .unwrap_or_else(|_| "Invalid claims".to_string()),
-                    token_info.algorithm
+                    token_info.alg_str()
                 );
                 Ok(CallToolResult::success(vec![ContentBlock::text(output)]))
             }
