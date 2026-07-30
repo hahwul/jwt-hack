@@ -55,7 +55,7 @@ pub fn execute(
     }
 }
 
-#[allow(clippy::too_many_arguments, deprecated)]
+#[allow(clippy::too_many_arguments)]
 pub fn execute_json(
     json_str: &str,
     secret: Option<&str>,
@@ -67,13 +67,20 @@ pub fn execute_json(
     jwe: bool,
 ) -> Result<Value> {
     if jwe {
-        let key = secret.unwrap_or("default_jwe_key");
-        let token = jwt::encode_jwe_demo(json_str, key)?;
+        // Validate the payload is JSON before encrypting.
+        let _: Value = serde_json::from_str(json_str)?;
+        let key = secret.ok_or_else(|| {
+            anyhow::anyhow!(
+                "JWE encryption requires --secret as the raw content-encryption key (16 bytes for A128GCM, 32 for A256GCM)"
+            )
+        })?;
+        let (content_enc, enc_name) = jwe_dir_encryption(key)?;
+        let token = jwt::encode_jwe(json_str, jwt::JweKeyManagement::Direct(key), content_enc)?;
         return Ok(serde_json::json!({
             "success": true,
             "token_type": "jwe",
             "key_mgmt": "dir",
-            "encryption": "A256GCM",
+            "encryption": enc_name,
             "token": token
         }));
     }
@@ -247,16 +254,40 @@ fn encode_json(
     Ok(())
 }
 
-#[allow(deprecated)]
+/// Select the direct-mode content encryption from the raw key length.
+///
+/// In JWE `dir` mode the supplied key *is* the content-encryption key, so its
+/// length fixes the cipher: 16 bytes → A128GCM, 32 bytes → A256GCM. Any other
+/// length is rejected with actionable guidance instead of silently producing a
+/// bogus token.
+fn jwe_dir_encryption(key: &str) -> Result<(jwt::JweContentEncryption, &'static str)> {
+    match key.len() {
+        16 => Ok((jwt::JweContentEncryption::A128GCM, "A128GCM")),
+        32 => Ok((jwt::JweContentEncryption::A256GCM, "A256GCM")),
+        n => Err(anyhow::anyhow!(
+            "JWE direct encryption requires a 16-byte (A128GCM) or 32-byte (A256GCM) key via --secret, got {n} bytes"
+        )),
+    }
+}
+
 fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
+    // Validate the payload is JSON before encrypting (preserves prior behaviour).
     let _claims: Value = serde_json::from_str(json_str)?;
-    let key = secret.unwrap_or("default_jwe_key");
-    let token = jwt::encode_jwe_demo(json_str, key)?;
+    let key = secret.ok_or_else(|| {
+        anyhow::anyhow!(
+            "JWE encryption requires --secret as the raw content-encryption key (16 bytes for A128GCM, 32 for A256GCM)"
+        )
+    })?;
+    let (content_enc, enc_name) = jwe_dir_encryption(key)?;
+
+    // Real AES-GCM encryption via josekit; previously this emitted a deprecated
+    // demo token whose "ciphertext" was just the base64url of the plaintext.
+    let token = jwt::encode_jwe(json_str, jwt::JweKeyManagement::Direct(key), content_enc)?;
 
     println!("{}", theme::section_line("Encode · JWE"));
     println!();
     println!("{}", theme::kv("Key Mgmt", "dir".cyan()));
-    println!("{}", theme::kv("Encryption", "A256GCM".cyan()));
+    println!("{}", theme::kv("Encryption", enc_name.cyan()));
 
     println!("\n{}", theme::subsection_line("Token"));
     println!("{}{}", theme::INDENT, token);
@@ -268,6 +299,58 @@ fn encode_jwe(json_str: &str, secret: Option<&str>) -> Result<()> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_jwe_dir_encryption_key_lengths() {
+        assert_eq!(jwe_dir_encryption(&"a".repeat(16)).unwrap().1, "A128GCM");
+        assert_eq!(jwe_dir_encryption(&"a".repeat(32)).unwrap().1, "A256GCM");
+        // Any other length must be rejected, not silently accepted.
+        assert!(jwe_dir_encryption("short").is_err());
+        assert!(jwe_dir_encryption(&"a".repeat(24)).is_err());
+    }
+
+    #[test]
+    fn test_execute_json_jwe_actually_encrypts_and_roundtrips() {
+        use base64::Engine;
+        let plaintext = r#"{"secret_data":"TOP-SECRET"}"#;
+        let key = "01234567890123456789012345678901"; // 32 bytes -> A256GCM
+
+        let value = execute_json(plaintext, Some(key), None, "HS256", false, &[], false, true)
+            .expect("jwe encode");
+        assert_eq!(value["encryption"], "A256GCM");
+        let token = value["token"].as_str().expect("token string");
+
+        // The ciphertext segment must NOT be the base64url of the plaintext
+        // (the old demo path leaked the payload verbatim).
+        let ct_seg = token.split('.').nth(3).expect("ciphertext segment");
+        let plaintext_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(plaintext.as_bytes());
+        assert_ne!(
+            ct_seg, plaintext_b64,
+            "ciphertext must be encrypted, not base64(plaintext)"
+        );
+
+        // And it must round-trip back to the original plaintext with the key.
+        let decrypted = jwt::decrypt_jwe_with_josekit(token, jwt::JweKeyManagement::Direct(key))
+            .expect("jwe decrypt");
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_execute_json_jwe_rejects_bad_key_length() {
+        // No usable key length -> error instead of a bogus token.
+        let result = execute_json(
+            r#"{"a":1}"#,
+            Some("tooshort"),
+            None,
+            "HS256",
+            false,
+            &[],
+            false,
+            true,
+        );
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_create_header_map() {
@@ -474,12 +557,19 @@ mod tests {
 
     #[test]
     fn test_encode_jwe_function() {
-        // Test the encode_jwe function directly
+        // Test the encode_jwe function directly. Real `dir` encryption needs a
+        // 16- or 32-byte key, so use a valid 32-byte one (A256GCM).
         let json_str = r#"{"sub":"test","name":"JWE User"}"#;
-        let secret = Some("test_secret");
+        let secret = Some("01234567890123456789012345678901");
 
         let result = encode_jwe(json_str, secret);
-        assert!(result.is_ok(), "encode_jwe should succeed with valid JSON");
+        assert!(
+            result.is_ok(),
+            "encode_jwe should succeed with valid JSON and a 32-byte key"
+        );
+
+        // A too-short key must be rejected rather than silently accepted.
+        assert!(encode_jwe(json_str, Some("test_secret")).is_err());
     }
 
     #[test]
