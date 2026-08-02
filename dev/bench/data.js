@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785424147683,
+  "lastUpdate": 1785638400786,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -461,6 +461,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26444110,
             "range": "± 139786",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d011e3434b6fcc04aeaa6eaca765335d6120c35d",
+          "message": "build(deps): bump rmcp from 2.2.0 to 3.0.1 (#266)\n\nBumps [rmcp](https://github.com/modelcontextprotocol/rust-sdk) from 2.2.0 to 3.0.1.\n- [Release notes](https://github.com/modelcontextprotocol/rust-sdk/releases)\n- [Changelog](https://github.com/modelcontextprotocol/rust-sdk/blob/main/release-plz.toml)\n- [Commits](https://github.com/modelcontextprotocol/rust-sdk/compare/rmcp-v2.2.0...rmcp-v3.0.1)\n\n---\nupdated-dependencies:\n- dependency-name: rmcp\n  dependency-version: 3.0.1\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-02T11:33:19+09:00",
+          "tree_id": "eca53164599cb514b218d468a287af964bb3b834",
+          "url": "https://github.com/hahwul/jwt-hack/commit/d011e3434b6fcc04aeaa6eaca765335d6120c35d"
+        },
+        "date": 1785638399824,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1216,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12386,
+            "range": "± 907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1344,
+            "range": "± 81",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3241,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1514,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 12090,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26615272,
+            "range": "± 19216",
             "unit": "ns/iter"
           }
         ]
