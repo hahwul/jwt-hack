@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785638400786,
+  "lastUpdate": 1786028442170,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -527,6 +527,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26615272,
             "range": "± 19216",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6a701cd13f9a2f070f386101200f6637cc17c229",
+          "message": "refactor(payload): centralize JWT segment splitting and header decoding (#270)\n\nIntroduce a TokenParts struct + split_token() helper and reuse it across\nthe generate_* attack builders that previously each reimplemented the\nsplit('.') + length-check + parts.get(2) idiom. Also add\ndecode_header_or_default() for the header-with-fallback pattern, and make\nbuild_signing_input() delegate to encode_header_with_claims() (the two\nwere byte-identical). No behavior change; all 553 tests pass.",
+          "timestamp": "2026-08-06T23:53:46+09:00",
+          "tree_id": "632699ffcc9a9d8dc327132a2f63393247b103d6",
+          "url": "https://github.com/hahwul/jwt-hack/commit/6a701cd13f9a2f070f386101200f6637cc17c229"
+        },
+        "date": 1786028441015,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1201,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12078,
+            "range": "± 42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1375,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3289,
+            "range": "± 46",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1499,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 11971,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26406288,
+            "range": "± 45823",
             "unit": "ns/iter"
           }
         ]
