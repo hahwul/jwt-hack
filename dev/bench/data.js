@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786028442170,
+  "lastUpdate": 1786625864805,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -593,6 +593,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26406288,
             "range": "± 45823",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f42bc6300bdb934926c16bfc7ffb6fb5df99418",
+          "message": "fix: prevent crashes and correct wrong security verdicts across subsystems (#275)\n\nHardening pass from a multi-agent stability audit (findings independently\nverified against the source and end-to-end against the built binary).\n\nSecurity-verdict correctness:\n- jwt: verify_with_options() no longer accepts alg:none against a supplied\n  key (the classic alg:none bypass). It only reports an unsigned token as\n  \"valid\" when NO key material is given (inspection); with a real key it now\n  returns false. This fixes crack \"finding\" bogus secrets and `jwks verify`\n  marking unsigned tokens VALID.\n- jwt: reject tokens that are not exactly 3 segments in verify (a 4th segment\n  was silently ignored and the token reported as validly signed).\n- scan: run the JOSE header-injection checks (kid/jku/x5u/jwk/crit) on JWE\n  tokens too, not just JWS.\n- scan: flag a present-but-non-numeric `exp`, empty JWE IV/tag, and stop\n  misclassifying JWE key-management algs (RSA-OAEP/RSA1_5) as RS->HS confusion.\n\nCrashes / resource exhaustion:\n- shell: fix a char-boundary slice panic in tab completion on multi-byte\n  whitespace; guard the cursor clamp against u16 underflow on tiny terminals.\n- crack: return an error instead of panicking when targeting a payload field\n  on a token whose payload is not a JSON object.\n- jwks: cap the fetched JWKS response body (5 MiB) to prevent memory\n  exhaustion from a hostile endpoint.\n- shell: bound the output buffer and pause TUI rendering while a background\n  crack/scan is capturing global stdout (was corrupting/freezing the TUI).\n\nSilent wrong behavior:\n- scan/crack/server: reading a wordlist no longer stops at the first\n  non-UTF-8 line (skips it and continues); scan warns on an unreadable\n  wordlist instead of silently using the built-in list, and honors\n  --max-crack-attempts without -w.\n- jwt: error instead of silently ignoring --compress for ES512.\n- shell: keep `set secret`/`set private_key` out of the plaintext history.\n- crack: warn that targeted-field cracking can only match empty-secret/none\n  tokens (it re-signs candidates with an empty secret).\n\nAdds 10 regression tests. cargo build/clippy/test all clean.",
+          "timestamp": "2026-08-13T21:50:49+09:00",
+          "tree_id": "5b825f3bbcdc671e379013e2e57967e672b867a5",
+          "url": "https://github.com/hahwul/jwt-hack/commit/2f42bc6300bdb934926c16bfc7ffb6fb5df99418"
+        },
+        "date": 1786625863179,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1136,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 14324,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1292,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3170,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1526,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 12208,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 27107046,
+            "range": "± 32852",
             "unit": "ns/iter"
           }
         ]
