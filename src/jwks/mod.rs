@@ -60,8 +60,18 @@ pub struct SpoofedJwks {
     pub signed_token: Option<String>,
 }
 
+/// Maximum JWKS response body (bytes) that [`fetch_jwks`] will buffer.
+///
+/// A JWKS is normally a few kilobytes. Without a cap, `response.json()` buffers the
+/// entire body into memory, so a hostile or misconfigured endpoint could return a
+/// multi-gigabyte body and exhaust memory. 5 MiB is far more than any legitimate key
+/// set needs.
+const MAX_JWKS_BYTES: u64 = 5 * 1024 * 1024;
+
 /// Fetch a JWKS from a remote URL
 pub fn fetch_jwks(url: &str) -> Result<JwkSet> {
+    use std::io::Read;
+
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -80,8 +90,23 @@ pub fn fetch_jwks(url: &str) -> Result<JwkSet> {
         ));
     }
 
-    let jwks: JwkSet = response
-        .json()
+    // Bound the buffered body. reqwest's blocking `Response` implements `Read`;
+    // `take` caps how many bytes are read before parsing so an oversized response is
+    // rejected instead of exhausting memory.
+    let mut body = Vec::new();
+    response
+        .take(MAX_JWKS_BYTES + 1)
+        .read_to_end(&mut body)
+        .map_err(|e| anyhow!("Failed to read JWKS response from {}: {}", url, e))?;
+    if body.len() as u64 > MAX_JWKS_BYTES {
+        return Err(anyhow!(
+            "JWKS response from {} exceeds maximum allowed size of {} bytes",
+            url,
+            MAX_JWKS_BYTES
+        ));
+    }
+
+    let jwks: JwkSet = serde_json::from_slice(&body)
         .map_err(|e| anyhow!("Failed to parse JWKS response: {}", e))?;
 
     Ok(jwks)

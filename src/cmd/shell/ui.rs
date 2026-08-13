@@ -30,14 +30,19 @@ pub fn render(frame: &mut Frame, app: &App) {
         render_completion_popup(frame, state, chunks[2]);
     }
 
-    // Set cursor position in input area
+    // Set cursor position in input area. Use saturating arithmetic throughout: on a
+    // very narrow terminal `chunks[2].width` can be 0 or 1, so `x + width - 2` would
+    // underflow u16 (a debug panic / release wrap), and the additive terms could
+    // otherwise overflow u16 for a pathologically long input line.
     let prompt = app.session.prompt();
-    let cursor_x = chunks[2].x + 1 + prompt.len() as u16 + app.cursor_position as u16;
-    let cursor_y = chunks[2].y + 1;
-    frame.set_cursor_position(Position::new(
-        cursor_x.min(chunks[2].x + chunks[2].width - 2),
-        cursor_y,
-    ));
+    let cursor_x = chunks[2]
+        .x
+        .saturating_add(1)
+        .saturating_add(prompt.len() as u16)
+        .saturating_add(app.cursor_position as u16);
+    let cursor_y = chunks[2].y.saturating_add(1);
+    let max_x = chunks[2].x.saturating_add(chunks[2].width).saturating_sub(2);
+    frame.set_cursor_position(Position::new(cursor_x.min(max_x), cursor_y));
 }
 
 fn render_title_bar(frame: &mut Frame, app: &App, area: Rect) {

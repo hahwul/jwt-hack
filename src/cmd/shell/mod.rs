@@ -77,6 +77,9 @@ pub struct App {
     pub should_quit: bool,
 }
 
+/// Upper bound on retained shell output lines (see [`App::enforce_output_cap`]).
+const MAX_OUTPUT_LINES: usize = 5000;
+
 impl App {
     fn new() -> Self {
         Self {
@@ -164,6 +167,21 @@ impl App {
         self.scroll_offset = total;
     }
 
+    /// Drop the oldest output lines once the buffer exceeds [`MAX_OUTPUT_LINES`].
+    ///
+    /// Without a cap the output buffer grows without bound over a long session and,
+    /// because the whole `Text` is cloned every frame in the renderer, both memory
+    /// use and per-frame cost climb indefinitely.
+    fn enforce_output_cap(&mut self) {
+        let len = self.output_lines.lines.len();
+        if len > MAX_OUTPUT_LINES {
+            let drop = len - MAX_OUTPUT_LINES;
+            self.output_lines.lines.drain(0..drop);
+            // Keep auto-scroll anchored near the (new) bottom.
+            self.scroll_offset = self.scroll_offset.saturating_sub(drop);
+        }
+    }
+
     fn visible_height(&self) -> usize {
         // Approximate; actual value depends on terminal size.
         // The UI renderer will clamp this.
@@ -211,7 +229,17 @@ fn run_tui() -> io::Result<()> {
 
     // Main event loop
     loop {
-        terminal.draw(|frame| ui::render(frame, &app))?;
+        // Bound the output buffer before each frame so a long session can't grow it
+        // without limit (the whole buffer is cloned per frame in the renderer).
+        app.enforce_output_cap();
+        // Don't draw while a background crack/scan is redirecting global stdout —
+        // our frame's escape sequences would be captured into its buffer, freezing
+        // the TUI and corrupting the captured output. The last frame (e.g. "Cracking
+        // in background...") stays on screen until the capture finishes; input is
+        // still polled below so the shell stays responsive.
+        if !capture::capture_in_progress() {
+            terminal.draw(|frame| ui::render(frame, &app))?;
+        }
 
         // Check for async results (non-blocking)
         if let Ok(result) = rx.try_recv() {
@@ -326,7 +354,12 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
             let line = app.input.trim().to_string();
             if !line.is_empty() {
                 app.push_command_echo(&line);
-                app.history.add(&line);
+                // Never persist commands that carry secrets (`set secret ...`,
+                // `set private_key ...`) — the history is written to a plaintext file
+                // under the user's config dir.
+                if !is_sensitive_command(&line) {
+                    app.history.add(&line);
+                }
                 handle_command(&line, app, tx);
                 app.input.clear();
                 app.cursor_position = 0;
@@ -415,6 +448,19 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
 // ---------- Command dispatch ----------
 
 const SET_KEYS: &[&str] = &["token", "secret", "algorithm", "private_key", "wordlist"];
+
+/// Whether a shell command line carries a secret that must not be written to the
+/// plaintext history file (e.g. `set secret <value>` or `set private_key <path>`).
+fn is_sensitive_command(line: &str) -> bool {
+    let mut parts = line.split_whitespace();
+    if parts.next().map(|c| c.eq_ignore_ascii_case("set")) != Some(true) {
+        return false;
+    }
+    matches!(
+        parts.next().map(|k| k.to_ascii_lowercase()).as_deref(),
+        Some("secret") | Some("private_key")
+    )
+}
 
 fn handle_command(line: &str, app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
     let parts: Vec<&str> = line.splitn(3, ' ').collect();
@@ -791,6 +837,36 @@ fn handle_scan(parts: &[&str], app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_sensitive_command() {
+        // Secret-bearing commands must be kept out of the plaintext history file.
+        assert!(is_sensitive_command("set secret hunter2"));
+        assert!(is_sensitive_command("  SET   Secret   hunter2  "));
+        assert!(is_sensitive_command("set private_key /path/to/key.pem"));
+        // Everything else is fine to record.
+        assert!(!is_sensitive_command("set token eyJ..."));
+        assert!(!is_sensitive_command("set algorithm HS256"));
+        assert!(!is_sensitive_command("decode eyJ..."));
+        assert!(!is_sensitive_command("set"));
+        assert!(!is_sensitive_command(""));
+    }
+
+    #[test]
+    fn test_enforce_output_cap_bounds_buffer() {
+        let mut app = App::new();
+        for i in 0..(MAX_OUTPUT_LINES + 500) {
+            app.output_lines
+                .lines
+                .push(ratatui::text::Line::raw(format!("line {i}")));
+        }
+        app.enforce_output_cap();
+        assert_eq!(app.output_lines.lines.len(), MAX_OUTPUT_LINES);
+        // Oldest lines are the ones dropped; the newest must remain.
+        let last = app.output_lines.lines.last().unwrap();
+        let text: String = last.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert_eq!(text, format!("line {}", MAX_OUTPUT_LINES + 500 - 1));
+    }
 
     #[test]
     fn test_session_default() {
