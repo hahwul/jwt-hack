@@ -563,7 +563,7 @@ fn crack_dictionary(
     const DICT_BATCH_SIZE: usize = 100_000;
 
     let mut word_batch: Vec<String> = Vec::with_capacity(DICT_BATCH_SIZE);
-    let mut line_buf = String::new();
+    let mut line_buf: Vec<u8> = Vec::new();
     let mut bytes_read: u64 = 0;
 
     loop {
@@ -574,14 +574,22 @@ fn crack_dictionary(
         let mut batch_bytes: u64 = 0;
         for _ in 0..DICT_BATCH_SIZE {
             line_buf.clear();
-            let n = match reader.read_line(&mut line_buf) {
+            // Read raw bytes rather than `read_line`, which returns Err on a
+            // non-UTF-8 line. The old `Err(_) => break` aborted the ENTIRE crack at
+            // the first such line, silently skipping the rest of the wordlist and
+            // reporting "not found". Lossy-decode instead so an odd line becomes a
+            // (harmless) candidate and the crack keeps going; only a genuine IO error
+            // stops the loop.
+            let n = match reader.read_until(b'\n', &mut line_buf) {
                 Ok(0) => break, // EOF
                 Ok(n) => n,
-                Err(_) => break,
+                Err(_) => break, // genuine IO error
             };
             batch_bytes += n as u64;
             // Trim trailing newline / carriage return
-            let word = line_buf.trim_end_matches(['\n', '\r']).to_string();
+            let word = String::from_utf8_lossy(&line_buf)
+                .trim_end_matches(['\n', '\r'])
+                .to_string();
             if !word.is_empty() {
                 word_batch.push(word);
             }
@@ -919,11 +927,41 @@ fn crack_target_field(
         }
     };
 
+    // Writing a candidate into a claims field requires the payload to be a JSON
+    // object. If the payload decodes to a JSON array/number/string/bool, indexing it
+    // with a string key (`modified_claims[target_field] = ...`) panics inside
+    // serde_json. Reject such tokens up front with a clear error instead of aborting
+    // the process (the release profile uses panic = "abort").
+    if field_location == "payload" && !claims.is_object() {
+        if emit_output {
+            utils::log_error(format!(
+                "Cannot target payload field '{target_field}': token payload is not a JSON object"
+            ));
+        }
+        return Err(anyhow::anyhow!(
+            "Cannot target payload field '{target_field}': token payload is not a JSON object"
+        ));
+    }
+
     if emit_output {
         utils::log_info(format!(
             "Targeted field cracking: field='{}' location='{}' algorithm='{}'",
             target_field, field_location, alg
         ));
+        // Target-field cracking re-signs each candidate with an EMPTY secret and
+        // compares the result against the token's ORIGINAL signature (see
+        // `run_target_field_crack`). That can only match a token that was itself
+        // signed with an empty secret (or uses alg:none). Against a token signed with
+        // a real secret/key, no candidate can reproduce the signature, so it would
+        // silently run to "not found". Warn up front instead of misleading the user.
+        if !matches!(jwt::verify(options.token, ""), Ok(true)) {
+            utils::log_warning(
+                "Targeted field cracking compares signatures re-signed with an EMPTY secret, so it \
+                 only works against a token signed with an empty secret or alg:none. This token \
+                 carries a real signature, so no field value can reproduce it — the search will be \
+                 inconclusive.",
+            );
+        }
     }
 
     // Generate candidates based on mode
@@ -1040,7 +1078,7 @@ fn crack_target_field(
 
         const TARGET_DICT_BATCH: usize = 100_000;
         let mut word_batch: Vec<String> = Vec::with_capacity(TARGET_DICT_BATCH);
-        let mut line_buf = String::new();
+        let mut line_buf: Vec<u8> = Vec::new();
         let mut bytes_read: u64 = 0;
 
         let loading_pb = if emit_output {
@@ -1056,13 +1094,17 @@ fn crack_target_field(
             let mut batch_bytes: u64 = 0;
             for _ in 0..TARGET_DICT_BATCH {
                 line_buf.clear();
-                let n = match reader.read_line(&mut line_buf) {
+                // Raw-byte read + lossy decode so a non-UTF-8 line doesn't abort the
+                // whole run (see the note in `crack_dictionary`).
+                let n = match reader.read_until(b'\n', &mut line_buf) {
                     Ok(0) => break,
                     Ok(n) => n,
                     Err(_) => break,
                 };
                 batch_bytes += n as u64;
-                let word = line_buf.trim_end_matches(['\n', '\r']).to_string();
+                let word = String::from_utf8_lossy(&line_buf)
+                    .trim_end_matches(['\n', '\r'])
+                    .to_string();
                 if word.is_empty() {
                     continue;
                 }
@@ -1399,6 +1441,44 @@ mod tests {
             result.is_ok(),
             "execute_with_options should not panic with missing wordlist"
         );
+    }
+
+    #[test]
+    fn test_target_field_non_object_payload_errors_not_panics() {
+        use base64::Engine;
+        // Build a well-formed token whose payload is a JSON ARRAY (not an object).
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"[1,2,3]"#);
+        let token = format!("{header}.{payload}.AAAA");
+
+        let target = Some("role".to_string());
+        let options = CrackOptions {
+            token: &token,
+            mode: "dict",
+            wordlist: &None,
+            chars: "abc",
+            preset: &None,
+            concurrency: 1,
+            min: 1,
+            max: 2,
+            power: false,
+            verbose: false,
+            target_field: &target,
+            pattern: &None,
+        };
+
+        // Targeting a payload field on a non-object payload must return an error
+        // rather than panicking on serde_json string-indexing (which, under
+        // panic = "abort", would kill the process).
+        let result = std::panic::catch_unwind(|| crack_target_field(&options, "role", false));
+        match result {
+            Ok(inner) => assert!(
+                inner.is_err(),
+                "expected an Err for a non-object payload, got Ok"
+            ),
+            Err(_) => panic!("crack_target_field panicked on a non-object payload"),
+        }
     }
 
     #[test]

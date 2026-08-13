@@ -116,10 +116,19 @@ fn e2e_none_algorithm_token() {
         Some("none")
     );
     assert_eq!(decoded.claims["sub"], "admin");
-    // The library `verify` accepts `alg:none` tokens regardless of the secret —
-    // this is exactly the alg:none acceptance pitfall jwt-hack helps surface, so
-    // we pin the behavior here rather than assume signature enforcement.
-    assert!(jwt::verify(&token, "anything").expect("verify none"));
+    // A `none` token carries no signature. When a real secret is supplied, `verify`
+    // must NOT report it as validly signed — otherwise the tool itself would fall for
+    // the classic alg:none bypass (and its crack/JWKS paths would "find" bogus
+    // secrets / mark unsigned tokens VALID). With NO key (empty secret), the token is
+    // trivially accepted for inspection.
+    assert!(
+        !jwt::verify(&token, "anything").expect("verify none w/ secret"),
+        "alg:none must not verify against a provided secret"
+    );
+    assert!(
+        jwt::verify(&token, "").expect("verify none w/o key"),
+        "alg:none with no key is accepted for inspection"
+    );
 }
 
 /// Scenario 5: JWE (direct symmetric key) encrypt -> detect -> decrypt.

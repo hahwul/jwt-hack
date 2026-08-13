@@ -320,33 +320,63 @@ fn scan_jwe_token(token: &str) -> Result<ScanReport> {
         }
     });
 
-    // IV length (GCM wants a 96-bit / 12-byte nonce).
-    if !decoded.iv.is_empty() {
-        if let Ok(iv) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv) {
-            if iv.len() < 12 {
-                results.push(VulnerabilityResult {
-                    name: "IV".to_string(),
-                    vulnerable: true,
-                    details: format!("IV is {} bytes — GCM expects a 12-byte nonce", iv.len()),
-                    severity: Severity::Medium,
-                });
-            }
+    // IV length (GCM wants a 96-bit / 12-byte nonce). An empty IV is worse than a
+    // short one — it means no nonce at all — so flag it explicitly rather than
+    // skipping the check (the `!is_empty()` guard previously let an empty IV pass
+    // silently).
+    if decoded.iv.is_empty() {
+        results.push(VulnerabilityResult {
+            name: "IV".to_string(),
+            vulnerable: true,
+            details: "IV is missing/empty — encryption without a nonce is broken".to_string(),
+            severity: Severity::High,
+        });
+    } else if let Ok(iv) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.iv) {
+        if iv.len() < 12 {
+            results.push(VulnerabilityResult {
+                name: "IV".to_string(),
+                vulnerable: true,
+                details: format!("IV is {} bytes — GCM expects a 12-byte nonce", iv.len()),
+                severity: Severity::Medium,
+            });
         }
     }
 
-    // Auth tag length.
-    if !decoded.tag.is_empty() {
-        if let Ok(tag) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.tag) {
-            if tag.len() < 16 {
-                results.push(VulnerabilityResult {
-                    name: "Authentication Tag".to_string(),
-                    vulnerable: true,
-                    details: format!("Auth tag is {} bytes — expected at least 16", tag.len()),
-                    severity: Severity::Medium,
-                });
-            }
+    // Auth tag length. An empty tag means the ciphertext is unauthenticated, so flag
+    // it explicitly instead of skipping the check.
+    if decoded.tag.is_empty() {
+        results.push(VulnerabilityResult {
+            name: "Authentication Tag".to_string(),
+            vulnerable: true,
+            details: "Authentication tag is missing/empty — ciphertext is unauthenticated"
+                .to_string(),
+            severity: Severity::High,
+        });
+    } else if let Ok(tag) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&decoded.tag) {
+        if tag.len() < 16 {
+            results.push(VulnerabilityResult {
+                name: "Authentication Tag".to_string(),
+                vulnerable: true,
+                details: format!("Auth tag is {} bytes — expected at least 16", tag.len()),
+                severity: Severity::Medium,
+            });
         }
     }
+
+    // JOSE header-injection checks apply to a JWE recipient just as they do to a JWS
+    // verifier: RFC 7516 §4.1.4–4.1.6 defines `jku`, `jwk`, `kid`, `x5u` (and `crit`)
+    // as JWE header parameters, and the SSRF / key-substitution / path-traversal
+    // attacks they enable are identical. These checks read only the header, so run
+    // them over a synthetic view of the JWE's (fully parsed) protected header.
+    let header_view = jwt::DecodedToken {
+        header: decoded.header.clone(),
+        claims: serde_json::Value::Null,
+        algorithm: jsonwebtoken::Algorithm::HS256, // sentinel; header-only checks ignore it
+    };
+    results.push(check_kid_vulnerabilities(&header_view)?);
+    results.push(check_jku_x5u_vulnerabilities(&header_view)?);
+    results.push(check_jwk_header(&header_view)?);
+    results.push(check_crit_header(&header_view)?);
 
     let summary = summarize_results(&results);
     Ok(ScanReport {
@@ -705,19 +735,47 @@ fn check_weak_secret(
 
     let secrets_to_test: Vec<String> = if let Some(ref wordlist_path) = options.wordlist {
         // Read from wordlist file (limited to max_crack_attempts)
-        if let Ok(file) = std::fs::File::open(wordlist_path) {
-            use std::io::{BufRead, BufReader};
-            let reader = BufReader::new(file);
-            reader
-                .lines()
-                .map_while(Result::ok)
-                .take(options.max_crack_attempts)
-                .collect()
-        } else {
-            common_secrets.iter().map(|s| s.to_string()).collect()
+        match std::fs::File::open(wordlist_path) {
+            Ok(file) => {
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(file);
+                // Examine at most `max_crack_attempts` lines, skipping individual
+                // undecodable (non-UTF-8) lines instead of stopping at the first one.
+                // The previous `map_while(Result::ok)` STOPPED at the first such line,
+                // so a wordlist whose first line wasn't valid UTF-8 tested zero secrets
+                // and the token was wrongly reported "no weak secret found". Bounding
+                // on the raw line count with `take` (before `flatten` drops the Errs)
+                // also guarantees termination on a pathologically erroring reader.
+                reader
+                    .lines()
+                    .take(options.max_crack_attempts)
+                    .flatten()
+                    .collect()
+            }
+            Err(e) => {
+                // Don't silently pretend the wordlist was used. Warn, then fall back
+                // to the built-in list so a bad `--wordlist` path is visible instead
+                // of masquerading as a clean result.
+                utils::log_warning(format!(
+                    "Could not open wordlist {}: {} — falling back to built-in common secrets",
+                    wordlist_path.display(),
+                    e
+                ));
+                common_secrets
+                    .iter()
+                    .take(options.max_crack_attempts)
+                    .map(|s| s.to_string())
+                    .collect()
+            }
         }
     } else {
-        common_secrets.iter().map(|s| s.to_string()).collect()
+        // Honor max_crack_attempts here too; it was previously ignored unless a
+        // wordlist was supplied.
+        common_secrets
+            .iter()
+            .take(options.max_crack_attempts)
+            .map(|s| s.to_string())
+            .collect()
     };
 
     let mut found_secret: Option<String> = None;
@@ -765,10 +823,23 @@ fn check_algorithm_confusion(
         .unwrap_or_else(|| format!("{:?}", decoded.algorithm));
     let alg_upper = alg_str.to_uppercase();
 
-    let uses_asymmetric = alg_upper.starts_with("RS")
-        || alg_upper.starts_with("ES")
-        || alg_upper.starts_with("PS")
-        || alg_upper == "EDDSA";
+    // Match the exact JWS asymmetric signing algorithms. A `starts_with("RS")`-style
+    // prefix test also matched JWE *key-management* algorithms such as `RSA-OAEP` and
+    // `RSA1_5`, so a (malformed) 3-segment token carrying one of those was wrongly
+    // flagged as vulnerable to RS256->HS256 signature confusion.
+    let uses_asymmetric = matches!(
+        alg_upper.as_str(),
+        "RS256"
+            | "RS384"
+            | "RS512"
+            | "ES256"
+            | "ES384"
+            | "ES512"
+            | "PS256"
+            | "PS384"
+            | "PS512"
+            | "EDDSA"
+    );
 
     let result = if uses_asymmetric {
         VulnerabilityResult {
@@ -812,6 +883,16 @@ fn check_token_expiration(decoded: &jwt::DecodedToken) -> Result<VulnerabilityRe
         .collect();
     if !missing_claims.is_empty() {
         issues.push(format!("Missing '{}'", missing_claims.join("', '")));
+    }
+
+    // A present-but-non-numeric `exp` (null, string, bool, object, ...) is not a
+    // usable expiration. The NumericDate reader below returns `None` for it, so
+    // without an explicit check such a token was silently reported as having proper
+    // expiration — an expiry that no compliant verifier can enforce.
+    if let Some(exp_val) = decoded.claims.get("exp") {
+        if utils::numeric_date_seconds(exp_val).is_none() {
+            issues.push("'exp' is present but not a numeric date".to_string());
+        }
     }
 
     // Evaluate expiry with a NumericDate reader that accepts float values too
@@ -2325,6 +2406,112 @@ mod tests {
                 && r.vulnerable
                 && r.severity == Severity::High),
             "CBC enc must be High (padding oracle)"
+        );
+    }
+
+    #[test]
+    fn test_scan_jwe_runs_header_injection_checks() {
+        use base64::Engine;
+        // A JWE whose protected header carries jku (SSRF), a traversal kid, and an
+        // embedded jwk. These header-injection risks must be reported for JWEs too,
+        // not just JWSs.
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
+            br#"{"alg":"dir","enc":"A256GCM","jku":"http://attacker.example/keys.json","kid":"../../../../etc/passwd","jwk":{"kty":"oct"}}"#,
+        );
+        let jwe = format!("{header}..aXYaXYaXYaXYaXYa.Y3Q.dGFndGFndGFndGFn");
+        let report = scan_jwe_token(&jwe).expect("scan jwe");
+        assert!(
+            report
+                .results
+                .iter()
+                .any(|r| r.name.contains("jku") || r.name.to_lowercase().contains("jku/x5u")),
+            "JWE with jku must surface a jku/x5u finding: {:?}",
+            report.results.iter().map(|r| &r.name).collect::<Vec<_>>()
+        );
+        assert!(
+            report.results.iter().any(|r| r.name.to_lowercase().contains("kid") && r.vulnerable),
+            "JWE with a traversal kid must be flagged"
+        );
+        assert!(
+            report.results.iter().any(|r| r.name.to_lowercase().contains("jwk") && r.vulnerable),
+            "JWE with an embedded jwk must be flagged"
+        );
+    }
+
+    #[test]
+    fn test_scan_jwe_flags_empty_iv_and_tag() {
+        use base64::Engine;
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"dir","enc":"A256GCM"}"#);
+        // Five segments (header.encrypted_key.iv.ciphertext.tag) with an EMPTY
+        // encrypted_key, EMPTY IV and EMPTY tag: "HDR" + "." + "" + "." + "" + "." +
+        // "Y3Q" + "." + "" => "HDR...Y3Q."
+        let jwe = format!("{header}...Y3Q.");
+        assert_eq!(jwe.split('.').count(), 5, "must be a 5-segment JWE");
+        let report = scan_jwe_token(&jwe).expect("scan jwe");
+        assert!(
+            report
+                .results
+                .iter()
+                .any(|r| r.name == "IV" && r.vulnerable),
+            "empty IV must be flagged"
+        );
+        assert!(
+            report
+                .results
+                .iter()
+                .any(|r| r.name == "Authentication Tag" && r.vulnerable),
+            "empty auth tag must be flagged"
+        );
+    }
+
+    #[test]
+    fn test_check_token_expiration_non_numeric_exp_flagged() {
+        // A present-but-non-numeric exp is not a usable expiration and must be flagged
+        // rather than treated as a proper expiry claim.
+        for bad in [json!("soon"), json!(null), json!(true), json!({"x": 1})] {
+            let decoded = jwt::DecodedToken {
+                header: std::collections::HashMap::new(),
+                claims: json!({ "exp": bad, "nbf": 1, "iat": 1 }),
+                algorithm: jsonwebtoken::Algorithm::HS256,
+            };
+            let r = check_token_expiration(&decoded).unwrap();
+            assert!(
+                r.vulnerable && r.details.contains("not a numeric date"),
+                "non-numeric exp {:?} must be flagged, got: {}",
+                r.details,
+                r.details
+            );
+        }
+    }
+
+    #[test]
+    fn test_check_weak_secret_skips_non_utf8_wordlist_line() {
+        use std::io::Write;
+        // Token signed with a known weak secret.
+        let secret = "letmein";
+        let token = create_test_token("HS256", secret);
+        let decoded = jwt::decode(&token).unwrap();
+
+        // Wordlist whose FIRST line is invalid UTF-8, then the real secret. The old
+        // `map_while(Result::ok)` stopped at the first line and tested nothing;
+        // `filter_map` must skip it and still find "letmein".
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(&[0xff, 0xfe, 0x00, b'\n']).unwrap();
+        writeln!(f, "notit").unwrap();
+        writeln!(f, "{secret}").unwrap();
+        f.flush().unwrap();
+        let path = f.path().to_path_buf();
+
+        let options = ScanOptions {
+            wordlist: Some(&path),
+            ..Default::default()
+        };
+        let result = check_weak_secret(&token, &decoded, &options).unwrap();
+        assert!(
+            result.vulnerable && result.details.contains(secret),
+            "weak secret behind a non-UTF-8 line must still be found: {}",
+            result.details
         );
     }
 

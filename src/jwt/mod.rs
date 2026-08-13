@@ -213,7 +213,17 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         "ES256" => Algorithm::ES256,
         "ES384" => Algorithm::ES384,
         "ES512" => {
-            // ES512 requires josekit as jsonwebtoken doesn't support it
+            // ES512 is signed via josekit (jsonwebtoken can't represent it) and takes
+            // an early return here — BEFORE the `compress_payload` handling below. So
+            // requesting compression with ES512 would silently produce an
+            // *uncompressed* token while callers still reported `compress: true`.
+            // Compression is only implemented for HS256 (see `encode_compressed_jwt`),
+            // so reject it explicitly instead of quietly ignoring the flag.
+            if options.compress_payload {
+                return Err(anyhow!(
+                    "Payload compression is not supported for ES512 (only HS256)"
+                ));
+            }
             return encode_with_josekit_jwt(claims, options, "ES512");
         }
         "PS256" => Algorithm::PS256,
@@ -580,6 +590,21 @@ pub enum VerifyKeyData<'a> {
     PublicKeyDer(&'a [u8]),
 }
 
+/// Whether `key_data` carries actual key material.
+///
+/// An empty secret or empty key blob is treated as "no key". Used to tell apart
+/// merely *inspecting* an unsigned `none` token (no key supplied) from an attempt
+/// to *verify* it against a real key — the latter must never succeed (alg:none
+/// bypass). See [`verify_with_options`].
+fn verify_key_is_present(key_data: &VerifyKeyData) -> bool {
+    match key_data {
+        VerifyKeyData::Secret(s) => !s.is_empty(),
+        VerifyKeyData::SecretBytes(b) => !b.is_empty(),
+        VerifyKeyData::PublicKeyPem(s) => !s.is_empty(),
+        VerifyKeyData::PublicKeyDer(b) => !b.is_empty(),
+    }
+}
+
 /// Advanced verification options for JWT token
 pub struct VerifyOptions<'a> {
     /// The key data (secret or public key)
@@ -717,12 +742,19 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     // Try to decode the token without validation
     let decoded_token = decode(token)?;
 
-    // Handle "none" algorithm specially
+    // Handle "none" algorithm specially. A `none` token carries NO signature, so it
+    // can never be cryptographically verified against a key. Returning `Ok(true)`
+    // unconditionally here is the classic alg:none bypass: callers that supply a real
+    // secret/key (the crack loops, `jwks verify`, the REST/MCP crack endpoints) would
+    // treat an unsigned token as validly signed — "finding" a bogus secret or
+    // reporting every JWKS key as VALID. Only report `true` when NO key material was
+    // supplied, i.e. the caller is merely inspecting an unsigned token (the `verify`
+    // command passes an empty secret for that case). When a key IS present, an
+    // unsigned token is not validly signed against it, so return `false`.
     if let Some(alg) = decoded_token.header.get("alg") {
         if let Some(alg_str) = alg.as_str() {
-            if alg_str.to_uppercase() == "NONE" {
-                // For "none" algorithm, we don't verify any signature
-                return Ok(true);
+            if alg_str.eq_ignore_ascii_case("none") {
+                return Ok(!verify_key_is_present(&options.key_data));
             }
         }
     }
@@ -754,10 +786,17 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
         ));
     }
 
-    // Split the token
+    // Split the token. A JWS in compact serialization is EXACTLY three segments
+    // (`header.payload.signature`). Accepting `>= 3` let a malformed 4+-segment
+    // token through: the extra segments were silently ignored and, if `header.
+    // payload.signature` happened to be a valid token, the whole malformed string
+    // was reported as validly signed. Require exactly three segments.
     let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() < 3 {
-        return Err(anyhow!("Invalid token format for verification"));
+    if parts.len() != 3 {
+        return Err(anyhow!(
+            "Invalid token format for verification: expected 3 segments, found {}",
+            parts.len()
+        ));
     }
 
     // Get message and signature parts
@@ -2102,20 +2141,66 @@ mod tests {
         let token_str = encode_with_options(&claims, &options_encode)
             .expect("Encoding 'none' algorithm token failed");
 
-        let options_verify = VerifyOptions {
-            // KeyData is irrelevant for "none" algorithm as per current verify_with_options logic
-            key_data: VerifyKeyData::Secret("any_secret_is_ignored_for_none"),
+        // Inspection: with NO key supplied (empty secret), an unsigned 'none' token
+        // is trivially "valid" — nothing to verify.
+        let inspect = VerifyOptions {
+            key_data: VerifyKeyData::Secret(""),
             ..Default::default()
         };
-        let result = verify_with_options(&token_str, &options_verify);
-        assert!(
-            result.is_ok(),
-            "Verification of 'none' token erred: {:?}",
-            result.err()
+        assert_eq!(
+            verify_with_options(&token_str, &inspect).ok(),
+            Some(true),
+            "inspecting an unsigned 'none' token with no key should be Ok(true)"
         );
+
+        // Security: when a real secret IS supplied, a 'none' token carries no
+        // signature and must NOT be reported as validly signed against that secret —
+        // this is the classic alg:none bypass.
+        let with_secret = VerifyOptions {
+            key_data: VerifyKeyData::Secret("any_secret"),
+            ..Default::default()
+        };
+        assert_eq!(
+            verify_with_options(&token_str, &with_secret).ok(),
+            Some(false),
+            "verifying a 'none' token against a real secret must be Ok(false)"
+        );
+
+        // Same guard for a supplied key blob and raw secret bytes.
+        let with_bytes = VerifyOptions {
+            key_data: VerifyKeyData::SecretBytes(b"any_secret"),
+            ..Default::default()
+        };
+        assert_eq!(
+            verify_with_options(&token_str, &with_bytes).ok(),
+            Some(false),
+            "verifying a 'none' token against real key bytes must be Ok(false)"
+        );
+    }
+
+    #[test]
+    fn test_verify_rejects_extra_segments() {
+        // A validly-signed 3-segment HS256 token...
+        let claims = json!({"user": "seg"});
+        let options_encode = EncodeOptions {
+            algorithm: "HS256",
+            key_data: KeyData::Secret("topsecret"),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&claims, &options_encode).expect("encode");
+        let opts = VerifyOptions {
+            key_data: VerifyKeyData::Secret("topsecret"),
+            ..Default::default()
+        };
+        assert_eq!(verify_with_options(&token, &opts).ok(), Some(true));
+
+        // ...must be rejected outright once a 4th segment is appended, rather than
+        // silently ignoring the extra segment and reporting the token as valid.
+        let tampered = format!("{token}.extrasegment");
         assert!(
-            result.unwrap(),
-            "Verification of 'none' token returned false"
+            verify_with_options(&tampered, &opts).is_err(),
+            "a 4-segment token must be rejected as malformed"
         );
     }
 

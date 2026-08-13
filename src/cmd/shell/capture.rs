@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, TryLockError};
 
 use ansi_to_tui::IntoText;
@@ -9,6 +10,39 @@ use ratatui::text::Text;
 /// `crack` thread and another command) race on the same OS fds: the loser silently
 /// runs with no redirect, leaking raw output onto the TUI and losing its own output.
 static CAPTURE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Number of captures currently redirecting the process-global stdout/stderr.
+///
+/// `gag::BufferRedirect` redirects the *process* stdout, which the ratatui/crossterm
+/// TUI also writes to. If the main render loop draws a frame while a background
+/// `crack`/`scan` capture is active, the frame's escape sequences are swallowed into
+/// the capture buffer instead of reaching the terminal — freezing the TUI and
+/// corrupting the captured command output. The render loop consults
+/// [`capture_in_progress`] and skips drawing while this is non-zero.
+static ACTIVE_CAPTURES: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether any capture is currently redirecting global stdout/stderr. The shell's
+/// render loop must not draw while this is true (see [`ACTIVE_CAPTURES`]).
+pub fn capture_in_progress() -> bool {
+    ACTIVE_CAPTURES.load(Ordering::SeqCst) > 0
+}
+
+/// RAII marker that keeps [`ACTIVE_CAPTURES`] incremented for the lifetime of a
+/// capture, covering every early-return path.
+struct ActiveGuard;
+
+impl ActiveGuard {
+    fn new() -> Self {
+        ACTIVE_CAPTURES.fetch_add(1, Ordering::SeqCst);
+        ActiveGuard
+    }
+}
+
+impl Drop for ActiveGuard {
+    fn drop(&mut self) {
+        ACTIVE_CAPTURES.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 /// Result of capturing stdout/stderr from a command
 #[allow(dead_code)]
@@ -23,6 +57,11 @@ pub fn capture_command_output<F>(f: F) -> CapturedOutput
 where
     F: FnOnce(),
 {
+    // Signal (for the whole capture, via RAII) that global stdout is being
+    // redirected, so the TUI render loop pauses drawing and its frames aren't
+    // swallowed into the capture buffer.
+    let _active = ActiveGuard::new();
+
     // Hold the global capture lock for the entire redirect + restore. If another
     // capture is already active we refuse rather than block (avoiding a UI freeze)
     // or corrupt the screen (avoiding the silent no-redirect fallback below).

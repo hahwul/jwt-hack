@@ -22,7 +22,15 @@ impl CompletionState {
     /// Apply the currently selected candidate to the input, returning (new_input, new_cursor_pos)
     pub fn apply(&self, input: &str) -> (String, usize) {
         let replacement = &self.candidates[self.selected_index];
-        let before = &input[..self.prefix_start];
+        // Defensive: floor `prefix_start` to a valid char boundary within `input` so
+        // a miscomputed byte offset can never trigger a non-char-boundary slice
+        // panic (the release profile uses panic = "abort", which would kill the whole
+        // shell session).
+        let mut start = self.prefix_start.min(input.len());
+        while start > 0 && !input.is_char_boundary(start) {
+            start -= 1;
+        }
+        let before = &input[..start];
         let new_input = format!("{before}{replacement} ");
         let new_cursor = new_input.len();
         (new_input, new_cursor)
@@ -50,9 +58,20 @@ impl CompletionState {
 /// Compute completions for the given input at the given cursor position.
 /// Returns None if no completions are available.
 pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionState> {
-    let line_up_to_cursor = &input[..cursor_pos.min(input.len())];
+    // Clamp the cursor down to a valid char boundary so neither the slice below nor
+    // the `end - prefix.len()` offsets can land inside a multi-byte character.
+    let mut end = cursor_pos.min(input.len());
+    while end > 0 && !input.is_char_boundary(end) {
+        end -= 1;
+    }
+    let line_up_to_cursor = &input[..end];
     let parts: Vec<&str> = line_up_to_cursor.split_whitespace().collect();
-    let at_word_boundary = line_up_to_cursor.ends_with(' ');
+    // `split_whitespace` splits on ALL Unicode whitespace, so the word-boundary test
+    // must use the same predicate. Checking only for an ASCII ' ' let an input ending
+    // in e.g. a non-breaking space (U+00A0) or ideographic space (U+3000) take the
+    // "still typing a word" branch, where `end - prefix.len()` then pointed inside
+    // that multi-byte whitespace char and `apply()` panicked slicing there.
+    let at_word_boundary = line_up_to_cursor.ends_with(char::is_whitespace);
 
     let (prefix_start, candidates) = match parts.len() {
         0 => {
@@ -68,12 +87,12 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
                 .filter(|c| c.starts_with(prefix))
                 .map(|c| c.to_string())
                 .collect();
-            (cursor_pos - prefix.len(), candidates)
+            (end - prefix.len(), candidates)
         }
         1 if at_word_boundary && parts[0] == "set" => {
             // After "set " — suggest keys
             let candidates: Vec<String> = SET_KEYS.iter().map(|k| k.to_string()).collect();
-            (cursor_pos, candidates)
+            (end, candidates)
         }
         2 if !at_word_boundary && parts[0] == "set" => {
             // Typing set key — match keys
@@ -83,12 +102,12 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
                 .filter(|k| k.starts_with(prefix))
                 .map(|k| k.to_string())
                 .collect();
-            (cursor_pos - prefix.len(), candidates)
+            (end - prefix.len(), candidates)
         }
         2 if at_word_boundary && parts[0] == "set" && parts[1] == "algorithm" => {
             // After "set algorithm " — suggest algorithms
             let candidates: Vec<String> = ALGORITHMS.iter().map(|a| a.to_string()).collect();
-            (cursor_pos, candidates)
+            (end, candidates)
         }
         3 if !at_word_boundary && parts[0] == "set" && parts[1] == "algorithm" => {
             // Typing algorithm name
@@ -98,7 +117,7 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
                 .filter(|a| a.starts_with(prefix))
                 .map(|a| a.to_string())
                 .collect();
-            (cursor_pos - prefix.len(), candidates)
+            (end - prefix.len(), candidates)
         }
         _ => return None,
     };
@@ -173,6 +192,31 @@ mod tests {
         let (new_input, new_cursor) = state.apply("dec");
         assert_eq!(new_input, "decode ");
         assert_eq!(new_cursor, 7);
+    }
+
+    #[test]
+    fn test_multibyte_whitespace_does_not_panic() {
+        // A short word followed by a multi-byte whitespace char used to compute a
+        // prefix offset landing inside that char, panicking in apply().
+        for ws in ["\u{3000}", "\u{a0}", "\u{2003}"] {
+            let input = format!("d{ws}");
+            let cursor = input.len();
+            // Must not panic; whichever branch it takes, apply() must be boundary-safe.
+            if let Some(state) = compute_completions(&input, cursor) {
+                let (_new_input, _new_cursor) = state.apply(&input);
+            }
+        }
+    }
+
+    #[test]
+    fn test_multibyte_word_completion_boundary_safe() {
+        // Multi-byte content before the cursor must never yield an off-boundary slice.
+        let input = "décode"; // é is 2 bytes
+        let state = compute_completions(input, input.len());
+        if let Some(state) = state {
+            let (new_input, _cursor) = state.apply(input);
+            assert!(new_input.is_char_boundary(0));
+        }
     }
 
     #[test]
