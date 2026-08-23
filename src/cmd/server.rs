@@ -429,14 +429,11 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
     // candidate rather than terminating the iterator early (as `lines()` +
     // `map_while(Result::ok)` did, silently skipping the rest of the wordlist). The
     // outer `.take(MAX_WORDLIST_BYTES)` bounds total bytes read.
-    let words = reader
-        .split(b'\n')
-        .map_while(Result::ok)
-        .map(|line| {
-            String::from_utf8_lossy(&line)
-                .trim_end_matches('\r')
-                .to_string()
-        });
+    let words = reader.split(b'\n').map_while(Result::ok).map(|line| {
+        String::from_utf8_lossy(&line)
+            .trim_end_matches('\r')
+            .to_string()
+    });
     Ok(crack_words(token, words))
 }
 

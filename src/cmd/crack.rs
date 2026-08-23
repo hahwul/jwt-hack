@@ -168,11 +168,9 @@ fn execute_with_options(options: &CrackOptions, emit_output: bool) {
                     utils::log_error(format!("Dictionary cracking failed: {e}"));
                 }
             }
-        } else {
-            if emit_output {
-                utils::log_error("Wordlist is required for dictionary mode");
-                utils::log_error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}");
-            }
+        } else if emit_output {
+            utils::log_error("Wordlist is required for dictionary mode");
+            utils::log_error("e.g jwt-hack crack {JWT_CODE} -w {WORDLIST}");
         }
     } else if options.mode == "brute" {
         // Resolve the character set to use - preset takes priority over chars
@@ -211,11 +209,9 @@ fn execute_with_options(options: &CrackOptions, emit_output: bool) {
                 utils::log_error(format!("Bruteforce cracking failed: {e}"));
             }
         }
-    } else {
-        if emit_output {
-            utils::log_error(format!("Invalid mode: {}", options.mode));
-            utils::log_error("Supported modes: 'dict' or 'brute'");
-        }
+    } else if emit_output {
+        utils::log_error(format!("Invalid mode: {}", options.mode));
+        utils::log_error("Supported modes: 'dict' or 'brute'");
     }
 }
 

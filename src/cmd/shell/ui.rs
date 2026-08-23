@@ -41,7 +41,10 @@ pub fn render(frame: &mut Frame, app: &App) {
         .saturating_add(prompt.len() as u16)
         .saturating_add(app.cursor_position as u16);
     let cursor_y = chunks[2].y.saturating_add(1);
-    let max_x = chunks[2].x.saturating_add(chunks[2].width).saturating_sub(2);
+    let max_x = chunks[2]
+        .x
+        .saturating_add(chunks[2].width)
+        .saturating_sub(2);
     frame.set_cursor_position(Position::new(cursor_x.min(max_x), cursor_y));
 }
 

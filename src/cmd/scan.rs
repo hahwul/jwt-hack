@@ -2429,11 +2429,17 @@ mod tests {
             report.results.iter().map(|r| &r.name).collect::<Vec<_>>()
         );
         assert!(
-            report.results.iter().any(|r| r.name.to_lowercase().contains("kid") && r.vulnerable),
+            report
+                .results
+                .iter()
+                .any(|r| r.name.to_lowercase().contains("kid") && r.vulnerable),
             "JWE with a traversal kid must be flagged"
         );
         assert!(
-            report.results.iter().any(|r| r.name.to_lowercase().contains("jwk") && r.vulnerable),
+            report
+                .results
+                .iter()
+                .any(|r| r.name.to_lowercase().contains("jwk") && r.vulnerable),
             "JWE with an embedded jwk must be flagged"
         );
     }
