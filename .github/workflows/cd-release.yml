@@ -61,7 +61,7 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Install cross-compilation tools
         if: matrix.use_cross == true
-        uses: taiki-e/install-action@v2.85.12
+        uses: taiki-e/install-action@v2.86.3
         with:
           tool: cross
       - name: Use native Perl for vendored OpenSSL (Windows)
