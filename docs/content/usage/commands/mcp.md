@@ -19,47 +19,42 @@ Model Context Protocol (MCP) is a standardized protocol that enables AI models t
 ## Starting the MCP Server
 
 ```bash
-# Start MCP server on default port
+# Start the MCP server (communicates over stdio)
 jwt-hack mcp
 
 # The server will:
-# - Listen for MCP connections
+# - Speak the MCP protocol over stdin/stdout (stdio transport)
 # - Expose JWT-HACK functionality as MCP tools
-# - Process requests from AI models
+# - Process requests from an MCP-capable client
 # - Return structured responses
 ```
 
+The server uses the **stdio transport** — it reads requests from stdin and writes
+responses to stdout. It is not a network server, so there is no port to configure;
+an MCP client launches `jwt-hack mcp` as a subprocess and communicates over the pipe.
+
 ## Available MCP Tools
 
-When running as an MCP server, JWT-HACK exposes these tools to AI models:
+When running as an MCP server, JWT-HACK exposes these five tools:
 
-### JWT Analysis Tools
-- **decode-jwt** - Decode and analyze JWT tokens
-- **verify-jwt** - Verify JWT signatures
-- **crack-jwt** - Attempt to crack JWT secrets
-- **generate-payloads** - Create attack payloads
-
-### Security Testing Tools
-- **analyze-vulnerabilities** - Identify potential security issues
-- **generate-reports** - Create security assessment reports
-- **test-algorithms** - Test algorithm-specific vulnerabilities
+- **decode** - Decode a JWT token and display its header, payload, and validation info
+- **encode** - Encode JSON data into a JWT token with a specified algorithm
+- **verify** - Verify a JWT token's signature and optionally validate expiration
+- **crack** - Attempt to crack a JWT token using dictionary or bruteforce methods
+- **payload** - Generate various JWT attack payloads for security testing
 
 ## Integration Examples
 
-### With OpenAI Models
-AI models can request JWT analysis through the MCP protocol:
+An MCP-capable client (such as a Claude or other agentic tool that supports MCP)
+can call these tools during a conversation:
 
 ```
-AI Model Request: "Analyze this JWT token for security vulnerabilities"
-MCP Server: Executes decode, verify, and payload generation
-AI Model: Receives structured analysis results
+User: "Analyze this JWT token for security vulnerabilities"
+Client: Calls the `decode`, `verify`, and `payload` tools on the JWT-HACK MCP server
+Client: Receives structured results and summarizes them
 ```
 
-### With Local AI Models
-Compatible with local AI frameworks that support MCP:
-- **Ollama** with MCP plugins
-- **LangChain** MCP integration
-- **Custom AI applications** using MCP protocol
+Any client or framework that speaks MCP over stdio can connect to the server.
 
 ## MCP Protocol Features
 
@@ -68,7 +63,7 @@ Compatible with local AI frameworks that support MCP:
 {
   "method": "tools/call",
   "params": {
-    "name": "decode-jwt",
+    "name": "decode",
     "arguments": {
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     }
@@ -77,39 +72,13 @@ Compatible with local AI frameworks that support MCP:
 ```
 
 ### Structured Responses
-```json
-{
-  "result": {
-    "algorithm": "HS256",
-    "header": {"alg": "HS256", "typ": "JWT"},
-    "payload": {"sub": "1234", "name": "John Doe"},
-    "vulnerabilities": ["weak_secret_suspected"],
-    "recommendations": ["Use stronger secrets", "Enable expiration"]
-  }
-}
-```
+The server returns the tool result as structured MCP content, for example the
+decoded header, payload, and algorithm for the `decode` tool.
 
 ## Configuration
 
-### Server Configuration
-The MCP server can be configured through environment variables:
-
-```bash
-# Set custom port
-export MCP_PORT=8080
-jwt-hack mcp
-
-# Enable debug logging
-export MCP_DEBUG=true
-jwt-hack mcp
-
-# Set custom timeout
-export MCP_TIMEOUT=30
-jwt-hack mcp
-```
-
-### AI Model Configuration
-Configure your AI model to connect to the JWT-HACK MCP server:
+### Client Configuration
+Configure your MCP client to launch the JWT-HACK MCP server as a subprocess:
 
 ```json
 {
@@ -167,9 +136,9 @@ Integrate into automated testing workflows:
 
 ### Protocol Compliance
 JWT-HACK's MCP server implements:
-- **MCP 1.0 specification** compliance
+- The **Model Context Protocol** (built on the `rmcp` crate)
 - **JSON-RPC 2.0** message format
-- **WebSocket** transport layer
+- **stdio** transport layer (stdin/stdout)
 - **Tool discovery** and capability advertisement
 
 ### Performance Characteristics
@@ -180,52 +149,22 @@ JWT-HACK's MCP server implements:
 
 ## Troubleshooting
 
-### Connection Issues
-```bash
-# Check if MCP server is running
-netstat -ln | grep :8080
+Because the server uses the stdio transport, it is normally launched and managed
+by the MCP client rather than run by hand. If you run `jwt-hack mcp` directly in a
+terminal, it will wait for MCP messages on stdin and appear to "hang" — this is
+expected. Common checks:
 
-# Test MCP connection manually
-curl -X POST http://localhost:8080/mcp
-
-# Enable debug logging
-MCP_DEBUG=true jwt-hack mcp
-```
-
-### AI Model Integration
-```bash
-# Verify AI model can discover tools
-# Check MCP protocol compatibility
-# Validate request/response formats
-```
-
-## Development and Extensions
-
-### Custom MCP Tools
-The MCP server architecture allows for extending JWT-HACK with custom tools:
-
-```rust
-// Example: Add custom JWT analysis tool
-impl McpTool for CustomJwtAnalyzer {
-    fn name(&self) -> &str { "custom-analysis" }
-    fn execute(&self, args: Value) -> Result<Value> {
-        // Custom JWT analysis logic
-    }
-}
-```
-
-### Protocol Extensions
-- Custom error handling
-- Extended metadata support
-- Streaming responses for long operations
-- Batch processing capabilities
+- Confirm the client is configured to launch `jwt-hack mcp` as a subprocess (see
+  the client configuration above).
+- Ensure `jwt-hack` is on the `PATH` the client uses.
+- Verify the tool is discoverable by having the client list available tools; it
+  should report `decode`, `encode`, `verify`, `crack`, and `payload`.
 
 ## Security Considerations
 
 ### Access Control
-- MCP server runs locally by default
-- Consider network security for remote access
-- Implement authentication for production use
+- The MCP server runs locally as a subprocess of the client (stdio transport)
+- It does not open a network port, so it is only reachable by the launching client
 
 ### Data Privacy
 - JWT tokens are processed locally

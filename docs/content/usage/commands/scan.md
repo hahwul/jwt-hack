@@ -31,10 +31,10 @@ The current scanner performs the following checks:
   - `kid` presence (possible SQL/path injection surfaces).
   - `jku` / `x5u` presence (possible URL spoofing / remote JWKS risks).
 - Attack payload suggestions (optional)
-  - Prints example payloads for detected issues: `none`, `alg_confusion`, `kid_sql`.
+  - Prints example payloads matched to the issues actually detected. Depending on findings this can include `none`, `alg_confusion`, `kid_sql`/`kid_traversal`, `jku`/`x5u`, `jwk_embed`, `crit`, `b64`, `empty_sig`, `typ_confusion`, `alg_edge`, `psychic`, and `zip`.
 
 Notes:
-- JWE (5-part) tokens are not supported by `scan`.
+- JWE (5-part) tokens are supported: a JWE is routed to a dedicated encryption-layer analysis (key-management `alg`, content `enc`, CBC/padding-oracle and compression risks) instead of the JWS signature checks above.
 - Compressed JWT payloads (`zip: "DEF"`) are decoded but not separately highlighted as a finding.
 
 ## Options
@@ -122,7 +122,7 @@ Total Vulnerabilities Found: 3
 ⚠️  Review the vulnerabilities above and consider generating attack payloads.
 
 ━━━ Generating Attack Payloads ━━━
-... (example payloads for 'none', 'alg_confusion', 'kid_sql')
+... (example payloads matched to the detected findings)
 ```
 
 If the scan finds no significant issues, you'll see:
@@ -136,8 +136,8 @@ If the scan finds no significant issues, you'll see:
   - Secret cracking runs only when the algorithm is HMAC (HS256/384/512). For non‑HS* tokens, this check is skipped as "Not applicable".
 - Algorithm confusion is heuristic
   - Asymmetric algorithms are flagged as "needs testing" (High) to prompt follow‑up validation; it is not a confirmed vulnerability by itself.
-- JKU/X5U payloads
-  - The scanner flags the presence of these headers, but the current payload generation prints examples for `none`, `alg_confusion`, and `kid_sql`. It does not print `jku/x5u` payload examples in this command's output.
+- Payload examples follow the findings
+  - The payload section only emits examples for issues the scan actually detected. A flagged `jku`/`x5u` header, for instance, does contribute `jku`/`x5u` payload examples; a token with no such finding will not.
 
 ## Recommended Workflow
 
@@ -160,8 +160,8 @@ If the scan finds no significant issues, you'll see:
 
 ## Troubleshooting
 
-- JWE input: `scan` expects a JWT (3 parts). 5‑part JWE tokens are not supported.
-- If the scan terminates early, ensure the token uses the standard `<header>.<payload>.<signature>` format.
+- Token format: `scan` accepts both a 3-part JWT (`<header>.<payload>.<signature>`) and a 5-part JWE; other segment counts are reported as an unexpected token shape.
+- If the scan terminates early, ensure the token is a well-formed JWT or JWE.
 - For faster results, use `--skip-crack` or set `--max-crack-attempts` to a small number.
 - Wordlist path errors: provide an absolute path or a path relative to your project root.
 - Usage hint (shown on errors):

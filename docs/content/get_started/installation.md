@@ -62,4 +62,5 @@ Once installed, verify that JWT-HACK is working correctly:
 jwt-hack --version
 ```
 
-You should see the version information and the JWT-HACK banner displayed.
+You should see the version information printed. (Running `jwt-hack` with no
+arguments, or `jwt-hack help`, displays the JWT-HACK banner and usage.)

@@ -24,12 +24,13 @@ JWT-HACK provides comprehensive JWT security testing capabilities with support f
 - **HS384** - HMAC using SHA-384
 - **HS512** - HMAC using SHA-512
 
-### Asymmetric Algorithms (RSA/ECDSA)
-- **RS256** - RSASSA-PKCS1-v1_5 using SHA-256
-- **RS384** - RSASSA-PKCS1-v1_5 using SHA-384
-- **RS512** - RSASSA-PKCS1-v1_5 using SHA-512
+### Asymmetric Algorithms (RSA/ECDSA/EdDSA)
+- **RS256/RS384/RS512** - RSASSA-PKCS1-v1_5 using SHA-256/384/512
+- **PS256/PS384/PS512** - RSASSA-PSS using SHA-256/384/512
 - **ES256** - ECDSA using P-256 and SHA-256
 - **ES384** - ECDSA using P-384 and SHA-384
+- **ES512** - ECDSA using P-521 and SHA-512
+- **EdDSA** - Edwards-curve Digital Signature Algorithm (Ed25519)
 
 ### Special Cases
 - **None** - Unsigned tokens for testing

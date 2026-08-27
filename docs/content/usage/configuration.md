@@ -4,14 +4,17 @@ title = "Configuration"
 weight = 3
 +++
 
-JWT-HACK supports configuration through configuration files, environment variables, and command-line options.
+JWT-HACK supports configuration through a configuration file and command-line options. Command-line flags always take precedence over values from the config file.
 
 ## Configuration File
 
-JWT-HACK uses TOML format for configuration files. The default configuration file location follows XDG Base Directory specification:
+JWT-HACK uses TOML format for configuration files. The default configuration file location is the platform config directory:
 
-- **Linux/macOS**: `~/.config/jwt-hack/config.toml`
+- **Linux**: `~/.config/jwt-hack/config.toml` (or `$XDG_CONFIG_HOME/jwt-hack/config.toml`)
+- **macOS**: `~/Library/Application Support/jwt-hack/config.toml`
 - **Windows**: `%APPDATA%\jwt-hack\config.toml`
+
+Setting `XDG_CONFIG_HOME` overrides the base directory on any platform.
 
 ### Configuration File Format
 
@@ -64,8 +67,10 @@ default_algorithm = "HS512"
 
 Supported algorithms:
 - `HS256`, `HS384`, `HS512` (HMAC)
-- `RS256`, `RS384`, `RS512` (RSA)
-- `ES256`, `ES384` (ECDSA)
+- `RS256`, `RS384`, `RS512` (RSA PKCS#1 v1.5)
+- `PS256`, `PS384`, `PS512` (RSA-PSS)
+- `ES256`, `ES384`, `ES512` (ECDSA)
+- `EdDSA` (Ed25519)
 
 ### Default Wordlist
 Set default wordlist for cracking operations:
@@ -92,45 +97,32 @@ default_private_key = "/path/to/default/key.pem"
 
 ## Environment Variables
 
-Override configuration with environment variables:
+JWT-HACK does not read the default secret, algorithm, wordlist, or private key
+from environment variables. Those values come only from the configuration file
+(or the corresponding command-line flag).
 
-```bash
-# Default secret
-export JWT_HACK_DEFAULT_SECRET="env-secret"
+A small number of environment variables affect other behavior — `XDG_CONFIG_HOME`
+(config file location) and `JWT_HACK_WORDLIST_DIR` (server-mode wordlist paths).
+See [Environment Variables](/reference/environment-variables) for details.
 
-# Default algorithm
-export JWT_HACK_DEFAULT_ALGORITHM="RS256"
+## Setting Priority
 
-# Default wordlist
-export JWT_HACK_DEFAULT_WORDLIST="/path/to/wordlist.txt"
-
-# Default private key
-export JWT_HACK_DEFAULT_PRIVATE_KEY="/path/to/key.pem"
-
-# Configuration file path
-export JWT_HACK_CONFIG="/path/to/config.toml"
-```
-
-## Command Line Priority
-
-Configuration options follow this priority order (highest to lowest):
+Configuration values follow this priority order (highest to lowest):
 
 1. **Command line arguments** (highest priority)
-2. **Environment variables**
-3. **Configuration file**
-4. **Built-in defaults** (lowest priority)
+2. **Configuration file** (`default_*` keys)
+3. **Built-in defaults** (lowest priority)
 
 Example:
 ```bash
 # Config file has: default_secret = "config-secret"
-# Environment has: JWT_HACK_DEFAULT_SECRET="env-secret"
 # Command line: --secret=cli-secret
 
 jwt-hack encode '{"sub":"1234"}' --secret=cli-secret
 # Uses: cli-secret (command line wins)
 
 jwt-hack encode '{"sub":"1234"}'
-# Uses: env-secret (environment wins over config file)
+# Uses: config-secret (from the config file)
 ```
 
 ## Configuration Management
@@ -151,14 +143,11 @@ EOF
 ```
 
 ### Validate Configuration
-Test your configuration:
+Test that a config file loads without a parse error by running any command with it:
 
 ```bash
-# Test with specific config file
+# A TOML syntax error causes jwt-hack to exit with a "Failed to parse config file" error
 jwt-hack --config ~/.config/jwt-hack/config.toml encode '{"test":"payload"}'
-
-# Verify settings are loaded correctly
-jwt-hack version  # Shows config file location if found
 ```
 
 ### Per-Project Configuration
@@ -176,53 +165,26 @@ cd project
 jwt-hack --config ./config.toml crack <TOKEN>
 ```
 
-## Advanced Configuration
+## Available Configuration Keys
 
-### Wordlist Collections
-Organize multiple wordlists:
+The configuration file currently supports exactly these top-level keys, all optional:
 
-```toml
-[wordlists]
-common = "/wordlists/common-passwords.txt"
-large = "/wordlists/rockyou.txt"
-custom = "/wordlists/app-specific.txt"
-```
+| Key                   | Type   | Description                                        |
+|-----------------------|--------|----------------------------------------------------|
+| `default_secret`      | string | Default HMAC secret                                |
+| `default_algorithm`   | string | Default algorithm for `encode`                     |
+| `default_wordlist`    | string | Default wordlist path for `crack`/`scan`           |
+| `default_private_key` | string | Default private key path for asymmetric algorithms |
 
-### Key Management
-Configure multiple key files:
-
-```toml
-[keys]
-rsa_private = "/keys/rsa-private.pem"
-rsa_public = "/keys/rsa-public.pem"
-ecdsa_private = "/keys/ecdsa-private.pem"
-```
-
-### Performance Tuning
-Configure performance settings:
-
-```toml
-[performance]
-default_concurrency = 8
-max_memory_usage = "1GB"
-timeout = 300
-```
+Unknown keys are ignored, so there are no `[wordlists]`, `[keys]`, or
+`[performance]` sections — only the flat keys above.
 
 ## Security Considerations
 
 ### Sensitive Data in Config
-Avoid storing sensitive secrets in configuration files:
-
-```toml
-# BAD: Hardcoded secret in config
-default_secret = "super-secret-key"
-
-# BETTER: Reference to secure location
-default_secret_file = "/secure/path/secret.txt"
-
-# BEST: Use environment variables for secrets
-# default_secret loaded from JWT_HACK_DEFAULT_SECRET
-```
+A secret placed in `default_secret` is stored in plain text in the config file.
+If that is a concern, omit it from the file and pass `--secret` per command
+instead. There is no `default_secret_file` key.
 
 ### File Permissions
 Secure configuration files:
@@ -236,35 +198,30 @@ ls -la ~/.config/jwt-hack/config.toml
 # Should show: -rw------- (user read/write only)
 ```
 
-### Configuration Validation
-JWT-HACK validates configuration on startup:
-
-- Checks file paths exist
-- Validates algorithm names
-- Warns about insecure settings
-- Reports configuration errors clearly
+### Configuration Loading
+On startup, JWT-HACK parses the config file as TOML. Invalid TOML causes it to
+exit with a "Failed to parse config file" error. Values such as algorithm names
+and key/wordlist paths are not validated at load time — they are only used (and
+may error) when the relevant command runs.
 
 ## Troubleshooting
 
 ### Configuration Not Loading
+The default config file is only read if it exists at the platform config path. If
+it is not being picked up:
+
 ```bash
-# Check if config file exists
+# Confirm the file exists at the expected location (Linux example)
 ls -la ~/.config/jwt-hack/config.toml
 
-# Test with explicit config path
-jwt-hack --config ~/.config/jwt-hack/config.toml version
-
-# Enable debug output
-JWT_HACK_DEBUG=true jwt-hack encode '{"test":"1"}'
+# Or point jwt-hack at the file explicitly
+jwt-hack --config /path/to/config.toml encode '{"test":"1"}'
 ```
 
 ### Invalid Configuration
 ```bash
-# Check configuration syntax
-toml-lint ~/.config/jwt-hack/config.toml
-
-# Test configuration loading
-jwt-hack --config ~/.config/jwt-hack/config.toml version
+# A parse error names the file; check its TOML syntax
+jwt-hack --config /path/to/config.toml encode '{"test":"1"}'
 ```
 
 ### Permission Issues

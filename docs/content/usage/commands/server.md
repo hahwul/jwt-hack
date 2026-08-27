@@ -157,22 +157,27 @@ Notes:
 
 ### Crack
 - Request:
-```/dev/null/crack-request.json#L1-18
+```/dev/null/crack-request.json#L1-20
 {
   "token": "eyJhbGciOi...",
   // "dict" (default) or "brute"
   "mode": "dict",
 
-  // Required when mode="dict": file path accessible to the server process
-  // (e.g., "samples/wordlist.txt")
-  "wordlist": "samples/wordlist.txt",
+  // For mode="dict": provide an inline wordlist (preferred). One secret per entry.
+  "wordlist_content": ["secret", "password", "hunter2"],
+
+  // Alternatively a server-side file path. Path-based wordlists are DISABLED by
+  // default and only honored when the path resolves inside the directory named by
+  // the JWT_HACK_WORDLIST_DIR environment variable (otherwise the request is rejected).
+  "wordlist": "wordlist.txt",
 
   // Used when mode="brute":
-  // Either specify "preset" or provide a custom "chars" and "max".
+  // Either specify "preset" or provide a custom "chars", "min", and "max".
   // Presets: "az", "AZ", "aZ", "19", "aZ19", "ascii"
   "preset": "aZ19",
   "chars": "abcdefghijklmnopqrstuvwxyz0123456789",
   "concurrency": 20,  // accepted but not leveraged by the current API code
+  "min": 1,
   "max": 4
 }
 ```
@@ -189,8 +194,8 @@ Notes:
 ```
 
 Notes:
-- Dictionary mode requires a file path on the server host. The API does not upload wordlists.
-- Brute-force tries all combinations up to `max` using `chars` or a `preset`.
+- Dictionary mode reads secrets from the inline `wordlist_content` array (preferred, so clients never depend on server-side files). Server-side `wordlist` file paths are disabled unless `JWT_HACK_WORDLIST_DIR` is set and the path resolves inside it.
+- Brute-force tries all combinations from `min` to `max` length using `chars` or a `preset`.
 - This endpoint executes synchronously and can be CPU-intensive; prefer small search spaces or offload heavy jobs to batch workers.
 
 ### Payload
@@ -232,15 +237,17 @@ Notes:
 
 ### Scan
 - Request:
-```/dev/null/scan-request.json#L1-12
+```/dev/null/scan-request.json#L1-14
 {
   "token": "eyJhbGciOi...",
   // If true, skip dictionary-based weak secret check
   "skip_crack": false,
   // Accepted but not used by current server-side implementation
   "skip_payloads": false,
-  // Optional path for wordlist (used if skip_crack=false)
-  "wordlist": "samples/wordlist.txt",
+  // Optional inline wordlist for the weak-secret check (preferred)
+  "wordlist_content": ["secret", "password"],
+  // Optional server-side wordlist path; same JWT_HACK_WORDLIST_DIR gating as /crack
+  "wordlist": "wordlist.txt",
   // Accepted but not enforced by current implementation
   "max_crack_attempts": 100
 }
@@ -265,7 +272,7 @@ Notes:
 - The scan performs:
   - Basic header check for `alg:"none"`.
   - Expiration check on `exp` if present.
-  - Optional weak secret discovery via dictionary if `wordlist` is provided and `skip_crack` is false.
+  - Optional weak secret discovery via dictionary if a wordlist (`wordlist_content` inline, or a `JWT_HACK_WORDLIST_DIR`-gated `wordlist` path) is provided and `skip_crack` is false.
 - It does not currently generate payloads despite accepting `skip_payloads` (reserved for future behavior).
 
 ---
@@ -322,7 +329,8 @@ curl -s http://127.0.0.1:3000/verify \
 curl -s http://127.0.0.1:3000/crack \
   -H 'Content-Type: application/json' \
   -d '{
-        "token":"<your-token>", "mode":"dict", "wordlist":"samples/wordlist.txt"
+        "token":"<your-token>", "mode":"dict",
+        "wordlist_content":["secret","password","hunter2"]
       }'
 ```
 
@@ -353,7 +361,7 @@ curl -s http://127.0.0.1:3000/scan \
   -H 'Content-Type: application/json' \
   -d '{
         "token":"<your-token>",
-        "skip_crack":false, "wordlist":"samples/wordlist.txt"
+        "skip_crack":false, "wordlist_content":["secret","password"]
       }'
 ```
 

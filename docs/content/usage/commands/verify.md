@@ -66,29 +66,29 @@ With `--validate-exp`, the command will:
 
 ## Verification Results
 
-The verify command provides detailed output:
+The verify command reports whether the signature is valid:
 
 ### Successful Verification
 ```
-✓ Signature Valid
-✓ Token Structure Valid
-✓ Algorithm: HS256
-✓ Expiration: Valid (expires in 2 hours)
+Token is valid.
 ```
 
 ### Failed Verification
+On failure, the command prints the error and a hint about the likely cause, e.g.:
 ```
-✗ Signature Invalid
-✓ Token Structure Valid
-- Algorithm: HS256
-- Reason: Incorrect secret or signature tampering
+Token is invalid.
+```
+or, when verification errors out:
+```
+JWT Verification Error: Invalid signature
+This could be due to an incorrect secret or key.
 ```
 
 ### Expiration Issues
+With `--validate-exp`, an expired token surfaces an expiration error:
 ```
-✓ Signature Valid
-✓ Token Structure Valid
-✗ Expiration: Token expired 30 minutes ago
+JWT Verification Error: Expired signature
+The token has expired. Check the 'exp' claim.
 ```
 
 ## Examples
@@ -156,18 +156,19 @@ jwt-hack verify <RSA_TOKEN> --secret=<PUBLIC_KEY_CONTENT>
 jwt-hack verify <NONE_TOKEN>
 ```
 
-## Return Codes
+## Scripting
 
-The verify command uses exit codes for scripting:
+The verify command does **not** currently signal validity through distinct exit
+codes — an invalid signature is reported in the output but still exits `0`. For
+reliable scripting, use the global `--json` flag and parse the `valid` field:
 
-- **0** - Verification successful
-- **1** - Verification failed
-- **2** - Token format error
-- **3** - Expiration validation failed
-
-Example usage in scripts:
 ```bash
-if jwt-hack verify "$TOKEN" --secret="$SECRET"; then
+jwt-hack --json verify "$TOKEN" --secret="$SECRET"
+# => {"success":true,"valid":true,"validate_exp":false}
+```
+
+```bash
+if [ "$(jwt-hack --json verify "$TOKEN" --secret="$SECRET" | jq -r .valid)" = "true" ]; then
     echo "Token is valid"
 else
     echo "Token verification failed"
