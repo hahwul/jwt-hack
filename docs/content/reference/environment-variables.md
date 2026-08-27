@@ -4,19 +4,41 @@ title = "Environment Variables"
 weight = 1
 +++
 
-Environment variables for configuring JWT-HACK behavior.
+Environment variables that affect JWT-HACK behavior.
 
 ## Available Environment Variables
 
-This section is currently under development. Environment variables will be documented here once the feature is implemented.
+### `XDG_CONFIG_HOME`
 
-## Planned Variables
+Overrides the base directory used to locate the configuration file. When set,
+JWT-HACK looks for its config at `$XDG_CONFIG_HOME/jwt-hack/config.toml`. When
+unset, it falls back to the platform default config directory (see
+[Configuration](/usage/configuration)).
 
-The following environment variables are planned for future releases:
+```bash
+export XDG_CONFIG_HOME="$HOME/.config"
+# jwt-hack now reads ~/.config/jwt-hack/config.toml
+```
 
-- `JWT_HACK_SECRET` - Default secret for HMAC operations
-- `JWT_HACK_ALGORITHM` - Default algorithm selection
-- `JWT_HACK_CONFIG` - Custom configuration file path
-- `JWT_HACK_DEBUG` - Enable debug output
+### `JWT_HACK_WORDLIST_DIR`
 
-Check back for updates or refer to the [Configuration](/usage/configuration) documentation for current configuration options.
+Used only by the [`server`](/usage/commands/server) command. Server-side wordlist
+**file paths** (the `wordlist` field in `/crack` and `/scan` requests) are
+disabled by default; clients are expected to send inline wordlists via
+`wordlist_content`. Setting `JWT_HACK_WORDLIST_DIR` to a directory re-enables
+path-based wordlists, but only for files that resolve inside that directory —
+paths outside it are rejected.
+
+```bash
+export JWT_HACK_WORDLIST_DIR=/opt/wordlists
+jwt-hack server
+# /crack and /scan may now reference wordlist files under /opt/wordlists
+```
+
+## Notes
+
+- There are no environment variables for setting the default secret, algorithm,
+  wordlist, or private key. Those are configured through the
+  [configuration file](/usage/configuration) or per-command flags.
+- The path to the configuration file itself is set with the global `--config`
+  flag, not an environment variable.

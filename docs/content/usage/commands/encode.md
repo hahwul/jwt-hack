@@ -55,10 +55,11 @@ jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --no-signature
 
 ## Custom Headers
 
-Add custom header fields to the JWT:
+Add custom header fields to the JWT. Each parameter is passed as a separate
+`--header key=value` flag (not a JSON object), and the flag can be repeated:
 
 ```bash
-jwt-hack encode '{"sub":"1234"}' --secret=test --header='{"kid":"key1","typ":"JWT"}'
+jwt-hack encode '{"sub":"1234"}' --secret=test --header kid=key1 --header typ=JWT
 ```
 
 ## DEFLATE Compression
@@ -99,12 +100,12 @@ JWE encoding:
 - `--private-key <PATH>` - Path to private key file for RSA/ECDSA
 
 ### Algorithm Options
-- `--algorithm <ALG>` - Algorithm to use (HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384)
-- `--no-signature` - Create unsigned token
+- `--algorithm <ALG>` - Algorithm to use (HS256/384/512, RS256/384/512, ES256/384/512, PS256/384/512, EdDSA). Defaults to the config `default_algorithm`, then HS256.
+- `--no-signature` - Create an unsigned (`alg: none`) token
 
 ### Additional Options
-- `--header <JSON>` - Custom header fields as JSON
-- `--compress` - Enable DEFLATE compression
+- `--header <KEY=VALUE>` - Add a custom header parameter (repeatable, e.g. `--header kid=key1 --header typ=JWT`)
+- `--compress` - Enable DEFLATE compression (adds `"zip":"DEF"` to the header)
 - `--jwe` - Create JWE encrypted token
 
 ## Examples
@@ -121,7 +122,7 @@ jwt-hack encode '{"iss":"myapp","aud":"users","exp":1640995200}' --private-key=r
 
 ### JWT with Custom Headers
 ```bash
-jwt-hack encode '{"user":"john"}' --secret=test --header='{"kid":"key-1","alg":"HS256","typ":"JWT"}'
+jwt-hack encode '{"user":"john"}' --secret=test --header kid=key-1 --header typ=JWT
 ```
 
 ### Compressed JWT

@@ -4,16 +4,31 @@ title = "Scripting & Automation"
 weight = 2
 +++
 
-JWT-HACK is designed to work well in scripts and automated workflows.
+JWT-HACK is designed to work well in scripts and automated workflows. Use the
+global `--json` flag to get machine-readable output for any command.
 
-## Exit Codes
+## Exit Codes and Result Detection
 
-JWT-HACK uses standard exit codes for automation:
+> **Important:** JWT-HACK does **not** signal outcomes like "signature invalid" or
+> "secret not found" through exit codes. Commands such as `decode`, `verify`, and
+> `crack` still exit `0` in those cases — the result is reported in the output, not
+> the status code. Do **not** branch on `jwt-hack verify ...` succeeding/failing.
 
-- **0** - Success
-- **1** - General error
-- **2** - Invalid input/arguments
-- **3** - Authentication/verification failure
+Observed exit codes:
+
+- **0** - The command ran (this includes "token invalid" and "secret not found")
+- **1** - A hard error while producing `--json` output, or a config/runtime failure
+- **2** - Invalid command-line arguments (from argument parsing)
+
+To detect results reliably, use `--json` and inspect the response fields:
+
+```bash
+# verify → parse the "valid" boolean
+jwt-hack --json verify "$TOKEN" --secret="$SECRET" | jq -e '.valid == true'
+
+# crack → "found" is true and "value" holds the secret
+jwt-hack --json crack -w wordlist.txt "$TOKEN" | jq -e '.found == true'
+```
 
 ## Bash Scripting
 
@@ -26,7 +41,8 @@ validate_token() {
     local token="$1"
     local secret="$2"
 
-    if jwt-hack verify "$token" --secret="$secret" > /dev/null 2>&1; then
+    # verify exits 0 even for an invalid signature, so check the JSON "valid" field.
+    if [ "$(jwt-hack --json verify "$token" --secret="$secret" | jq -r '.valid')" = "true" ]; then
         echo "Token is valid"
         return 0
     else
@@ -74,9 +90,12 @@ crack_token() {
 
     echo "Attempting to crack token..."
 
-    if result=$(jwt-hack crack -w "$wordlist" "$token" 2>&1); then
-        echo "SUCCESS: Secret found!"
-        echo "$result" | grep "Secret:"
+    # crack exits 0 whether or not a secret is found, so check the JSON output.
+    local json secret
+    json=$(jwt-hack --json crack -w "$wordlist" "$token")
+    if [ "$(echo "$json" | jq -r '.found')" = "true" ]; then
+        secret=$(echo "$json" | jq -r '.value')
+        echo "SUCCESS: Secret found: $secret"
         return 0
     else
         echo "FAILED: Could not crack token"
@@ -107,29 +126,22 @@ import json
 import sys
 
 def decode_jwt(token):
-    """Decode JWT token using jwt-hack"""
-    try:
-        result = subprocess.run(
-            ['jwt-hack', 'decode', token],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return result.stdout
-    except subprocess.CalledProcessError:
-        return None
+    """Decode a JWT and return the parsed JSON result, or None on error."""
+    result = subprocess.run(
+        ['jwt-hack', '--json', 'decode', token],
+        capture_output=True, text=True
+    )
+    data = json.loads(result.stdout or '{}')
+    return data if data.get('success') else None
 
 def verify_jwt(token, secret):
-    """Verify JWT token"""
-    try:
-        subprocess.run(
-            ['jwt-hack', 'verify', token, '--secret', secret],
-            capture_output=True,
-            check=True
-        )
-        return True
-    except subprocess.CalledProcessError:
-        return False
+    """Verify a JWT signature. Returns True only if the JSON `valid` field is true."""
+    result = subprocess.run(
+        ['jwt-hack', '--json', 'verify', token, '--secret', secret],
+        capture_output=True, text=True
+    )
+    data = json.loads(result.stdout or '{}')
+    return bool(data.get('valid'))
 
 # Usage
 token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -140,6 +152,10 @@ else:
     print("Failed to decode token")
     sys.exit(1)
 ```
+
+> Note: jwt-hack does not use exit codes to report an invalid signature or a
+> failed crack — always pass `--json` and inspect the response fields
+> (`valid`, `found`, `value`, …) rather than relying on `check=True`.
 
 ### Token Analysis Pipeline
 
@@ -155,65 +171,32 @@ class JWTAnalyzer:
     def __init__(self):
         self.jwt_hack = "jwt-hack"
 
+    def _run_json(self, *args):
+        """Run a jwt-hack subcommand with --json and return the parsed result."""
+        result = subprocess.run(
+            [self.jwt_hack, '--json', *args],
+            capture_output=True, text=True
+        )
+        return json.loads(result.stdout or '{}')
+
     def decode(self, token):
-        """Decode JWT and extract information"""
-        try:
-            result = subprocess.run(
-                [self.jwt_hack, 'decode', token],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return self._parse_decode_output(result.stdout)
-        except subprocess.CalledProcessError:
-            return None
+        """Decode JWT and return the structured JSON result."""
+        data = self._run_json('decode', token)
+        return data if data.get('success') else None
 
     def verify(self, token, secret):
-        """Verify JWT signature"""
-        try:
-            subprocess.run(
-                [self.jwt_hack, 'verify', token, '--secret', secret],
-                capture_output=True,
-                check=True
-            )
-            return True
-        except subprocess.CalledProcessError:
-            return False
+        """Verify JWT signature via the JSON `valid` field."""
+        data = self._run_json('verify', token, '--secret', secret)
+        return bool(data.get('valid'))
 
     def crack(self, token, wordlist):
-        """Attempt to crack JWT secret"""
-        try:
-            result = subprocess.run(
-                [self.jwt_hack, 'crack', '-w', wordlist, token],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            # Extract secret from output
-            if match := re.search(r'Secret: (.+)', result.stdout):
-                return match.group(1)
-        except subprocess.CalledProcessError:
-            pass
-        return None
+        """Attempt to crack the JWT secret; returns the secret or None."""
+        data = self._run_json('crack', '-w', wordlist, token)
+        return data.get('value') if data.get('found') else None
 
     def generate_payloads(self, token, target='all'):
-        """Generate attack payloads"""
-        try:
-            result = subprocess.run(
-                [self.jwt_hack, 'payload', token, '--target', target],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout
-        except subprocess.CalledProcessError:
-            return None
-
-    def _parse_decode_output(self, output):
-        """Parse decode output to extract structured data"""
-        # This would parse the actual output format
-        # Implementation depends on jwt-hack output format
-        return {"raw_output": output}
+        """Generate attack payloads (returns the JSON payload list)."""
+        return self._run_json('payload', token, '--target', target)
 
 # Usage example
 analyzer = JWTAnalyzer()
@@ -286,17 +269,20 @@ ENTRYPOINT ["/scripts/analyze.sh"]
 
 ### Environment-Based Configuration
 
+jwt-hack itself does not read these values from the environment, so read them into
+shell variables and pass them explicitly as flags:
+
 ```bash
 #!/bin/bash
 
-# Set defaults from environment
-JWT_HACK_SECRET="${JWT_HACK_SECRET:-default-secret}"
-JWT_HACK_WORDLIST="${JWT_HACK_WORDLIST:-/usr/share/wordlists/rockyou.txt}"
-JWT_HACK_CONCURRENCY="${JWT_HACK_CONCURRENCY:-$(nproc)}"
+# Set defaults from environment (your own variables, not read by jwt-hack)
+SECRET="${SECRET:-default-secret}"
+WORDLIST="${WORDLIST:-/usr/share/wordlists/rockyou.txt}"
+CONCURRENCY="${CONCURRENCY:-$(nproc)}"
 
-# Use in scripts
-jwt-hack verify "$token" --secret="$JWT_HACK_SECRET"
-jwt-hack crack -w "$JWT_HACK_WORDLIST" -c "$JWT_HACK_CONCURRENCY" "$token"
+# Pass them explicitly on the command line
+jwt-hack verify "$token" --secret="$SECRET"
+jwt-hack crack -w "$WORDLIST" -c "$CONCURRENCY" "$token"
 ```
 
 ### Config File Generation

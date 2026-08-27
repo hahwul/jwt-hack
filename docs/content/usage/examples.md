@@ -90,10 +90,11 @@ jwt-hack crack -w wordlist.txt <COMPRESSED_TOKEN>
 ### Custom Headers
 
 ```bash
-# Add custom header fields
+# Add custom header fields (one --header key=value per parameter)
 jwt-hack encode '{"sub":"1234"}' \
   --secret=test \
-  --header='{"kid":"key-123","x5u":"https://example.com/certs"}'
+  --header kid=key-123 \
+  --header x5u=https://example.com/certs
 ```
 
 ### Multiple Algorithms

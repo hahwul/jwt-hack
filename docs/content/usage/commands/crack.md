@@ -85,10 +85,27 @@ jwt-hack crack -m brute <TOKEN> --max=5
 ```
 
 **Character Sets:**
-- Lowercase letters (a-z)
-- Uppercase letters (A-Z)
-- Numbers (0-9)
-- Special characters (!@#$%^&*)
+
+By default, brute force uses lowercase letters and digits
+(`abcdefghijklmnopqrstuvwxyz0123456789`). You can override the character set with
+`--chars`, or pick a built-in `--preset`:
+
+| Preset  | Characters                                    |
+|---------|-----------------------------------------------|
+| `az`    | Lowercase letters (a-z)                       |
+| `AZ`    | Uppercase letters (A-Z)                       |
+| `aZ`    | Mixed-case letters (a-z, A-Z)                 |
+| `19`    | Digits (0-9)                                  |
+| `aZ19`  | Letters and digits (a-z, A-Z, 0-9)            |
+| `ascii` | All printable ASCII (letters, digits, symbols) |
+
+```bash
+# Custom character set
+jwt-hack crack -m brute <TOKEN> --chars="abcdef0123456789"
+
+# Character-set preset
+jwt-hack crack -m brute <TOKEN> --preset=aZ19
+```
 
 ## Performance Options
 
@@ -102,16 +119,18 @@ jwt-hack crack -w wordlist.txt <TOKEN> --power
 ```
 
 ### Progress Monitoring
+A live progress bar is shown during cracking by default. The `--verbose` flag
+additionally logs each candidate as it is tested:
+
 ```bash
-# Enable verbose output
+# Enable verbose testing log
 jwt-hack crack -w wordlist.txt <TOKEN> --verbose
 
-# Shows:
-# - Current password being tested
-# - Progress percentage
-# - Estimated time remaining
-# - Passwords tested per second
+# Logs each tested candidate, plus a "Found!" line when the secret is discovered.
 ```
+
+When the run finishes, jwt-hack prints the discovered secret (if any), the elapsed
+time, and the throughput in keys/sec.
 
 ## Command Options
 
@@ -119,15 +138,24 @@ jwt-hack crack -w wordlist.txt <TOKEN> --verbose
 - `<TOKEN>` - The JWT token to crack
 
 ### Attack Mode Options
-- `-w, --wordlist <FILE>` - Path to wordlist file
+- `-w, --wordlist <FILE>` - Path to wordlist file (dictionary mode)
 - `-p, --wordlist-preset <ID>` - Download & use a preset wordlist (1=raft-medium-words, 2=raft-large-words, 3=jwt-secrets)
-- `-m, --mode <MODE>` - Attack mode: dictionary (default) or brute
+- `-m, --mode <MODE>` - Attack mode: `dict` (default) or `brute`
+
+### Brute Force Options
+- `--chars <CHARS>` - Character set to use (default: `abcdefghijklmnopqrstuvwxyz0123456789`)
+- `--preset <PRESET>` - Character-set preset: `az`, `AZ`, `aZ`, `19`, `aZ19`, `ascii`
+- `--min <LENGTH>` - Minimum candidate length (default: 1)
+- `--max <LENGTH>` - Maximum candidate length (default: 4)
+
+### Targeted Field Options
+- `--target-field <FIELD>` - Target a specific JWT field for brute force (e.g. `kid`, `jti`)
+- `--pattern <TEMPLATE>` - Pattern template for targeted values, using `{}` as the placeholder (e.g. `"../../keys/{}"`)
 
 ### Performance Options
 - `-c, --concurrency <NUM>` - Number of threads (default: 20)
-- `--max <LENGTH>` - Maximum length for brute force (default: 4)
 - `--power` - Use all available CPU cores
-- `--verbose` - Show detailed progress information
+- `--verbose` - Log each tested candidate
 
 ## Compressed Token Support
 
@@ -199,14 +227,19 @@ cat wordlist1.txt wordlist2.txt > combined.txt
 
 ## Success Output
 
-When a secret is found:
+When a secret is found, jwt-hack prints the secret, the elapsed time and
+throughput, and the token:
 
 ```
-🎉 SECRET FOUND!
-Secret: mysecret123
-Time taken: 2.5 seconds
-Passwords tested: 1,247
+✔ Secret found
+
+  Secret  mysecret123
+  Time    2s (498.80 keys/sec)
+  Token   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
+
+If no secret is found, it reports the number of candidates tried, the elapsed
+time, and the throughput.
 
 ## Performance Tips
 
