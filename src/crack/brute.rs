@@ -105,11 +105,16 @@ pub fn generate_bruteforce_payloads(
     const CHUNK_SIZE: usize = 10000; // Chunk size optimized for memory usage and parallelism
     let result = Arc::new(Mutex::new(Vec::new()));
 
-    // Calculate total number of combinations for accurate progress reporting
+    // Calculate total number of combinations for accurate progress reporting.
+    // Reuse the saturating `estimate_combinations` helper instead of a plain
+    // `pow`/`sum`, which would overflow `usize` for a large charset or
+    // `max_length` — panicking in debug/test builds and silently wrapping in
+    // release, corrupting the progress denominator. `try_from(..).unwrap_or(MAX)`
+    // saturates rather than truncates when the u64 total exceeds `usize` (32-bit).
     let charset_len = chars.chars().count();
-    let total_combinations: usize = (1..=max_length)
-        .map(|len| charset_len.pow(len as u32))
-        .sum();
+    let total_combinations: usize =
+        usize::try_from(estimate_combinations(charset_len, 1, max_length))
+            .unwrap_or(usize::MAX);
 
     let completed = Arc::new(AtomicUsize::new(0));
 
@@ -177,7 +182,19 @@ pub const MAX_BRUTE_LENGTH: usize = 64;
 pub fn write_candidate_bytes(idx: u64, char_bytes: &[Vec<u8>], length: usize, out: &mut Vec<u8>) {
     debug_assert!(length <= MAX_BRUTE_LENGTH);
     out.clear();
+    // `indices` is a fixed [_; MAX_BRUTE_LENGTH] buffer; indexing it with a
+    // `length` past that bound is an out-of-bounds panic even in release builds.
+    // All callers already clamp `length`, but guard the public API regardless.
+    if length > MAX_BRUTE_LENGTH {
+        return;
+    }
     let charset_size = char_bytes.len() as u64;
+    // An empty charset has no candidates to write; guarding here avoids a
+    // division-by-zero panic (`n % 0`) if this public helper is called with an
+    // empty `char_bytes` and a non-zero `length`.
+    if charset_size == 0 {
+        return;
+    }
     let mut indices = [0u32; MAX_BRUTE_LENGTH];
     let mut n = idx;
     for i in (0..length).rev() {
@@ -316,6 +333,15 @@ mod tests {
         write_candidate_bytes(3, &char_bytes, 2, &mut buf);
         // idx 3 = 11 in base-2 → "글글"
         assert_eq!(buf.as_slice(), "글글".as_bytes());
+    }
+
+    #[test]
+    fn test_write_candidate_bytes_empty_charset_no_panic() {
+        // An empty charset must not divide by zero (`n % 0`); it produces no output.
+        let char_bytes: Vec<Vec<u8>> = Vec::new();
+        let mut buf = vec![0xAA];
+        write_candidate_bytes(0, &char_bytes, 3, &mut buf);
+        assert!(buf.is_empty());
     }
 
     #[test]
