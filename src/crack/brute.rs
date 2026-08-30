@@ -113,8 +113,7 @@ pub fn generate_bruteforce_payloads(
     // saturates rather than truncates when the u64 total exceeds `usize` (32-bit).
     let charset_len = chars.chars().count();
     let total_combinations: usize =
-        usize::try_from(estimate_combinations(charset_len, 1, max_length))
-            .unwrap_or(usize::MAX);
+        usize::try_from(estimate_combinations(charset_len, 1, max_length)).unwrap_or(usize::MAX);
 
     let completed = Arc::new(AtomicUsize::new(0));
 
