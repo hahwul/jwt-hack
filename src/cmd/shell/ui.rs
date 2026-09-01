@@ -48,6 +48,17 @@ pub fn render(frame: &mut Frame, app: &App) {
     frame.set_cursor_position(Position::new(cursor_x.min(max_x), cursor_y));
 }
 
+/// Columns of horizontal rule that fill the title bar between the fixed left
+/// label and the right-aligned session indicators.
+///
+/// Both sides are measured in visible terminal columns (`chars().count()`) rather
+/// than UTF-8 byte length so multi-byte glyphs (`│`, `●`, `○`) don't shrink the
+/// rule. Saturating so a narrow terminal never underflows.
+fn title_rule_width(area_width: u16, left: &str, right: &str) -> u16 {
+    let used = left.chars().count().saturating_add(right.chars().count());
+    area_width.saturating_sub(used as u16)
+}
+
 fn render_title_bar(frame: &mut Frame, app: &App, area: Rect) {
     let left = Span::styled(
         " jwt-hack shell ",
@@ -93,9 +104,11 @@ fn render_title_bar(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     let left_text = " jwt-hack shell ";
-    let padding_len = area
-        .width
-        .saturating_sub(left_text.len() as u16 + right_text.len() as u16);
+    // Measure both sides in *visible columns*, not UTF-8 bytes: `right_text`
+    // contains box-drawing (`│`) and status (`●`/`○`) glyphs that are 3 bytes but
+    // 1 column each, so `str::len()` over-counted the right side by 6 columns and
+    // the dim rule fell short, leaving a gap before the right-aligned indicators.
+    let padding_len = title_rule_width(area.width, left_text, &right_text);
     let padding = Span::raw("─".repeat(padding_len as usize));
 
     let title_line = Line::from(vec![
@@ -252,6 +265,38 @@ mod tests {
             mode: AppMode::Normal,
             should_quit: false,
         }
+    }
+
+    #[test]
+    fn test_title_rule_width_counts_visible_columns_not_bytes() {
+        // The right side mixes ASCII with 3-byte, 1-column glyphs (│, ●). The rule
+        // width must be computed from visible columns so it fills the gap exactly.
+        let left = " jwt-hack shell "; // 16 columns, all ASCII
+        let right = " HS256 │ JWT │ ●secret "; // 23 columns, 29 bytes
+        let width = 80u16;
+
+        let cols = title_rule_width(width, left, right);
+        // Correct: 80 - 16 - 23 = 41 columns of rule.
+        assert_eq!(cols, 41);
+
+        // Rule + both sides must exactly fill the terminal width (no gap/overflow).
+        assert_eq!(
+            cols as usize + left.chars().count() + right.chars().count(),
+            width as usize
+        );
+
+        // Guard against the old byte-length regression, which would have used 29.
+        let byte_based = width.saturating_sub(left.len() as u16 + right.len() as u16);
+        assert_ne!(cols, byte_based);
+    }
+
+    #[test]
+    fn test_title_rule_width_saturates_on_narrow_terminal() {
+        // A terminal narrower than the fixed labels must not underflow.
+        assert_eq!(
+            title_rule_width(4, " jwt-hack shell ", " HS256 │ JWT │ ●secret "),
+            0
+        );
     }
 
     #[test]
