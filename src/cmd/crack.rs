@@ -522,6 +522,47 @@ fn build_crack_report(
     }
 }
 
+/// Reject a JWT whose signature algorithm cannot be recovered from a candidate
+/// *secret*.
+///
+/// Dictionary and brute-force cracking search for a shared HMAC secret, which
+/// only exists for HS256/HS384/HS512. An RS*/ES*/PS*/EdDSA token is signed with
+/// a private key and a `none` token carries no signature, so no candidate secret
+/// can ever verify. Previously such tokens ran the entire keyspace and reported
+/// a misleading "secret not found" (implying the secret was merely out of range).
+/// Reject them up front with a clear message instead, mirroring how `scan`'s
+/// weak-secret check already skips non-HS algorithms.
+///
+/// JWE tokens are exempt: they are cracked by direct key decryption, not
+/// signature verification, and are handled separately by the caller.
+/// A token that fails to decode is left to the normal path, which surfaces the
+/// malformation on its own.
+fn ensure_secret_crackable(token: &str, is_jwe: bool) -> anyhow::Result<()> {
+    if is_jwe {
+        return Ok(());
+    }
+    let Ok(decoded) = jwt::decode(token) else {
+        return Ok(());
+    };
+    let alg = decoded
+        .header
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let is_hmac = alg.eq_ignore_ascii_case("HS256")
+        || alg.eq_ignore_ascii_case("HS384")
+        || alg.eq_ignore_ascii_case("HS512");
+    if is_hmac {
+        return Ok(());
+    }
+    let shown = if alg.is_empty() { "<missing>" } else { alg };
+    anyhow::bail!(
+        "token algorithm '{shown}' cannot be cracked with a secret. Only HMAC tokens \
+         (HS256/HS384/HS512) use a shared secret; RS*/ES*/PS*/EdDSA tokens are signed with a \
+         private key and 'none' tokens carry no signature, so no candidate secret can verify."
+    )
+}
+
 fn crack_dictionary(
     token: &str,
     wordlist_path: &PathBuf,
@@ -531,6 +572,8 @@ fn crack_dictionary(
     is_jwe: bool,
     emit_output: bool,
 ) -> anyhow::Result<CrackReport> {
+    ensure_secret_crackable(token, is_jwe)?;
+
     let start_time = Instant::now();
 
     let file = File::open(wordlist_path)?;
@@ -695,6 +738,8 @@ fn crack_bruteforce(
     is_jwe: bool,
     emit_output: bool,
 ) -> anyhow::Result<CrackReport> {
+    ensure_secret_crackable(token, is_jwe)?;
+
     if min_length < 1 {
         anyhow::bail!("min length must be at least 1, got {}", min_length);
     }
@@ -1579,6 +1624,68 @@ mod tests {
         // which includes 16, so the range is reachable.
         assert!(jwe_dir_key_reachable("a글", 6, 6));
         assert!(!jwe_dir_key_reachable("a글", 1, 5)); // 1..=15 bytes, misses 16
+    }
+
+    /// Build a syntactically valid `header.payload.sig` token carrying `alg` in
+    /// its header. The signature is bogus, which is fine: `ensure_secret_crackable`
+    /// only inspects the decoded header, never the signature.
+    fn token_with_alg(alg: &str) -> String {
+        use base64::Engine;
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(format!(r#"{{"alg":"{alg}","typ":"JWT"}}"#).as_bytes());
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"user":"x"}"#);
+        format!("{header}.{payload}.c2ln")
+    }
+
+    #[test]
+    fn test_ensure_secret_crackable_allows_hmac() {
+        for alg in ["HS256", "HS384", "HS512", "hs256", "Hs512"] {
+            assert!(
+                ensure_secret_crackable(&token_with_alg(alg), false).is_ok(),
+                "{alg} is HMAC and must be crackable with a secret"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ensure_secret_crackable_rejects_non_hmac() {
+        for alg in ["RS256", "ES256", "ES512", "PS256", "EdDSA", "none"] {
+            assert!(
+                ensure_secret_crackable(&token_with_alg(alg), false).is_err(),
+                "{alg} cannot be cracked with a secret and must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ensure_secret_crackable_jwe_exempt() {
+        // A JWE (is_jwe = true) is cracked by direct key decryption, so the
+        // signature-algorithm guard must not reject it regardless of `alg`.
+        assert!(ensure_secret_crackable(&token_with_alg("RSA-OAEP"), true).is_ok());
+    }
+
+    #[test]
+    fn test_crack_bruteforce_rejects_non_hmac_token() {
+        // Regression: an RS256 token previously churned the whole keyspace and
+        // reported a misleading "secret not found". It must be rejected up front.
+        let token = token_with_alg("RS256");
+        let result = crack_bruteforce(&token, "abc", 1, 3, 2, false, false, false, false);
+        assert!(
+            result.is_err(),
+            "brute-force must reject a non-HMAC token instead of reporting not-found"
+        );
+    }
+
+    #[test]
+    fn test_crack_dictionary_rejects_non_hmac_token() {
+        let token = token_with_alg("ES256");
+        let wordlist = create_temp_wordlist(&["a", "b", "secret"]);
+        let path_buf = PathBuf::from(wordlist.path());
+        let result = crack_dictionary(&token, &path_buf, 2, false, false, false, false);
+        assert!(
+            result.is_err(),
+            "dictionary crack must reject a non-HMAC token instead of reporting not-found"
+        );
     }
 
     #[test]
