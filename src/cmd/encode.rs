@@ -588,4 +588,32 @@ mod tests {
             .unwrap()
             .contains('.'));
     }
+
+    #[test]
+    fn test_compressed_token_header_uses_canonical_alg() {
+        // `--algorithm hs256 --compress` wrote the raw string into the header,
+        // producing `"alg":"hs256"` — rejected by conforming JWT libraries.
+        let value = execute_json(
+            r#"{"sub":"x"}"#,
+            Some("s"),
+            None,
+            "hs256",
+            false,
+            &[],
+            true,
+            false,
+        )
+        .expect("encode");
+        let token = value["token"].as_str().expect("token");
+        let decoded = jwt::decode(token).expect("decode");
+        assert_eq!(
+            decoded.header.get("alg").and_then(|v| v.as_str()),
+            Some("HS256")
+        );
+        assert_eq!(
+            decoded.header.get("zip").and_then(|v| v.as_str()),
+            Some("DEF")
+        );
+        assert_eq!(decoded.claims["sub"], "x");
+    }
 }

@@ -106,6 +106,15 @@ fn verify_token(
 
     let private_key_content: String; // Needs to live long enough
 
+    // A JWE is encrypted, not signed; `jwt::decode` would try to read its
+    // encrypted-key segment as a JSON payload and fail with an opaque
+    // "EOF while parsing a value at line 1 column 0".
+    if jwt::detect_token_type(token) == jwt::TokenType::Jwe {
+        return Err(anyhow!(
+            "This is a JWE (encrypted, 5-segment) token, which carries no signature to verify. Use `jwt-hack decode` to inspect it."
+        ));
+    }
+
     // Inspect the token's declared algorithm up front. A 'none' token carries no
     // signature, so verify_with_options reports it as valid unconditionally. That is
     // the desired behaviour only when the caller is just inspecting an unsigned token
@@ -364,5 +373,64 @@ mod tests {
         let value = execute_json(&token, Some(secret), None, false).expect("json verify");
         assert_eq!(value.get("success").and_then(|v| v.as_bool()), Some(true));
         assert_eq!(value.get("valid").and_then(|v| v.as_bool()), Some(true));
+    }
+
+    #[test]
+    fn test_verify_jwe_token_reports_a_clear_error() {
+        // A 5-segment JWE has no signature; routing it through jwt::decode used to
+        // surface an opaque "EOF while parsing a value at line 1 column 0".
+        let jwe = jwt::encode_jwe(
+            r#"{"a":1}"#,
+            jwt::JweKeyManagement::Direct("01234567890123456789012345678901"),
+            jwt::JweContentEncryption::A256GCM,
+        )
+        .expect("jwe");
+
+        let err = verify_token(&jwe, Some("s"), None, false).expect_err("must error");
+        assert!(
+            err.to_string().contains("JWE"),
+            "error should name the token type, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_verify_compressed_token_end_to_end() {
+        // `encode --compress` then `verify` must agree, including --validate-exp.
+        let exp = Utc::now().timestamp() + 3600;
+        let options = jwt::EncodeOptions {
+            algorithm: "HS256",
+            key_data: jwt::KeyData::Secret("s3cret"),
+            header_params: None,
+            compress_payload: true,
+        };
+        let token = jwt::encode_with_options(&json!({"sub": "a", "exp": exp}), &options)
+            .expect("compressed token");
+
+        assert!(verify_token(&token, Some("s3cret"), None, false).expect("verify"));
+        assert!(verify_token(&token, Some("s3cret"), None, true).expect("verify with exp"));
+        assert!(!verify_token(&token, Some("wrong"), None, false).expect("wrong secret"));
+    }
+
+    #[test]
+    fn test_verify_accepts_the_private_key_the_help_text_advertises() {
+        // `--private-key` is documented as taking a private key; RS256 previously
+        // reported a perfectly valid token as invalid.
+        let dir = tempdir().expect("tempdir");
+        let private_path = dir.path().join("rsa_private.pem");
+        let private_pem = include_str!("../jwt/test_rsa_2048_private.pem");
+        std::fs::write(&private_path, private_pem).expect("write key");
+
+        let options = jwt::EncodeOptions {
+            algorithm: "RS256",
+            key_data: jwt::KeyData::PrivateKeyPem(private_pem),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = jwt::encode_with_options(&json!({"sub": "x"}), &options).expect("token");
+
+        assert!(
+            verify_token(&token, None, Some(&private_path), false).expect("verify"),
+            "verifying with the signing private key must succeed"
+        );
     }
 }
