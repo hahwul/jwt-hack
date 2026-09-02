@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788308533248,
+  "lastUpdate": 1788309497571,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -263,6 +263,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26337350,
             "range": "± 592127",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8a31c6297ad905728d15e36c639c73ac5c671ae0",
+          "message": "fix(payload): build full jku/x5u URL in basic payload instead of bare domain (#293)\n\nThe basic jku/x5u payload emitted the raw --jwk-attack value verbatim\n(e.g. `jku: \"evil.com\"`), which is not a valid absolute URI and silently\nignored --jwk-protocol. A server resolving the header would never fetch\nthe attacker's endpoint, so the primary (and most important) URL payload\nwas effectively non-functional, while every bypass variant and the SSRF\nprobes correctly used a full `{protocol}://…` URL.\n\nPrepend the configured scheme so the basic payload is a fetchable URL\nthat honours --jwk-protocol, matching the bypass and SSRF variants. A\nvalue that already carries a scheme is passed through verbatim to avoid\nproducing a double scheme.\n\nUpdates the affected unit tests and adds a regression test asserting the\nscheme is applied (and not duplicated for pre-schemed inputs).",
+          "timestamp": "2026-09-02T09:32:50+09:00",
+          "tree_id": "a38986864a468c483a89e58f3ff2e98012fe86a0",
+          "url": "https://github.com/hahwul/jwt-hack/commit/8a31c6297ad905728d15e36c639c73ac5c671ae0"
+        },
+        "date": 1788309496215,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 914,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 17708,
+            "range": "± 182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1136,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 2750,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1284,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 10263,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 22847248,
+            "range": "± 46069",
             "unit": "ns/iter"
           }
         ]
