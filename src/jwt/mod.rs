@@ -105,6 +105,46 @@ fn algorithm_from_str(alg: &str) -> Option<Algorithm> {
     }
 }
 
+/// The canonical JOSE `alg` name for a [`jsonwebtoken::Algorithm`].
+///
+/// `alg` values are case-sensitive registered names (RFC 7515 §4.1.1 / RFC 7518
+/// §3.1), so a header must carry `HS256`, never `hs256`. Used when a header is
+/// built by hand (the compressed-payload encoder) to normalize whatever casing
+/// the caller passed to `--algorithm`.
+fn algorithm_name(algorithm: Algorithm) -> Option<&'static str> {
+    Some(match algorithm {
+        Algorithm::HS256 => "HS256",
+        Algorithm::HS384 => "HS384",
+        Algorithm::HS512 => "HS512",
+        Algorithm::RS256 => "RS256",
+        Algorithm::RS384 => "RS384",
+        Algorithm::RS512 => "RS512",
+        Algorithm::ES256 => "ES256",
+        Algorithm::ES384 => "ES384",
+        Algorithm::PS256 => "PS256",
+        Algorithm::PS384 => "PS384",
+        Algorithm::PS512 => "PS512",
+        Algorithm::EdDSA => "EdDSA",
+        // `Algorithm` is #[non_exhaustive]; a variant this build does not know
+        // about has no canonical spelling to offer here.
+        _ => return None,
+    })
+}
+
+/// Guidance shown when a passphrase-protected PEM is supplied.
+const ENCRYPTED_PEM_MESSAGE: &str =
+    "Private key PEM is passphrase-protected; jwt-hack cannot prompt for a passphrase. Decrypt it first, e.g. `openssl pkey -in key.pem -out key-decrypted.pem`";
+
+/// Whether a PEM carries an encrypted private key.
+///
+/// Covers both the PKCS#8 `ENCRYPTED PRIVATE KEY` label and the legacy PEM
+/// `Proc-Type: 4,ENCRYPTED` header used by SEC1/PKCS#1 keys. Such a key must be
+/// rejected up front: OpenSSL would otherwise try to read a passphrase from the
+/// terminal, which blocks a non-interactive run indefinitely.
+fn pem_is_encrypted(pem: &str) -> bool {
+    pem.contains("ENCRYPTED PRIVATE KEY") || pem.contains("Proc-Type: 4,ENCRYPTED")
+}
+
 /// Normalize an EC private-key PEM to PKCS#8.
 ///
 /// `jsonwebtoken::EncodingKey::from_ec_pem` accepts only the PKCS#8 form
@@ -117,7 +157,13 @@ fn ec_pem_to_pkcs8(pem: &str) -> Result<std::borrow::Cow<'_, str>> {
     }
     use openssl::ec::EcKey;
     use openssl::pkey::PKey;
-    let ec = EcKey::private_key_from_pem(pem.as_bytes())
+    if pem_is_encrypted(pem) {
+        return Err(anyhow!(ENCRYPTED_PEM_MESSAGE));
+    }
+    // Always pass a passphrase (empty). `private_key_from_pem` leaves OpenSSL's
+    // default UI installed, which opens the *terminal* and blocks on
+    // "Enter PEM pass phrase:" — hanging any non-interactive invocation.
+    let ec = EcKey::private_key_from_pem_passphrase(pem.as_bytes(), b"")
         .map_err(|e| anyhow!("Failed to parse SEC1 EC private key: {}", e))?;
     let pkey =
         PKey::from_ec_key(ec).map_err(|e| anyhow!("Failed to wrap EC private key: {}", e))?;
@@ -373,12 +419,18 @@ fn encode_compressed_jwt(
 ) -> Result<String> {
     use std::collections::BTreeMap;
 
-    // Create header with compression indicator
+    // Create header with compression indicator. The `alg` name must be the
+    // canonical, case-sensitive registered value (RFC 7515 §4.1.1) — writing the
+    // raw `--algorithm` string verbatim emitted headers like `"alg":"hs256"`,
+    // which conforming JWT libraries reject, while the uncompressed encoder
+    // normalized the same input to `HS256`.
+    let alg_name = if options.algorithm.eq_ignore_ascii_case("none") {
+        "none".to_string()
+    } else {
+        algorithm_name(algorithm).map_or_else(|| options.algorithm.to_uppercase(), str::to_string)
+    };
     let mut header_map = BTreeMap::new();
-    header_map.insert(
-        "alg".to_string(),
-        Value::String(options.algorithm.to_string()),
-    );
+    header_map.insert("alg".to_string(), Value::String(alg_name));
     header_map.insert("typ".to_string(), Value::String("JWT".to_string()));
     header_map.insert("zip".to_string(), Value::String("DEF".to_string()));
 
@@ -426,7 +478,14 @@ fn encode_compressed_jwt(
                 // computing the MAC over the compressed segment; not yet implemented.
                 return Err(anyhow!("HS384/HS512 with compression not yet supported"));
             }
-            _ => return Err(anyhow!("HMAC algorithms require a secret key")),
+            // A secret was supplied but the requested algorithm is not HMAC;
+            // saying "HMAC algorithms require a secret key" here was misleading.
+            other => {
+                return Err(anyhow!(
+                    "Payload compression is not supported for {:?} (only HS256)",
+                    other
+                ))
+            }
         },
         _ => {
             return Err(anyhow!(
@@ -737,6 +796,116 @@ fn handle_verification_result(
     }
 }
 
+/// Whether the JOSE header declares a DEFLATE-compressed payload (`zip: "DEF"`).
+///
+/// RFC 7516 §4.1.3 registers `DEF`; the value is compared case-insensitively to
+/// match how [`decode`] decides whether to inflate the payload.
+fn header_declares_deflate(header: &HashMap<String, Value>) -> bool {
+    header
+        .get("zip")
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case("DEF"))
+}
+
+/// Current UNIX time in seconds.
+fn unix_now() -> Result<i64> {
+    Ok(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| anyhow!("system clock is before the UNIX epoch"))?
+        .as_secs() as i64)
+}
+
+/// Check the `exp`/`nbf` claims of a token whose signature has already been verified.
+///
+/// Mirrors jsonwebtoken's semantics: expired when `exp < now - leeway`, not yet
+/// valid when `nbf > now + leeway`, a missing claim is not an error, and a claim
+/// that is present but not a NumericDate is an `InvalidClaimFormat` error. Used
+/// on the paths where jsonwebtoken cannot do the check itself — ES512 (verified
+/// through josekit) and DEFLATE-compressed payloads, whose bytes are not JSON.
+fn validate_time_claims(claims: &Value, options: &VerifyOptions) -> Result<()> {
+    if !options.validate_exp && !options.validate_nbf {
+        return Ok(());
+    }
+    let now = unix_now()?;
+    let leeway = options.leeway as i64;
+
+    if options.validate_exp {
+        if let Some(exp) = claims.get("exp") {
+            let exp = crate::utils::numeric_date_seconds(exp).ok_or_else(|| {
+                anyhow!(JwtError::Other("InvalidClaimFormat(\"exp\")".to_string()))
+            })?;
+            if exp < now - leeway {
+                return Err(anyhow!(JwtError::ExpiredSignature));
+            }
+        }
+    }
+    if options.validate_nbf {
+        if let Some(nbf) = claims.get("nbf") {
+            let nbf = crate::utils::numeric_date_seconds(nbf).ok_or_else(|| {
+                anyhow!(JwtError::Other("InvalidClaimFormat(\"nbf\")".to_string()))
+            })?;
+            if nbf > now + leeway {
+                return Err(anyhow!(JwtError::ImmatureSignature));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Build a [`DecodingKey`] for `algorithm` from the caller-supplied key material.
+///
+/// Enforces the same key/algorithm pairing as the individual verification
+/// helpers: a secret can only verify HMAC, a public key can only verify an
+/// asymmetric signature.
+fn decoding_key_for(key_data: &VerifyKeyData, algorithm: Algorithm) -> Result<DecodingKey> {
+    match key_data {
+        VerifyKeyData::Secret(secret) => decoding_key_from_secret(secret.as_bytes(), algorithm),
+        VerifyKeyData::SecretBytes(secret) => decoding_key_from_secret(secret, algorithm),
+        VerifyKeyData::PublicKeyPem(pem) => public_key_decoding_key_from_pem(pem, algorithm),
+        VerifyKeyData::PublicKeyDer(der) => public_key_decoding_key_from_der(der, algorithm),
+    }
+}
+
+/// Build an HMAC [`DecodingKey`], rejecting a secret paired with an asymmetric
+/// algorithm.
+fn decoding_key_from_secret(secret: &[u8], algorithm: Algorithm) -> Result<DecodingKey> {
+    match algorithm {
+        Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
+            Ok(DecodingKey::from_secret(secret))
+        }
+        _ => Err(anyhow!(
+            "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
+            algorithm
+        )),
+    }
+}
+
+/// Verify a token whose payload is DEFLATE-compressed (`zip: "DEF"`).
+///
+/// Every algorithm except HS256 was verified by handing the whole token to
+/// `jsonwebtoken::decode`, which deserializes the payload segment as JSON
+/// claims. A compressed payload is raw DEFLATE, so that always failed and a
+/// correctly signed token was reported as having an invalid signature (and even
+/// HS256 failed once `--validate-exp` was requested). Verify the signature over
+/// the signing input directly instead, then check the time claims against the
+/// already-decompressed claims from [`decode`].
+fn verify_compressed(
+    message: &str,
+    signature_b64: &str,
+    decoded: &DecodedToken,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    let key = decoding_key_for(&options.key_data, decoded.algorithm)?;
+    let signature_ok =
+        jsonwebtoken::crypto::verify(signature_b64, message.as_bytes(), &key, decoded.algorithm)
+            .map_err(|e| anyhow!(JwtError::from(e.kind().clone())))?;
+    if !signature_ok {
+        return Ok(false);
+    }
+    validate_time_claims(&decoded.claims, options)?;
+    Ok(true)
+}
+
 /// Verify a JWT token with advanced options
 pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool> {
     // Try to decode the token without validation
@@ -773,7 +942,7 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     // verified through josekit — mirroring how this tool *signs* ES512. Without
     // this branch the tool could produce ES512 tokens it was then unable to verify.
     if raw_alg.eq_ignore_ascii_case("ES512") {
-        return verify_es512(token, options);
+        return verify_es512(token, &decoded_token.claims, options);
     }
     if algorithm_from_str(raw_alg).is_none() {
         return Err(anyhow!(
@@ -812,6 +981,13 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(signature_b64)
         .map_err(|_| anyhow!("Invalid signature encoding"))?;
+
+    // A `zip:"DEF"` payload is raw DEFLATE, not JSON, so it cannot be routed
+    // through `jsonwebtoken::decode` (which deserializes the claims) — see
+    // [`verify_compressed`].
+    if header_declares_deflate(&decoded_token.header) {
+        return verify_compressed(&message, signature_b64, &decoded_token, options);
+    }
 
     // Get decoding key based on algorithm and key data
     match &options.key_data {
@@ -892,43 +1068,65 @@ fn verify_with_secret_bytes(
     }
 }
 
-/// Helper function to verify with PEM-encoded public key
-fn verify_with_public_key_pem(
-    token: &str,
-    pem: &str,
-    algorithm: Algorithm,
-    options: &VerifyOptions,
-) -> Result<bool> {
-    let decoding_key = match algorithm {
+/// Derive a public-key PEM from `pem`, which may already be a public key.
+///
+/// The `--private-key` flag is documented (and named) as taking the *private*
+/// key, and the README shows verifying with one, but a signature can only be
+/// checked against the public key. Handing a private key straight to
+/// `jsonwebtoken` silently produced the wrong answer for RSA — its PKCS#1 reader
+/// happily treats an `RSA PRIVATE KEY` blob as a public key, so a perfectly valid
+/// token was reported invalid — and an opaque `InvalidKeyFormat` for EC/EdDSA.
+/// Convert a private key to its public half via OpenSSL; anything else (an actual
+/// public key, a certificate, garbage) is passed through unchanged so the
+/// existing key-parsing errors still surface.
+fn public_key_pem(pem: &str) -> Result<std::borrow::Cow<'_, str>> {
+    use openssl::pkey::PKey;
+
+    if !pem.contains("PRIVATE KEY") {
+        return Ok(std::borrow::Cow::Borrowed(pem));
+    }
+    if pem_is_encrypted(pem) {
+        return Err(anyhow!(ENCRYPTED_PEM_MESSAGE));
+    }
+    // Always pass a passphrase (empty) so OpenSSL never falls back to its default
+    // UI, which would block on an "Enter PEM pass phrase:" terminal prompt.
+    Ok(
+        match PKey::private_key_from_pem_passphrase(pem.as_bytes(), b"")
+            .and_then(|key| key.public_key_to_pem())
+            .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+        {
+            Some(public) => std::borrow::Cow::Owned(public),
+            None => std::borrow::Cow::Borrowed(pem),
+        },
+    )
+}
+
+/// Build a [`DecodingKey`] for `algorithm` from a PEM public (or private) key.
+fn public_key_decoding_key_from_pem(pem: &str, algorithm: Algorithm) -> Result<DecodingKey> {
+    let pem = public_key_pem(pem)?;
+    let bytes = pem.as_bytes();
+    Ok(match algorithm {
         Algorithm::RS256
         | Algorithm::RS384
         | Algorithm::RS512
         | Algorithm::PS256
         | Algorithm::PS384
-        | Algorithm::PS512 => DecodingKey::from_rsa_pem(pem.as_bytes())?,
-        Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_pem(pem.as_bytes())?,
-        Algorithm::EdDSA => DecodingKey::from_ed_pem(pem.as_bytes())?,
+        | Algorithm::PS512 => DecodingKey::from_rsa_pem(bytes)?,
+        Algorithm::ES256 | Algorithm::ES384 => DecodingKey::from_ec_pem(bytes)?,
+        Algorithm::EdDSA => DecodingKey::from_ed_pem(bytes)?,
         _ => {
             return Err(anyhow!(
                 "Public key provided but algorithm is {:?}",
                 algorithm
             ))
         }
-    };
-
-    let validation = create_validation(algorithm, options);
-    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-    handle_verification_result(result)
+    })
 }
 
-/// Helper function to verify with DER-encoded public key
-fn verify_with_public_key_der(
-    token: &str,
-    der: &[u8],
-    algorithm: Algorithm,
-    options: &VerifyOptions,
-) -> Result<bool> {
-    let decoding_key = match algorithm {
+/// Build a [`DecodingKey`] for `algorithm` from a DER public key.
+fn public_key_decoding_key_from_der(der: &[u8], algorithm: Algorithm) -> Result<DecodingKey> {
+    Ok(match algorithm {
         Algorithm::RS256
         | Algorithm::RS384
         | Algorithm::RS512
@@ -943,7 +1141,31 @@ fn verify_with_public_key_der(
                 algorithm
             ))
         }
-    };
+    })
+}
+
+/// Helper function to verify with PEM-encoded public key
+fn verify_with_public_key_pem(
+    token: &str,
+    pem: &str,
+    algorithm: Algorithm,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    let decoding_key = public_key_decoding_key_from_pem(pem, algorithm)?;
+
+    let validation = create_validation(algorithm, options);
+    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
+    handle_verification_result(result)
+}
+
+/// Helper function to verify with DER-encoded public key
+fn verify_with_public_key_der(
+    token: &str,
+    der: &[u8],
+    algorithm: Algorithm,
+    options: &VerifyOptions,
+) -> Result<bool> {
+    let decoding_key = public_key_decoding_key_from_der(der, algorithm)?;
 
     let validation = create_validation(algorithm, options);
     let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
@@ -958,13 +1180,19 @@ fn verify_with_public_key_der(
 /// `validate_exp`/`validate_nbf` are requested, the corresponding time claims are
 /// checked after the signature (with `leeway`), surfacing expired / not-yet-valid
 /// tokens as errors like the other verification paths.
-fn verify_es512(token: &str, options: &VerifyOptions) -> Result<bool> {
+fn verify_es512(token: &str, claims: &Value, options: &VerifyOptions) -> Result<bool> {
     use josekit::jws::ES512;
 
     let verifier = match &options.key_data {
-        VerifyKeyData::PublicKeyPem(pem) => ES512
-            .verifier_from_pem(pem.as_bytes())
-            .map_err(|e| anyhow!("Failed to load ES512 public key (PEM): {}", e))?,
+        VerifyKeyData::PublicKeyPem(pem) => {
+            // Accept a private key here too, exactly like the other asymmetric
+            // paths; josekit rejects one outright ("Inappropriate algorithm: EC
+            // PRIVATE KEY") even though `--private-key` is documented to take one.
+            let pem = public_key_pem(pem)?;
+            ES512
+                .verifier_from_pem(pem.as_bytes())
+                .map_err(|e| anyhow!("Failed to load ES512 public key (PEM): {}", e))?
+        }
         VerifyKeyData::PublicKeyDer(der) => ES512
             .verifier_from_der(der)
             .map_err(|e| anyhow!("Failed to load ES512 public key (DER): {}", e))?,
@@ -977,43 +1205,14 @@ fn verify_es512(token: &str, options: &VerifyOptions) -> Result<bool> {
 
     // deserialize_compact validates the signature against the verifier; an Err is a
     // verification failure (bad signature / wrong key), reported as invalid.
-    let payload = match josekit::jws::deserialize_compact(token, &*verifier) {
-        Ok((payload, _header)) => payload,
-        Err(_) => return Ok(false),
-    };
-
-    if options.validate_exp || options.validate_nbf {
-        let claims: Value = serde_json::from_slice(&payload).unwrap_or(Value::Null);
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| anyhow!("system clock is before the UNIX epoch"))?
-            .as_secs() as i64;
-        let leeway = options.leeway as i64;
-
-        // Match jsonwebtoken's semantics: expired when now - leeway > exp; not yet
-        // valid when nbf > now + leeway. A missing claim is not an error (our other
-        // paths clear required-claim enforcement too).
-        if options.validate_exp {
-            if let Some(exp) = claims
-                .get("exp")
-                .and_then(crate::utils::numeric_date_seconds)
-            {
-                if now - leeway > exp {
-                    return Err(anyhow!(JwtError::ExpiredSignature));
-                }
-            }
-        }
-        if options.validate_nbf {
-            if let Some(nbf) = claims
-                .get("nbf")
-                .and_then(crate::utils::numeric_date_seconds)
-            {
-                if nbf > now + leeway {
-                    return Err(anyhow!(JwtError::ImmatureSignature));
-                }
-            }
-        }
+    if josekit::jws::deserialize_compact(token, &*verifier).is_err() {
+        return Ok(false);
     }
+
+    // Claims come from `decode`, which transparently inflates a `zip:"DEF"`
+    // payload; parsing the raw signed bytes here dropped the time checks entirely
+    // for a compressed ES512 token.
+    validate_time_claims(claims, options)?;
 
     Ok(true)
 }
@@ -3031,5 +3230,286 @@ mod tests {
                 .expect("ECDH-ES+A256KW JWE decryption should succeed");
 
         assert_eq!(decrypted, payload, "Round-trip should preserve payload");
+    }
+
+    /// Build a token with a DEFLATE-compressed payload signed with `alg`, without
+    /// going through `encode_with_options` (which only signs compressed HS256).
+    fn compressed_token(alg: &str, sign: impl Fn(&[u8]) -> Vec<u8>) -> String {
+        use flate2::write::DeflateEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let header = engine.encode(format!(r#"{{"alg":"{alg}","typ":"JWT","zip":"DEF"}}"#));
+        let claims = br#"{"sub":"compressed","role":"admin"}"#;
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(claims).expect("deflate");
+        let payload = engine.encode(encoder.finish().expect("deflate finish"));
+        let message = format!("{header}.{payload}");
+        let signature = engine.encode(sign(message.as_bytes()));
+        format!("{message}.{signature}")
+    }
+
+    #[test]
+    fn test_verify_compressed_token_for_every_hmac_algorithm() {
+        // Regression: only HS256 verified a `zip:"DEF"` token. Every other
+        // algorithm was handed to `jsonwebtoken::decode`, which tries to parse the
+        // DEFLATE bytes as JSON claims, so a correctly signed token was reported
+        // as having an invalid signature.
+        let secret = b"correct-horse";
+        let key = EncodingKey::from_secret(secret);
+
+        for (alg, algorithm) in [
+            ("HS256", Algorithm::HS256),
+            ("HS384", Algorithm::HS384),
+            ("HS512", Algorithm::HS512),
+        ] {
+            let token = compressed_token(alg, |m| {
+                let sig = jsonwebtoken::crypto::sign(m, &key, algorithm).expect("sign");
+                base64::engine::general_purpose::URL_SAFE_NO_PAD
+                    .decode(sig)
+                    .expect("sig bytes")
+            });
+            // Sanity: the payload really is compressed and decodes back to claims.
+            let decoded = decode(&token).expect("decode compressed token");
+            assert_eq!(decoded.claims["role"], "admin", "{alg}");
+
+            let options = VerifyOptions {
+                key_data: VerifyKeyData::SecretBytes(secret),
+                ..Default::default()
+            };
+            assert!(
+                verify_with_options(&token, &options).expect("verify"),
+                "{alg}: correctly signed compressed token must verify"
+            );
+
+            let wrong = VerifyOptions {
+                key_data: VerifyKeyData::SecretBytes(b"wrong"),
+                ..Default::default()
+            };
+            assert!(
+                !verify_with_options(&token, &wrong).expect("verify"),
+                "{alg}: wrong secret must not verify"
+            );
+        }
+    }
+
+    #[test]
+    fn test_verify_compressed_token_rs256() {
+        // The asymmetric paths were broken by the same root cause.
+        let private_pem = include_str!("test_rsa_2048_private.pem");
+        let public_pem = include_str!("test_rsa_2048_public.pem");
+        let key = EncodingKey::from_rsa_pem(private_pem.as_bytes()).expect("rsa key");
+        let token = compressed_token("RS256", |m| {
+            let sig = jsonwebtoken::crypto::sign(m, &key, Algorithm::RS256).expect("sign");
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(sig)
+                .expect("sig bytes")
+        });
+
+        let options = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(public_pem),
+            ..Default::default()
+        };
+        assert!(
+            verify_with_options(&token, &options).expect("verify"),
+            "compressed RS256 token must verify with its public key"
+        );
+    }
+
+    #[test]
+    fn test_verify_compressed_token_time_claims() {
+        // Even HS256 — the one algorithm whose signature check worked — errored out
+        // with a JSON parse failure as soon as `--validate-exp` was requested,
+        // because the time check re-parsed the compressed payload as claims.
+        use flate2::write::DeflateEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let now = Utc::now().timestamp();
+        let build = |exp: i64| {
+            let header = engine.encode(r#"{"alg":"HS256","typ":"JWT","zip":"DEF"}"#);
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+            encoder
+                .write_all(format!(r#"{{"sub":"a","exp":{exp}}}"#).as_bytes())
+                .unwrap();
+            let payload = engine.encode(encoder.finish().unwrap());
+            let message = format!("{header}.{payload}");
+            let sig = engine.encode(hmac_sha256::HMAC::mac(message.as_bytes(), b"s"));
+            format!("{message}.{sig}")
+        };
+        let options = VerifyOptions {
+            key_data: VerifyKeyData::Secret("s"),
+            validate_exp: true,
+            ..Default::default()
+        };
+
+        assert!(
+            verify_with_options(&build(now + 3600), &options).expect("unexpired must verify"),
+            "compressed token with a future exp must verify"
+        );
+
+        let err = verify_with_options(&build(now - 3600), &options)
+            .expect_err("expired compressed token must be reported as expired");
+        assert!(
+            matches!(
+                err.downcast_ref::<JwtError>(),
+                Some(JwtError::ExpiredSignature)
+            ),
+            "expected ExpiredSignature, got {err}"
+        );
+    }
+
+    #[test]
+    fn test_compressed_header_alg_is_canonical() {
+        // `alg` is a case-sensitive registered name; writing the raw --algorithm
+        // string produced `"alg":"hs256"`, which conforming libraries reject.
+        for input in ["hs256", "Hs256", "HS256"] {
+            let options = EncodeOptions {
+                algorithm: input,
+                key_data: KeyData::Secret("s"),
+                header_params: None,
+                compress_payload: true,
+            };
+            let token = encode_with_options(&json!({"a": 1}), &options).expect("encode");
+            let decoded = decode(&token).expect("decode");
+            assert_eq!(
+                decoded.header.get("alg").and_then(|v| v.as_str()),
+                Some("HS256"),
+                "--algorithm {input} --compress must emit the canonical alg name"
+            );
+        }
+
+        // `none` keeps its lowercase spelling whatever casing was requested.
+        for input in ["none", "NONE", "None"] {
+            let options = EncodeOptions {
+                algorithm: input,
+                key_data: KeyData::None,
+                header_params: None,
+                compress_payload: true,
+            };
+            let token = encode_with_options(&json!({"a": 1}), &options).expect("encode");
+            let decoded = decode(&token).expect("decode");
+            assert_eq!(
+                decoded.header.get("alg").and_then(|v| v.as_str()),
+                Some("none"),
+                "--algorithm {input} --compress must emit `none`"
+            );
+            assert!(
+                token.ends_with('.'),
+                "none token must have an empty signature"
+            );
+        }
+    }
+
+    #[test]
+    fn test_compress_with_non_hmac_algorithm_reports_the_real_reason() {
+        // Previously reported "HMAC algorithms require a secret key" even though a
+        // secret was supplied; the actual limitation is compression support.
+        let options = EncodeOptions {
+            algorithm: "RS256",
+            key_data: KeyData::Secret("s"),
+            header_params: None,
+            compress_payload: true,
+        };
+        let err = encode_with_options(&json!({"a": 1}), &options).expect_err("must fail");
+        assert!(
+            err.to_string().contains("compression"),
+            "error should name compression as the limitation, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_verify_accepts_a_private_key_pem() {
+        // `--private-key` is documented (and named) as taking the private key. RSA
+        // silently reported a valid token as invalid; EC/EdDSA/ES512 failed with an
+        // opaque InvalidKeyFormat.
+        // EdDSA is exercised the same way, but this repo's checked-in Ed25519
+        // fixture is a placeholder rather than a real key, so it cannot be
+        // signed with here.
+        let cases: [(&str, &str, &str); 3] = [
+            (
+                "RS256",
+                include_str!("test_rsa_2048_private.pem"),
+                include_str!("test_rsa_2048_public.pem"),
+            ),
+            (
+                "ES256",
+                include_str!("test_ec_p256_private.pem"),
+                include_str!("test_ec_p256_public.pem"),
+            ),
+            (
+                "ES512",
+                include_str!("test_ec_p521_private.pem"),
+                include_str!("test_ec_p521_public.pem"),
+            ),
+        ];
+
+        for (alg, private_pem, public_pem) in cases {
+            let options = EncodeOptions {
+                algorithm: alg,
+                key_data: KeyData::PrivateKeyPem(private_pem),
+                header_params: None,
+                compress_payload: false,
+            };
+            let token = encode_with_options(&json!({"sub": "x"}), &options)
+                .unwrap_or_else(|e| panic!("{alg} encode: {e}"));
+
+            for (label, pem) in [("private", private_pem), ("public", public_pem)] {
+                let verify_options = VerifyOptions {
+                    key_data: VerifyKeyData::PublicKeyPem(pem),
+                    ..Default::default()
+                };
+                assert!(
+                    verify_with_options(&token, &verify_options)
+                        .unwrap_or_else(|e| panic!("{alg} verify with {label} key: {e}")),
+                    "{alg}: token must verify when given the {label} key"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_verify_with_a_different_key_pair_still_fails() {
+        // The private-key convenience must not turn into a blanket accept.
+        let options = EncodeOptions {
+            algorithm: "RS256",
+            key_data: KeyData::PrivateKeyPem(include_str!("test_rsa_2048_private.pem")),
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&json!({"sub": "x"}), &options).expect("encode");
+
+        // A structurally valid RSA key from another pair must be rejected.
+        let other = include_str!("test_rsa_private.pem");
+        let verify_options = VerifyOptions {
+            key_data: VerifyKeyData::PublicKeyPem(other),
+            ..Default::default()
+        };
+        assert!(
+            !verify_with_options(&token, &verify_options).unwrap_or(false),
+            "a token must not verify against an unrelated key pair"
+        );
+    }
+
+    #[test]
+    fn test_encrypted_pem_is_rejected_without_prompting() {
+        // OpenSSL's default UI reads a passphrase from the *terminal*, which hangs a
+        // non-interactive run. Both key paths must refuse an encrypted PEM instead.
+        let encrypted_pkcs8 =
+            "-----BEGIN ENCRYPTED PRIVATE KEY-----\nZm9v\n-----END ENCRYPTED PRIVATE KEY-----\n";
+        let encrypted_sec1 = "-----BEGIN EC PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-256-CBC,00\n\nZm9v\n-----END EC PRIVATE KEY-----\n";
+
+        assert!(pem_is_encrypted(encrypted_pkcs8));
+        assert!(pem_is_encrypted(encrypted_sec1));
+        assert!(!pem_is_encrypted(include_str!("test_rsa_2048_private.pem")));
+
+        assert!(public_key_pem(encrypted_pkcs8).is_err());
+        assert!(ec_pem_to_pkcs8(encrypted_sec1).is_err());
+
+        // A plain public key is passed through untouched.
+        let public_pem = include_str!("test_rsa_2048_public.pem");
+        assert_eq!(public_key_pem(public_pem).expect("passthrough"), public_pem);
     }
 }
