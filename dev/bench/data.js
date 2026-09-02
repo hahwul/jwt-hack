@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788075838158,
+  "lastUpdate": 1788307818759,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -65,6 +65,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26720379,
             "range": "± 212449",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "478ace9e6c7a9e81c6d8cf9a44e79ebede6d213d",
+          "message": "fix(crack): reject non-HMAC/none tokens instead of silent not-found (#289)\n\nDictionary and brute-force cracking search for a shared HMAC secret,\nwhich only exists for HS256/HS384/HS512. Feeding the crack subcommand an\nRS*/ES*/PS*/EdDSA or none-alg token previously ran the ENTIRE keyspace\n(or wordlist) and then reported \"Secret not found\" — implying the secret\nwas merely out of range, when in fact no candidate secret can ever verify\nsuch a token (it is signed with a private key, or carries no signature).\n\nReject those tokens up front with a clear message via a new\nensure_secret_crackable() guard called at the top of crack_dictionary and\ncrack_bruteforce. JWE tokens are exempt (cracked by direct key\ndecryption, not signature verification). This mirrors how the scan\nsubcommand's weak-secret check already skips non-HS algorithms.\n\nIn --json mode the guard surfaces as the standard structured error\nresponse with exit code 1, instead of a misleading found:false report.\n\nAdds unit tests covering: HMAC algs allowed (incl. mixed case),\nRS256/ES256/ES512/PS256/EdDSA/none rejected, JWE exemption, and that both\ncrack_bruteforce and crack_dictionary return Err for a non-HMAC token.",
+          "timestamp": "2026-09-02T09:03:43+09:00",
+          "tree_id": "4c381f9760a85c205812d82fe34769126d4a7be2",
+          "url": "https://github.com/hahwul/jwt-hack/commit/478ace9e6c7a9e81c6d8cf9a44e79ebede6d213d"
+        },
+        "date": 1788307817172,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1161,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 22654,
+            "range": "± 164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1477,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3469,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1645,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 13173,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 29249905,
+            "range": "± 28078",
             "unit": "ns/iter"
           }
         ]
