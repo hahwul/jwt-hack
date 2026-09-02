@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788307904266,
+  "lastUpdate": 1788308533248,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -197,6 +197,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26691623,
             "range": "± 48668",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "edb86ecf3abca6e8e95e5614156ba5ae245bee03",
+          "message": "fix(jwt): correct verification of compressed tokens and key/alg handling (#292)\n\nFive defects found by running the CLI against adversarial and round-trip\ninputs in the core JWT engine.\n\n1. verify: a correctly signed `zip:\"DEF\"` token was reported invalid for\n   every algorithm except HS256. All non-HS256 paths hand the whole token\n   to `jsonwebtoken::decode`, which deserializes the payload segment as\n   JSON claims; a DEFLATE payload is not JSON, so verification always\n   failed and collapsed into a plain \"Token is invalid\". HS256 fared no\n   better once `--validate-exp` was requested — the time check re-parsed\n   the compressed payload and errored with\n   `Json(Error(\"expected value\", line: 1, column: 1))`, so an expired\n   compressed token was never reported as expired. Compressed tokens now\n   verify the signature over the signing input via\n   `jsonwebtoken::crypto::verify` and check `exp`/`nbf` against the\n   already-inflated claims from `decode`. The same shared time-claim check\n   replaces the hand-rolled one in the ES512 path, which silently skipped\n   `exp`/`nbf` for a compressed token.\n\n2. encode: `--compress` wrote the raw `--algorithm` string into the\n   header, so `--algorithm hs256 --compress` emitted `\"alg\":\"hs256\"` —\n   a value conforming JWT libraries reject, since `alg` names are\n   case-sensitive (RFC 7515 4.1.1). The uncompressed encoder already\n   normalized the same input to `HS256`. The compressed header now carries\n   the canonical name, and `none` keeps its lowercase spelling.\n\n3. verify: `--private-key` is named and documented as taking the private\n   key (README shows exactly that), but a signature can only be checked\n   against the public key. RSA silently returned the wrong answer — the\n   PKCS#1 reader treats an `RSA PRIVATE KEY` blob as a public key, so a\n   validly signed token was reported invalid — while EC/EdDSA failed with\n   an opaque `InvalidKeyFormat` and ES512 with \"Inappropriate algorithm\".\n   A private-key PEM is now converted to its public half; an unrelated key\n   pair is still rejected.\n\n4. encode/verify: a passphrase-protected PEM made OpenSSL fall back to its\n   default UI and block on an \"Enter PEM pass phrase:\" prompt read from\n   the terminal, hanging non-interactive runs. Encrypted PEMs are rejected\n   up front with actionable guidance, and key parsing always supplies a\n   passphrase so the terminal UI is never reached.\n\n5. verify: a JWE (5-segment) token surfaced as\n   \"EOF while parsing a value at line 1 column 0\" because its encrypted-key\n   segment was parsed as a JSON payload. It now reports what the token\n   actually is.\n\nAlso replaces a misleading \"HMAC algorithms require a secret key\" error\nraised when a secret was supplied but compression was requested with a\nnon-HMAC algorithm.\n\nJSON output keys and structure are unchanged.",
+          "timestamp": "2026-09-02T09:15:26+09:00",
+          "tree_id": "bb1684da03a643f6cc3c2f6a1286de4a8d00087f",
+          "url": "https://github.com/hahwul/jwt-hack/commit/edb86ecf3abca6e8e95e5614156ba5ae245bee03"
+        },
+        "date": 1788308532032,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1194,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12740,
+            "range": "± 55",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1368,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3294,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1516,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 11964,
+            "range": "± 76",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26337350,
+            "range": "± 592127",
             "unit": "ns/iter"
           }
         ]
