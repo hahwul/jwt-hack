@@ -255,7 +255,10 @@ fn scan_jwe_token(token: &str) -> Result<ScanReport> {
     }
 
     // Direct symmetric encryption is brute-forceable when a weak CEK is used.
-    if alg == "dir" {
+    // Match case-insensitively, mirroring the `none` check above: a case-varied
+    // `alg` (e.g. "DIR") is exactly the parser-confusion shape this tool exists to
+    // flag, so an exact `== "dir"` would silently miss it.
+    if alg.eq_ignore_ascii_case("dir") {
         results.push(VulnerabilityResult {
             name: "Direct Encryption".to_string(),
             vulnerable: true,
@@ -2656,5 +2659,37 @@ mod tests {
             padded.summary.vulnerabilities
         );
         assert_eq!(clean.summary.critical, padded.summary.critical);
+    }
+
+    #[test]
+    fn test_scan_jwe_dir_alg_is_case_insensitive() {
+        // Regression: the JWE Direct Encryption check matched `alg == "dir"` exactly
+        // while the `none` check was case-insensitive, so a case-varied `alg` (e.g.
+        // "DIR") — exactly the parser-confusion shape this tool flags — was silently
+        // missed. Both casings must now yield the Direct Encryption finding.
+        use base64::Engine;
+        let enc = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let has_direct = |alg: &str| {
+            let header = enc.encode(format!(r#"{{"alg":"{alg}","enc":"A256GCM"}}"#).as_bytes());
+            // dir mode: empty encrypted-key segment, plus IV/ciphertext/tag.
+            let token = format!(
+                "{header}.{}.{}.{}.{}",
+                enc.encode(b""),
+                enc.encode(b"iv1234567890"),
+                enc.encode(b"c"),
+                enc.encode(b"tag1234567890123"),
+            );
+            let report = scan_jwe_token(&token).expect("scan jwe token");
+            report
+                .results
+                .iter()
+                .any(|r| r.name == "Direct Encryption" && r.vulnerable)
+        };
+
+        assert!(has_direct("dir"), "lowercase 'dir' must be flagged");
+        assert!(
+            has_direct("DIR"),
+            "case-varied 'DIR' must also be flagged (parser-confusion shape)"
+        );
     }
 }
