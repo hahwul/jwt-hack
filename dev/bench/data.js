@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788307818759,
+  "lastUpdate": 1788307904266,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -131,6 +131,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 29249905,
             "range": "± 28078",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hahwul@gmail.com",
+            "name": "hahwul",
+            "username": "hahwul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4556f096c1f48aa903d598026e83a688226839fa",
+          "message": "fix(interfaces): harden config dir, server bind, and shell title bar (#290)\n\nThree defects in the interfaces layer:\n\n* config: an empty `XDG_CONFIG_HOME=\"\"` (set-but-empty) resolved the config\n  directory to a CWD-relative `jwt-hack` via `PathBuf::from(\"\").join(...)`,\n  violating the XDG Base Directory spec (which mandates absolute paths and\n  treats an empty value as unset). Config, shell history, and `Config::load`\n  would then read/write a directory relative to wherever the tool was launched\n  — and `Config::load` could silently pick up an attacker-planted\n  `./jwt-hack/config.toml`. Now only absolute `XDG_CONFIG_HOME` values are\n  honored; empty/relative ones fall back to the platform default. Logic split\n  into a pure `resolve_config_dir` helper so it is testable without mutating the\n  process-global environment.\n\n* server: `execute`/`execute_with_api_key` called `.expect()` on the TCP bind\n  and on `axum::serve`, so a routine \"address already in use\" turned into a\n  Rust panic + backtrace note (aborting under `panic = \"abort\"`). Bind/serve\n  now report a clean error line and exit non-zero via a shared `serve_app`; the\n  bind is factored into a testable `bind_listener`.\n\n* shell UI: the title-bar rule width was computed from UTF-8 byte length, but\n  the right-side indicators contain 3-byte/1-column glyphs (`│`, `●`, `○`), so\n  the rule fell ~6 columns short and left a gap before the indicators. Width is\n  now measured in visible columns via `title_rule_width`.\n\nAdds unit tests for each fix.",
+          "timestamp": "2026-09-02T09:05:08+09:00",
+          "tree_id": "711681da90e7caa6317373fab6965eb8c65f1010",
+          "url": "https://github.com/hahwul/jwt-hack/commit/4556f096c1f48aa903d598026e83a688226839fa"
+        },
+        "date": 1788307903722,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1175,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 12858,
+            "range": "± 188",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1332,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3236,
+            "range": "± 28",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1504,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 12090,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 26691623,
+            "range": "± 48668",
             "unit": "ns/iter"
           }
         ]
