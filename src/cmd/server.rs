@@ -731,6 +731,34 @@ fn build_router(api_key: Option<String>) -> Router {
     router.layer(from_fn_with_state(api_key, api_key_middleware))
 }
 
+/// Bind the server's TCP listener. Returns a clean `io::Error` instead of
+/// panicking so the caller can report the common "address already in use" /
+/// invalid-address cases without a backtrace.
+async fn bind_listener(addr: &str) -> std::io::Result<tokio::net::TcpListener> {
+    tokio::net::TcpListener::bind(addr).await
+}
+
+/// Bind `addr` and serve `app`. Bind and serve failures are reported as clean
+/// error lines and exit non-zero, replacing the previous `.expect(...)` panics
+/// (which, under the release profile's `panic = "abort"`, printed a Rust panic +
+/// backtrace note for an everyday "port already in use" situation).
+async fn serve_app(app: Router, addr: &str) {
+    let listener = match bind_listener(addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            utils::log_error(format!("Failed to bind to {addr}: {e}"));
+            std::process::exit(1);
+        }
+    };
+
+    utils::log_success(format!("Server started successfully on {}", addr));
+
+    if let Err(e) = axum::serve(listener, app).await {
+        utils::log_error(format!("Server error: {e}"));
+        std::process::exit(1);
+    }
+}
+
 /// Execute the server command
 pub async fn execute(host: &str, port: u16) {
     utils::log_info("Starting JWT-HACK REST API server".to_string());
@@ -746,15 +774,7 @@ pub async fn execute(host: &str, port: u16) {
 
     let app = build_router(None);
     let addr = format!("{}:{}", host, port);
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .expect("Failed to bind to address");
-
-    utils::log_success(format!("Server started successfully on {}", addr));
-
-    axum::serve(listener, app)
-        .await
-        .expect("Server failed to start");
+    serve_app(app, &addr).await;
 }
 
 pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
@@ -772,15 +792,7 @@ pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
 
     let app = build_router(Some(api_key.to_string()));
     let addr = format!("{}:{}", host, port);
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .expect("Failed to bind to address");
-
-    utils::log_success(format!("Server started successfully on {}", addr));
-
-    axum::serve(listener, app)
-        .await
-        .expect("Server failed to start");
+    serve_app(app, &addr).await;
 }
 
 #[cfg(test)]
@@ -913,6 +925,37 @@ mod tests {
         let response = result.unwrap().0;
         assert!(response.success);
         assert_eq!(response.valid, Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_bind_listener_ok_on_ephemeral_port() {
+        // Binding an ephemeral port succeeds and yields a real local address.
+        let listener = bind_listener("127.0.0.1:0")
+            .await
+            .expect("ephemeral bind should succeed");
+        assert!(listener.local_addr().is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_bind_listener_reports_error_instead_of_panicking() {
+        // Re-binding an already-bound address must return Err (which serve_app turns
+        // into a clean error line) rather than panic as the old `.expect` did.
+        let first = bind_listener("127.0.0.1:0")
+            .await
+            .expect("first bind should succeed");
+        let addr = first.local_addr().expect("addr");
+        let second = bind_listener(&addr.to_string()).await;
+        assert!(
+            second.is_err(),
+            "re-binding an in-use port must error, not panic"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_bind_listener_rejects_invalid_address() {
+        // A malformed host:port must surface as an error, never a panic.
+        let result = bind_listener("not a valid addr").await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

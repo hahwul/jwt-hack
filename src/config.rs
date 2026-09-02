@@ -52,10 +52,28 @@ impl Config {
 
     /// Get the default config directory path using XDG specification
     pub fn default_config_dir() -> Option<PathBuf> {
-        // Check XDG_CONFIG_HOME environment variable first
-        if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
-            let path = PathBuf::from(xdg_config_home).join("jwt-hack");
-            return Some(path);
+        Self::resolve_config_dir(std::env::var_os("XDG_CONFIG_HOME").as_deref())
+    }
+
+    /// Resolve the config directory from a supplied `XDG_CONFIG_HOME` value.
+    ///
+    /// Honors `XDG_CONFIG_HOME` only when it names an *absolute* path. The XDG Base
+    /// Directory spec requires these variables to be absolute and says an empty
+    /// value must be treated as unset (falling back to the platform default).
+    /// Without this guard an empty `XDG_CONFIG_HOME=""` makes
+    /// `PathBuf::from("").join("jwt-hack")` resolve to a CWD-relative `jwt-hack`
+    /// directory, so config/history would be read from and written to whatever
+    /// directory the tool happens to be launched in — and `Config::load` could
+    /// silently pick up an attacker-planted `./jwt-hack/config.toml`.
+    ///
+    /// Split out from the env lookup so it is unit-testable without mutating the
+    /// process-global environment (which would data-race parallel tests).
+    fn resolve_config_dir(xdg_config_home: Option<&std::ffi::OsStr>) -> Option<PathBuf> {
+        if let Some(xdg_config_home) = xdg_config_home {
+            let path = PathBuf::from(xdg_config_home);
+            if path.is_absolute() {
+                return Some(path.join("jwt-hack"));
+            }
         }
 
         // Fall back to platform-specific config directory
@@ -125,7 +143,60 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsStr;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_xdg_config_home_absolute_is_honored() {
+        let abs = if cfg!(windows) {
+            "C:\\custom\\xdg"
+        } else {
+            "/custom/xdg"
+        };
+        let dir =
+            Config::resolve_config_dir(Some(OsStr::new(abs))).expect("absolute XDG yields a dir");
+        assert_eq!(dir, PathBuf::from(abs).join("jwt-hack"));
+    }
+
+    #[test]
+    fn test_empty_xdg_config_home_falls_back_to_absolute_default() {
+        // An empty XDG_CONFIG_HOME must NOT resolve to a CWD-relative `jwt-hack`
+        // directory; it should be treated as unset and fall back to the platform
+        // default (which is absolute).
+        if let Some(dir) = Config::resolve_config_dir(Some(OsStr::new(""))) {
+            assert!(
+                dir.is_absolute(),
+                "empty XDG_CONFIG_HOME must not produce a relative config dir, got {dir:?}"
+            );
+            assert_ne!(dir, PathBuf::from("jwt-hack"));
+        }
+    }
+
+    #[test]
+    fn test_relative_xdg_config_home_is_ignored() {
+        // A relative XDG_CONFIG_HOME is invalid per the XDG spec and must be ignored
+        // rather than producing a config dir relative to the current directory.
+        if let Some(dir) = Config::resolve_config_dir(Some(OsStr::new("relative/path"))) {
+            assert!(
+                dir.is_absolute(),
+                "relative XDG_CONFIG_HOME must be ignored, got {dir:?}"
+            );
+            assert!(!dir.starts_with("relative"));
+        }
+    }
+
+    #[test]
+    fn test_unset_xdg_config_home_uses_platform_default() {
+        // With no XDG override, the resolver must produce an absolute platform
+        // default (or None on an unusual host), never a relative path.
+        if let Some(dir) = Config::resolve_config_dir(None) {
+            assert!(
+                dir.is_absolute(),
+                "platform default must be absolute, got {dir:?}"
+            );
+            assert!(dir.ends_with("jwt-hack"));
+        }
+    }
 
     #[test]
     fn test_default_config() {
