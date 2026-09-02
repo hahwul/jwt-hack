@@ -397,6 +397,10 @@ fn sign_token_with_key(
 
 /// Verify a JWT token against all keys in a JWKS
 pub fn verify_with_jwks(token: &str, jwks: &JwkSet) -> Result<Vec<KeyVerifyResult>> {
+    // A compact JWS never contains surrounding whitespace, but a token pasted or
+    // piped in commonly carries a trailing newline. Un-trimmed, that byte corrupts
+    // the base64url signature segment and every key is wrongly reported INVALID.
+    let token = token.trim();
     let mut results = Vec::new();
 
     for (i, jwk) in jwks.keys.iter().enumerate() {
@@ -679,59 +683,83 @@ pub fn test_key_rotation(
     token: &str,
     key_paths: &[std::path::PathBuf],
 ) -> Result<Vec<KeyRotationResult>> {
+    // A trailing newline on the token corrupts its signature segment and makes every
+    // key report INVALID; trim it once so the whole batch verifies the real token.
+    let token = token.trim();
     let mut results = Vec::new();
 
     for path in key_paths {
-        let key_content = std::fs::read_to_string(path)
-            .map_err(|e| anyhow!("Failed to read key file {:?}: {}", path, e))?;
-
         let filename = path
             .file_name()
             .map(|f| f.to_string_lossy().to_string())
             .unwrap_or_else(|| path.display().to_string());
 
-        // Try as public key PEM
-        let options = crate::jwt::VerifyOptions {
-            key_data: crate::jwt::VerifyKeyData::PublicKeyPem(&key_content),
-            validate_exp: false,
-            validate_nbf: false,
-            leeway: 0,
-        };
-
-        match crate::jwt::verify_with_options(token, &options) {
-            Ok(valid) => {
+        // Read the key as raw bytes. A single unreadable or non-UTF-8 key file must
+        // not abort the entire batch: the previous `read_to_string(path)?` propagated
+        // the first such error, so a keys directory holding one binary file (a DER
+        // key, a raw HMAC secret) left every *other* key — including ones that would
+        // verify the token — untested. Record a per-key error and keep going instead.
+        let key_bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(e) => {
                 results.push(KeyRotationResult {
                     key_file: filename,
-                    valid,
-                    error: None,
+                    valid: false,
+                    error: Some(format!("Failed to read key file: {}", e)),
                 });
+                continue;
+            }
+        };
+
+        // A PEM public key and a text HMAC secret both need a `&str`. A non-UTF-8 key
+        // can still be a legitimate *binary* HMAC secret (JWK `oct` keys are arbitrary
+        // bytes), so fall back to verifying it as raw secret bytes rather than
+        // discarding it.
+        let result = match std::str::from_utf8(&key_bytes) {
+            Ok(key_content) => {
+                // Try as a public-key PEM first, then as a (text) HMAC secret.
+                let pem_options = crate::jwt::VerifyOptions {
+                    key_data: crate::jwt::VerifyKeyData::PublicKeyPem(key_content),
+                    validate_exp: false,
+                    validate_nbf: false,
+                    leeway: 0,
+                };
+                match crate::jwt::verify_with_options(token, &pem_options) {
+                    Ok(valid) => (valid, None),
+                    Err(_) => {
+                        let secret_options = crate::jwt::VerifyOptions {
+                            key_data: crate::jwt::VerifyKeyData::Secret(key_content.trim()),
+                            validate_exp: false,
+                            validate_nbf: false,
+                            leeway: 0,
+                        };
+                        match crate::jwt::verify_with_options(token, &secret_options) {
+                            Ok(valid) => (valid, None),
+                            Err(e) => (false, Some(e.to_string())),
+                        }
+                    }
+                }
             }
             Err(_) => {
-                // Try as HMAC secret
+                // Binary key material: verify as raw HMAC secret bytes.
                 let secret_options = crate::jwt::VerifyOptions {
-                    key_data: crate::jwt::VerifyKeyData::Secret(key_content.trim()),
+                    key_data: crate::jwt::VerifyKeyData::SecretBytes(&key_bytes),
                     validate_exp: false,
                     validate_nbf: false,
                     leeway: 0,
                 };
                 match crate::jwt::verify_with_options(token, &secret_options) {
-                    Ok(valid) => {
-                        results.push(KeyRotationResult {
-                            key_file: filename,
-                            valid,
-                            error: None,
-                        });
-                    }
-                    Err(e) => {
-                        results.push(KeyRotationResult {
-                            key_file: filename,
-                            valid: false,
-                            error: Some(e.to_string()),
-                        });
-                    }
+                    Ok(valid) => (valid, None),
+                    Err(e) => (false, Some(format!("Non-UTF-8 key file: {}", e))),
                 }
             }
-        }
+        };
+
+        results.push(KeyRotationResult {
+            key_file: filename,
+            valid: result.0,
+            error: result.1,
+        });
     }
 
     Ok(results)
@@ -1096,5 +1124,105 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert!(!results[0].valid); // wrong-secret
         assert!(results[1].valid); // my-secret
+    }
+
+    #[test]
+    fn test_key_rotation_binary_key_does_not_abort_batch() {
+        // Regression: a single non-UTF-8 key file used to abort the ENTIRE rotation
+        // batch (`read_to_string(path)?`), so a good key after it was never tested.
+        // A binary file must be reported as its own (failed) key while the rest of
+        // the batch still runs.
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        let claims = serde_json::json!({"sub": "test"});
+        let token =
+            crate::jwt::encode(&claims, "my-secret", "HS256").expect("Failed to create token");
+
+        let dir = tempdir().unwrap();
+        let bin_path = dir.path().join("binary.key");
+        std::fs::File::create(&bin_path)
+            .unwrap()
+            .write_all(&[0xff, 0xfe, 0x00, 0x01, b'D', b'E', b'R'])
+            .unwrap();
+        let good_path = dir.path().join("good.txt");
+        std::fs::File::create(&good_path)
+            .unwrap()
+            .write_all(b"my-secret")
+            .unwrap();
+
+        let results = test_key_rotation(&token, &[bin_path, good_path])
+            .expect("rotation must not abort on a binary key file");
+        assert_eq!(results.len(), 2, "both keys must be reported");
+        assert!(
+            !results[0].valid,
+            "binary DER blob must not verify an HS256 token"
+        );
+        assert!(
+            results[1].valid,
+            "a good HMAC key placed after a binary one must still be tested and verify"
+        );
+    }
+
+    #[test]
+    fn test_key_rotation_verifies_binary_hmac_secret() {
+        // A JWK/HMAC secret is arbitrary bytes; a binary key file could not be read at
+        // all before, so its correctly-signed token was untestable. Signing with the
+        // raw bytes and verifying via SecretBytes must now succeed.
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        let key: [u8; 16] = [
+            0xff, 0xfe, 0x00, 0x80, 1, 2, 3, 0x90, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x10, 0x20,
+        ];
+        let h_b64 = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let c_b64 = URL_SAFE_NO_PAD.encode(br#"{"sub":"bin"}"#);
+        let signing_input = format!("{h_b64}.{c_b64}");
+        let mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), key);
+        let sig_b64 = URL_SAFE_NO_PAD.encode(mac.as_slice());
+        let token = format!("{signing_input}.{sig_b64}");
+
+        let dir = tempdir().unwrap();
+        let key_path = dir.path().join("binkey.key");
+        std::fs::File::create(&key_path)
+            .unwrap()
+            .write_all(&key)
+            .unwrap();
+
+        let results = test_key_rotation(&token, &[key_path]).expect("rotation");
+        assert_eq!(results.len(), 1);
+        assert!(
+            results[0].valid,
+            "binary HMAC key must verify its own token; err={:?}",
+            results[0].error
+        );
+    }
+
+    #[test]
+    fn test_verify_with_jwks_trims_surrounding_whitespace() {
+        // Regression: a trailing newline (common when a token is read from a file or
+        // pipe) corrupted the base64url signature segment, so a valid key was wrongly
+        // reported INVALID. The token must be trimmed before verification.
+        let key: [u8; 32] = [7u8; 32];
+        let h_b64 = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let c_b64 = URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+        let signing_input = format!("{h_b64}.{c_b64}");
+        let mac = hmac_sha256::HMAC::mac(signing_input.as_bytes(), key);
+        let sig_b64 = URL_SAFE_NO_PAD.encode(mac.as_slice());
+        let token = format!("{signing_input}.{sig_b64}");
+
+        let k_b64 = URL_SAFE_NO_PAD.encode(key);
+        let jwks_json =
+            format!(r#"{{"keys":[{{"kty":"oct","kid":"k1","alg":"HS256","k":"{k_b64}"}}]}}"#);
+        let jwks = parse_jwks(&jwks_json).unwrap();
+
+        let padded = format!("  {token}\n");
+        let results = verify_with_jwks(&padded, &jwks).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(
+            results[0].valid,
+            "whitespace-padded token must still verify against its key; err={:?}",
+            results[0].error
+        );
     }
 }
