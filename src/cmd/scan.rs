@@ -255,7 +255,10 @@ fn scan_jwe_token(token: &str) -> Result<ScanReport> {
     }
 
     // Direct symmetric encryption is brute-forceable when a weak CEK is used.
-    if alg == "dir" {
+    // Match case-insensitively, mirroring the `none` check above: a case-varied
+    // `alg` (e.g. "DIR") is exactly the parser-confusion shape this tool exists to
+    // flag, so an exact `== "dir"` would silently miss it.
+    if alg.eq_ignore_ascii_case("dir") {
         results.push(VulnerabilityResult {
             name: "Direct Encryption".to_string(),
             vulnerable: true,
@@ -398,6 +401,16 @@ fn scan_jwe_token(token: &str) -> Result<ScanReport> {
 }
 
 fn scan_token(token: &str, options: &ScanOptions, include_payloads: bool) -> Result<ScanReport> {
+    // A JWT/JWE compact serialization never contains surrounding whitespace, but a
+    // token routinely arrives with a trailing newline (read from a file or pipe) or
+    // stray spaces (copy-paste). Left un-trimmed, that whitespace lands in the
+    // signature segment and silently breaks HMAC verification: the weak-secret check
+    // then reports "no weak secret found" for a token whose secret *is* weak — a
+    // false negative on the single most critical finding — while a leading space
+    // makes the whole scan hard-fail on base64 decoding. Trim once, up front, so
+    // every downstream check (and the generated attack payloads) sees the canonical
+    // token.
+    let token = token.trim();
     let token_type = jwt::detect_token_type(token);
 
     // A JWE (5 segments) is an *encrypted* token, not a JWS. Running the signature
@@ -2607,5 +2620,76 @@ mod tests {
         let html = std::fs::read_to_string(&html_path).expect("read html report");
         assert!(html.contains("<!doctype html>"));
         assert!(html.contains("jwt-hack scan report"));
+    }
+
+    #[test]
+    fn test_scan_token_trims_surrounding_whitespace() {
+        // Regression: a token routinely arrives with a trailing newline (read from a
+        // file/pipe) or stray surrounding spaces. Un-trimmed, that whitespace landed
+        // in the signature segment and silently broke HMAC verification, so the
+        // weak-secret check reported "no weak secret" for a token whose secret IS
+        // weak. Scanning a padded token must produce the same findings as the clean
+        // one.
+        let token = create_test_token("HS256", "secret");
+        let options = ScanOptions::default();
+
+        let clean = scan_token(&token, &options, false).expect("scan clean token");
+        let padded = scan_token(&format!("  {token}\n"), &options, false)
+            .expect("scan whitespace-padded token");
+
+        let weak = |r: &ScanReport| {
+            r.results
+                .iter()
+                .find(|x| x.name == "Weak Secret")
+                .map(|x| x.vulnerable)
+                .unwrap_or(false)
+        };
+        assert!(
+            weak(&clean),
+            "sanity: clean token's weak secret should be detected"
+        );
+        assert!(
+            weak(&padded),
+            "whitespace-padded token must still detect the weak secret"
+        );
+        // Whole-report parity: the padding must not change the analysis.
+        assert_eq!(clean.algorithm, padded.algorithm);
+        assert_eq!(
+            clean.summary.vulnerabilities,
+            padded.summary.vulnerabilities
+        );
+        assert_eq!(clean.summary.critical, padded.summary.critical);
+    }
+
+    #[test]
+    fn test_scan_jwe_dir_alg_is_case_insensitive() {
+        // Regression: the JWE Direct Encryption check matched `alg == "dir"` exactly
+        // while the `none` check was case-insensitive, so a case-varied `alg` (e.g.
+        // "DIR") — exactly the parser-confusion shape this tool flags — was silently
+        // missed. Both casings must now yield the Direct Encryption finding.
+        use base64::Engine;
+        let enc = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let has_direct = |alg: &str| {
+            let header = enc.encode(format!(r#"{{"alg":"{alg}","enc":"A256GCM"}}"#).as_bytes());
+            // dir mode: empty encrypted-key segment, plus IV/ciphertext/tag.
+            let token = format!(
+                "{header}.{}.{}.{}.{}",
+                enc.encode(b""),
+                enc.encode(b"iv1234567890"),
+                enc.encode(b"c"),
+                enc.encode(b"tag1234567890123"),
+            );
+            let report = scan_jwe_token(&token).expect("scan jwe token");
+            report
+                .results
+                .iter()
+                .any(|r| r.name == "Direct Encryption" && r.vulnerable)
+        };
+
+        assert!(has_direct("dir"), "lowercase 'dir' must be flagged");
+        assert!(
+            has_direct("DIR"),
+            "case-varied 'DIR' must also be flagged (parser-confusion shape)"
+        );
     }
 }
