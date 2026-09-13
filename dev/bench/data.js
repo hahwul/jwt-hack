@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788309592737,
+  "lastUpdate": 1789278392436,
   "repoUrl": "https://github.com/hahwul/jwt-hack",
   "entries": {
     "jwt-hack benchmarks": [
@@ -395,6 +395,72 @@ window.BENCHMARK_DATA = {
             "name": "crack_brute_len3_lower",
             "value": 26522087,
             "range": "± 67008",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50c8e3db1d9bb7a1890574262fb248391319c9a0",
+          "message": "build(deps): bump dirs from 6.0.0 to 7.0.0 (#300)\n\nBumps dirs from 6.0.0 to 7.0.0.\n\n---\nupdated-dependencies:\n- dependency-name: dirs\n  dependency-version: 7.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-13T14:39:54+09:00",
+          "tree_id": "18f0db9565168bcdc70539fc7f8eee0e73a756ec",
+          "url": "https://github.com/hahwul/jwt-hack/commit/50c8e3db1d9bb7a1890574262fb248391319c9a0"
+        },
+        "date": 1789278390624,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "encode_hs256",
+            "value": 1141,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "encode_hs256_compressed",
+            "value": 22437,
+            "range": "± 327",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "decode",
+            "value": 1438,
+            "range": "± 50",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256",
+            "value": 3477,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "verify_hs256_fastpath",
+            "value": 1647,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_dict_8_words",
+            "value": 13183,
+            "range": "± 60",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "crack_brute_len3_lower",
+            "value": 29254379,
+            "range": "± 51689",
             "unit": "ns/iter"
           }
         ]
