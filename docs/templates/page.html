@@ -7,7 +7,7 @@
   <main id="main" class="docs-main">
     <div class="docs-grid{% if not toc %} no-toc{% endif %}">
       <article class="docs-content">
-        {% if page.section %}<div class="page-eyebrow">{{ page.section | replace("_", " ") | title }}</div>{% endif %}
+        {% if page.section %}<div class="page-eyebrow">{{ page.section | split("/") | last | replace("_", " ") | title }}</div>{% endif %}
         <h1>{{ page.title | e }}</h1>
         {{ content }}
       </article>

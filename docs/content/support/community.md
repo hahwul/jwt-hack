@@ -4,41 +4,22 @@ title = "Community"
 weight = 5
 +++
 
-Community resources and communication channels for JWT-HACK.
+`jwt-hack` is built in the open on GitHub. Everything happens there.
 
-## Content Coming Soon
+## Get involved
 
-This section is currently under development. Community resources, channels, and guidelines will be added here.
+- [Repository](https://github.com/hahwul/jwt-hack): source, releases, and the issue tracker.
+- [Issues](https://github.com/hahwul/jwt-hack/issues): report a bug, request a feature, or flag a JWT attack that isn't covered yet.
+- [Pull requests](https://github.com/hahwul/jwt-hack/pulls): patches welcome. Start with the [Contributing guide](/support/contributing/).
 
-## Stay Connected
+## Report a security issue
 
-While this section is being built, you can connect with the JWT-HACK community:
+Found a vulnerability in `jwt-hack` itself? Follow the disclosure process in [SECURITY.md](https://github.com/hahwul/jwt-hack/blob/main/SECURITY.md) rather than opening a public issue.
 
-### GitHub
-- **Repository**: [github.com/hahwul/jwt-hack](https://github.com/hahwul/jwt-hack)
-- **Issues**: Report bugs and request features
-- **Discussions**: Ask questions and share ideas
-- **Pull Requests**: Contribute code improvements
+## Maintainer
 
-### Social Media
-Follow the project maintainer for updates:
-- **GitHub**: [@hahwul](https://github.com/hahwul)
+Built and maintained by [@hahwul](https://github.com/hahwul). Project updates go out through GitHub releases.
 
-## Contributing
+## Conduct
 
-Want to contribute to JWT-HACK? Check out the [Contributing Guide](/support/contributing) for details on how to get started.
-
-## Code of Conduct
-
-JWT-HACK follows a Code of Conduct to ensure a welcoming and inclusive community for all contributors. Please be respectful and considerate in all interactions.
-
-## Getting Help
-
-- **Documentation**: Start with the [Introduction](/get_started/introduction)
-- **Examples**: Check out [practical examples](/usage/examples)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/hahwul/jwt-hack/issues)
-- **Discussions**: Ask questions on [GitHub Discussions](https://github.com/hahwul/jwt-hack/discussions)
-
-## Acknowledgments
-
-JWT-HACK is an open-source project made with ❤️ by the community. Thanks to all contributors who have helped improve the project!
+Contributors are expected to follow the [Code of Conduct](https://github.com/hahwul/jwt-hack/blob/main/CODE_OF_CONDUCT.md). Be decent to each other.

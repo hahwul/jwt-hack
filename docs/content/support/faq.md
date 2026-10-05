@@ -4,28 +4,36 @@ title = "FAQ"
 weight = 2
 +++
 
-Frequently asked questions about JWT-HACK.
+## Which algorithms are supported?
 
-## Content Coming Soon
+HS256/384/512, RS256/384/512, PS256/384/512, ES256/384/512, EdDSA, and the unsigned `none` algorithm. For JWE, `jwt-hack` handles `dir`, RSA-OAEP, ECDH-ES, and AES key-wrap variants with A128GCM or A256GCM content encryption. The full list is on the [introduction](/get_started/introduction/) page.
 
-This section is currently under development. Common questions and answers will be added here.
+## Can `crack` recover an RS256 or ES256 secret?
 
-## Have a Question?
+No, and nothing can. RS/ES/PS/EdDSA tokens are signed with a private key, not a shared secret, so there is no secret to guess. `crack` only works on HMAC tokens (HS256/384/512). If you point it at an asymmetric token it tells you so and stops.
 
-While this FAQ is being built, you can:
+What you *can* do to an RS256 token is test for algorithm confusion, where the server verifies an attacker-supplied HS256 token using the RSA public key as the HMAC secret. See [`payload --target alg_confusion`](/usage/commands/payload/).
 
-1. Check the [documentation](/get_started/introduction) for detailed information
-2. Review [examples](/usage/examples) for practical use cases
-3. Ask questions on [GitHub Discussions](https://github.com/hahwul/jwt-hack/discussions)
-4. Report issues on [GitHub Issues](https://github.com/hahwul/jwt-hack/issues)
+## Why does `verify` exit with code 0 even when the token is invalid?
 
-## Quick Answers
+A bad signature is a valid, expected result, not a tool error. `verify` prints `✓ Token is valid.` or `✗ Token is invalid.` and exits 0 in both cases. Parse the stdout line, or use `--json` and read the `valid` field. Exit code 1 is reserved for real failures like an unreadable key file.
 
-**Q: What JWT algorithms are supported?**
-A: JWT-HACK supports HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, and EdDSA. See the [Introduction](/get_started/introduction) for details.
+## Does `scan` find the secret for me?
 
-**Q: How do I install JWT-HACK?**
-A: See the [Installation](/get_started/installation) guide for multiple installation methods.
+It runs a quick weak-secret check against a short built-in list, enough to catch `secret`, `password`, and friends. For a real wordlist, run [`crack`](/usage/commands/crack/) directly, or pass `scan -w <wordlist>`.
 
-**Q: Can I use JWT-HACK in automated scripts?**
-A: Yes! See [Scripting & Automation](/advanced/scripting-automation) for details.
+## How do I use `jwt-hack` in a script?
+
+Add `--json` to any command for stable machine-readable output. See [Scripting & Automation](/advanced/scripting-automation/) for field names and exit-code behavior.
+
+## Where does `jwt-hack` store its config and cache?
+
+Under `$XDG_CONFIG_HOME/jwt-hack` when `XDG_CONFIG_HOME` is an absolute path, otherwise the platform config directory (`~/.config/jwt-hack` on Linux, `~/Library/Application Support/jwt-hack` on macOS). Downloaded wordlist presets and the shell history file live there too. See [Configuration](/usage/configuration/) and [Environment Variables](/reference/environment-variables/).
+
+## Is this legal to use?
+
+`jwt-hack` is a testing tool. Only run it against tokens and systems you own or have written permission to test. See [SECURITY.md](https://github.com/hahwul/jwt-hack/blob/main/SECURITY.md).
+
+## Something isn't covered here
+
+Open an issue on [GitHub](https://github.com/hahwul/jwt-hack/issues).

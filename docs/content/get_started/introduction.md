@@ -4,69 +4,48 @@ title = "Introduction"
 weight = 1
 +++
 
-JWT-HACK provides comprehensive JWT security testing capabilities with support for modern token formats and attack vectors.
+`jwt-hack` is a JWT and JWE security testing toolkit: one Rust binary that decodes, forges, verifies, cracks, and attacks tokens. It is meant for the offensive side of auth work, finding the bug before someone else does, but it reads and signs tokens just as happily for day-to-day debugging.
 
-## Core Features
+## What it does
 
-| Mode    | Description                  | Support                                                      |
-|---------|------------------------------|--------------------------------------------------------------|
-| Encode  | JWT/JWE Encoder              | Secret based / Key based / Algorithm / Custom Header / DEFLATE Compression / JWE |
-| Decode  | JWT/JWE Decoder              | Algorithm, Issued At Check, DEFLATE Compression, JWE Structure |
-| Verify  | JWT Verifier                 | Secret based / Key based (for asymmetric algorithms)         |
-| Crack   | Secret Cracker               | Dictionary Attack / Brute Force / DEFLATE Compression        |
-| Payload | JWT Attack Payload Generator | none / jku&x5u / alg_confusion / kid_sql / x5c / cty         |
-| MCP     | Model Context Protocol Server | AI model integration via standardized protocol               |
+| Command | What it is for |
+|---------|----------------|
+| [`decode`](/usage/commands/decode/) | Read a JWT or JWE: header, claims, timestamps. Handles DEFLATE and JWE structure. |
+| [`encode`](/usage/commands/encode/) | Sign a token with any supported algorithm, custom headers, compression, or as JWE. |
+| [`verify`](/usage/commands/verify/) | Check a signature against a secret or key, optionally the `exp` claim. |
+| [`crack`](/usage/commands/crack/) | Recover an HMAC secret by dictionary or brute force, or guess a target field. |
+| [`payload`](/usage/commands/payload/) | Generate attack tokens: none-alg, algorithm confusion, kid injection, jku/x5u, claim tampering, and more. |
+| [`scan`](/usage/commands/scan/) | Run every check against a token and export a graded report. |
+| [`jwks`](/usage/commands/jwks/) | Fetch, spoof, verify, and rotation-test JWKS key sets. |
+| [`shell`](/usage/commands/shell/) | Interactive REPL with history and completion. |
+| [`server`](/usage/commands/server/) | REST API over the same operations. |
+| [`mcp`](/usage/commands/mcp/) | Expose the toolkit as tools for MCP clients like Claude. |
 
-## Supported Algorithms
+Every command takes `--json` for machine-readable output, so any of them drops into a script or pipeline.
 
-### Symmetric Algorithms (HMAC)
-- **HS256** - HMAC using SHA-256
-- **HS384** - HMAC using SHA-384
-- **HS512** - HMAC using SHA-512
+## Supported algorithms
 
-### Asymmetric Algorithms (RSA/ECDSA/EdDSA)
-- **RS256/RS384/RS512** - RSASSA-PKCS1-v1_5 using SHA-256/384/512
-- **PS256/PS384/PS512** - RSASSA-PSS using SHA-256/384/512
-- **ES256** - ECDSA using P-256 and SHA-256
-- **ES384** - ECDSA using P-384 and SHA-384
-- **ES512** - ECDSA using P-521 and SHA-512
-- **EdDSA** - Edwards-curve Digital Signature Algorithm (Ed25519)
+Signing: HS256/384/512, RS256/384/512, PS256/384/512, ES256/384/512, EdDSA, and the unsigned `none`.
 
-### Special Cases
-- **None** - Unsigned tokens for testing
+JWE key management: `dir`, RSA-OAEP, RSA-OAEP-256, ECDH-ES, ECDH-ES with A128KW/A256KW, and standalone A128KW/A256KW. Content encryption is A128GCM or A256GCM.
 
-## JWT Attack Vectors
+## The attacks it covers
 
-### Algorithm Confusion Attacks
-- **None Algorithm Bypass** - Strip signature verification
-- **Algorithm Substitution** - Change from RSA to HMAC
-- **Key Confusion** - Use public key as HMAC secret
+`payload` and `scan` know the common ways a JWT implementation goes wrong:
 
-### Header Manipulation
-- **JKU/X5U URL Attacks** - Malicious key URLs
-- **KID SQL Injection** - Database injection via key ID
-- **X5C Certificate Injection** - Malicious certificate chains
-- **CTY Content Type Attacks** - MIME type confusion
+- Accepting `none` or a downgraded signature.
+- Algorithm confusion, where an RS256 verifier is tricked into checking an HS256 token with the public key as the HMAC secret.
+- `kid` header injection: SQL, path traversal, and predictable key IDs.
+- `jku` and `x5u` pointing at attacker-hosted key material, including full JWKS spoofing via [`jwks`](/usage/commands/jwks/).
+- Claim tampering: privilege escalation, expiry manipulation, and type confusion.
+- Signature malleability and other parser quirks.
 
-## Advanced Capabilities
+See [`payload`](/usage/commands/payload/) for the full target list.
 
-### DEFLATE Compression Support
-JWT-HACK automatically detects and handles DEFLATE-compressed JWTs:
-- Decode compressed tokens transparently
-- Generate compressed tokens with `--compress` flag
-- Support for cracking compressed token secrets
+## Format handling
 
-### JWE (JSON Web Encryption) Support
-- Decode JWE token structure (5-part format)
-- Display encryption details and components
-- Analyze JWE headers and algorithms
+DEFLATE-compressed tokens (`"zip":"DEF"`) are detected and decompressed on decode, produced with `--compress` on encode, and handled transparently while cracking. JWE tokens are recognized by their 5-part structure and broken down into their components.
 
-### High Performance
-- **Parallel Processing** - Multi-threaded cracking operations
-- **Efficient Memory Usage** - Optimized for large wordlists
-- **Progress Indicators** - Real-time feedback on long operations
+## Performance
 
-### Model Context Protocol (MCP)
-- Run as MCP server for AI model integration
-- Standardized protocol for JWT analysis
-- Compatible with various AI frameworks
+Cracking runs in parallel across cores (`--power` to use all of them), with progress reporting on long runs. Ready to try it? Start with [installation](/get_started/installation/) and the [quick start](/get_started/quickstart/).

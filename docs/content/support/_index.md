@@ -5,11 +5,9 @@ weight = 5
 sort_by = "weight"
 +++
 
-Get help and support for JWT-HACK.
+When something doesn't behave as expected, or you want to help.
 
-## Support Resources
-
-- **[Troubleshooting](/support/troubleshooting)** - Common issues and solutions
-- **[FAQ](/support/faq)** - Frequently asked questions
-- **[Contributing](/support/contributing)** - How to contribute to the project
-- **[Community](/support/community)** - Community resources and channels
+- [Troubleshooting](/support/troubleshooting/): common errors and what they mean.
+- [FAQ](/support/faq/): the questions that come up most.
+- [Contributing](/support/contributing/): how to send a patch.
+- [Community](/support/community/): where the project lives.

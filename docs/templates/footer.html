@@ -160,6 +160,28 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Prev / next pager from the sidebar order
+  if (content) {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.docs-sidebar a'));
+    var idx = links.findIndex(function (l) { return l.classList.contains('active'); });
+    if (idx !== -1) {
+      var pager = document.createElement('nav');
+      pager.className = 'doc-pager';
+      pager.setAttribute('aria-label', 'Pagination');
+      [[links[idx - 1], 'prev', 'Previous'], [links[idx + 1], 'next', 'Next']].forEach(function (p) {
+        if (!p[0]) return;
+        var a = document.createElement('a');
+        a.href = p[0].href;
+        a.className = p[1];
+        a.innerHTML = '<span class="dir"></span><span class="name"></span>';
+        a.querySelector('.dir').textContent = p[2];
+        a.querySelector('.name').textContent = p[0].textContent;
+        pager.appendChild(a);
+      });
+      content.appendChild(pager);
+    }
+  }
+
   // Generic copy targets (hero install lines, etc.)
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {

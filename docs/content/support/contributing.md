@@ -58,7 +58,7 @@ cargo clean && just dev
 - Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
 - Use `cargo fmt` to format your code before committing
 - Run `cargo clippy` and address any warnings
-- Write comprehensive tests for new functionality
+- Add tests that cover the new behavior
 
 ### Commit Messages
 

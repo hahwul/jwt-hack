@@ -1,176 +1,70 @@
 +++
 toc = true
-title = "Verify Command"
+title = "verify"
 weight = 3
 +++
 
-The `verify` command validates JWT token signatures and optionally checks expiration claims.
+Check whether a token's signature holds against a given secret or key, and optionally whether it has expired.
 
-## Basic Usage
+## Usage
 
 ```bash
 jwt-hack verify <TOKEN> [OPTIONS]
 ```
 
-## Secret-Based Verification (HMAC)
+```bash
+jwt-hack verify "$TOKEN" --secret=test
+```
 
-Verify HMAC-signed tokens with a shared secret:
+```text
+✓ Token is valid.
+```
+
+A bad secret or key prints `✗ Token is invalid.`
+
+## Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--secret <SECRET>` | from config | HMAC key for HS256/384/512. |
+| `--private-key <PRIVATE_KEY>` | from config | Public key in PEM for RSA/ECDSA/EdDSA verification. The flag is named `private-key` but for verify you pass the public key. |
+| `--validate-exp` | off | Also check the `exp` claim and fail if the token has expired. |
+
+Despite the name, asymmetric verification wants the public key (X.509 `BEGIN PUBLIC KEY` or PKCS#1 `BEGIN RSA PUBLIC KEY`):
 
 ```bash
-# Verify HS256 token
-jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA --secret=test
-
-# Try different secrets
-jwt-hack verify <TOKEN> --secret=secret123
-jwt-hack verify <TOKEN> --secret=password
+jwt-hack verify "$RSA_TOKEN" --private-key=public.pem
 ```
 
-## Key-Based Verification (RSA/ECDSA)
+## Expiration
 
-Verify asymmetric tokens using public keys:
+By default verify only looks at the signature, not the clock. Add `--validate-exp` to reject expired tokens:
 
 ```bash
-# Verify RSA-signed token
-jwt-hack verify <RSA_TOKEN> --private-key=public.pem
-
-# Verify ECDSA-signed token
-jwt-hack verify <ECDSA_TOKEN> --private-key=ec-public.pem
-```
-
-## Expiration Validation
-
-Check if the token has expired:
-
-```bash
-# Enable expiration validation
-jwt-hack verify <TOKEN> --secret=test --validate-exp
-```
-
-With `--validate-exp`, the command will:
-- Check the `exp` (expiration) claim
-- Validate against current timestamp
-- Report if the token is expired
-- Show time remaining or time since expiration
-
-## Command Options
-
-### Required
-- `<TOKEN>` - The JWT token to verify
-
-### Authentication Options
-- `--secret <SECRET>` - Secret for HMAC token verification
-- `--private-key <PATH>` - Path to public key file for RSA/ECDSA verification
-
-### Validation Options
-- `--validate-exp` - Enable expiration time validation
-
-## Verification Results
-
-The verify command reports whether the signature is valid:
-
-### Successful Verification
-```
-Token is valid.
-```
-
-### Failed Verification
-On failure, the command prints the error and a hint about the likely cause, e.g.:
-```
-Token is invalid.
-```
-or, when verification errors out:
-```
-JWT Verification Error: Invalid signature
-This could be due to an incorrect secret or key.
-```
-
-### Expiration Issues
-With `--validate-exp`, an expired token surfaces an expiration error:
-```
-JWT Verification Error: Expired signature
-The token has expired. Check the 'exp' claim.
-```
-
-## Examples
-
-### Basic HMAC Verification
-```bash
-# Verify with correct secret
-jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=correct-secret
-
-# Try with wrong secret (will fail)
-jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE --secret=wrong-secret
-```
-
-### RSA Token Verification
-```bash
-# Verify RSA256 token with public key
-jwt-hack verify <RSA_TOKEN> --private-key=rsa-public.pem
-```
-
-### Complete Validation
-```bash
-# Verify signature and check expiration
-jwt-hack verify <TOKEN> --secret=mysecret --validate-exp
-```
-
-## Key File Requirements
-
-### For RSA/ECDSA Verification
-You need the **public key** corresponding to the private key used for signing:
-
-```bash
-# Extract public key from private key
-openssl rsa -in private.pem -pubout -out public.pem
-
-# Use public key for verification
-jwt-hack verify <TOKEN> --private-key=public.pem
-```
-
-### Supported Public Key Formats
-- **X.509 SubjectPublicKeyInfo** - `-----BEGIN PUBLIC KEY-----`
-- **PKCS#1 RSA Public Key** - `-----BEGIN RSA PUBLIC KEY-----`
-
-## Security Testing
-
-The verify command is useful for security testing:
-
-### Test Different Secrets
-```bash
-# Test common weak secrets
-jwt-hack verify <TOKEN> --secret=secret
-jwt-hack verify <TOKEN> --secret=password
-jwt-hack verify <TOKEN> --secret=123456
-jwt-hack verify <TOKEN> --secret=test
-```
-
-### Algorithm Confusion Testing
-```bash
-# Test if RSA token accepts HMAC verification (algorithm confusion)
-jwt-hack verify <RSA_TOKEN> --secret=<PUBLIC_KEY_CONTENT>
-```
-
-### None Algorithm Testing
-```bash
-# Test unsigned tokens (none algorithm)
-jwt-hack verify <NONE_TOKEN>
+jwt-hack verify "$TOKEN" --secret=mysecret --validate-exp
 ```
 
 ## Scripting
 
-The verify command does **not** currently signal validity through distinct exit
-codes — an invalid signature is reported in the output but still exits `0`. For
-reliable scripting, use the global `--json` flag and parse the `valid` field:
+Verify always exits `0`, even on an invalid signature: the result is in the output, not the exit code. For a script, use `--json` and read the `valid` field.
 
 ```bash
-jwt-hack --json verify "$TOKEN" --secret="$SECRET"
+jwt-hack --json verify "$TOKEN" --secret=test
 # => {"success":true,"valid":true,"validate_exp":false}
 ```
 
 ```bash
 if [ "$(jwt-hack --json verify "$TOKEN" --secret="$SECRET" | jq -r .valid)" = "true" ]; then
-    echo "Token is valid"
-else
-    echo "Token verification failed"
+  echo "valid"
 fi
 ```
+
+## Testing for weaknesses
+
+Verify is a convenient oracle during testing. To check algorithm confusion, pass the server's public key bytes as the HMAC secret and see if an RS/ES token verifies as HS:
+
+```bash
+jwt-hack verify "$RSA_TOKEN" --secret="$(cat server-public.pem)"
+```
+
+If that works, the server is confusing symmetric and asymmetric verification. [payload](/usage/commands/payload/) with `--target alg_confusion --public-key` forges the full token for you. To hunt for the signing secret of an HS token instead, use [crack](/usage/commands/crack/).
