@@ -11,28 +11,6 @@ use rmcp::{
 #[allow(unused_imports)]
 use std::future::Future;
 
-/// Helper function to generate combinations for brute force
-fn generate_combinations(chars: &[char], length: usize) -> Vec<String> {
-    if length == 0 {
-        return vec![String::new()];
-    }
-
-    if length == 1 {
-        return chars.iter().map(|c| c.to_string()).collect();
-    }
-
-    let mut result = Vec::new();
-    let shorter = generate_combinations(chars, length - 1);
-
-    for combination in shorter {
-        for &ch in chars {
-            result.push(format!("{}{}", combination, ch));
-        }
-    }
-
-    result
-}
-
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct DecodeArgs {
     /// JWT token to decode
@@ -341,7 +319,7 @@ impl JwtHackServer {
             const MCP_MAX_CHARSET: usize = 10;
             const MCP_MAX_ATTEMPTS: usize = 100;
             let max_len = std::cmp::min(args.max, MCP_MAX_BRUTE_LEN); // Limit length for MCP
-            let chars: Vec<char> = chars_to_use.chars().take(MCP_MAX_CHARSET).collect(); // Limit charset
+            let chars: String = chars_to_use.chars().take(MCP_MAX_CHARSET).collect(); // Limit charset
 
             let min_len = std::cmp::max(args.min, 1);
             // Without this guard, a requested min length above the MCP cap yields an
@@ -354,10 +332,14 @@ impl JwtHackServer {
                 ))]));
             }
             for len in min_len..=max_len {
-                // Generate combinations for this length
-                let combinations = generate_combinations(&chars, len);
-
-                for combination in combinations.into_iter().take(MCP_MAX_ATTEMPTS) {
+                for combination in crate::crack::brute::generate_combinations_chunked(
+                    &chars,
+                    len,
+                    MCP_MAX_ATTEMPTS,
+                )
+                .flatten()
+                .take(MCP_MAX_ATTEMPTS)
+                {
                     // Limit attempts
                     if let Ok(is_valid) = crate::jwt::verify(&args.token, &combination) {
                         if is_valid {
@@ -615,5 +597,24 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_crack_tool_brute() {
+        let server = JwtHackServer::new();
+        let token =
+            crate::jwt::encode(&serde_json::json!({"test": "data"}), "ba", "HS256").unwrap();
+        let args = CrackArgs {
+            token,
+            mode: "brute".to_string(),
+            chars: "ab".to_string(),
+            preset: None,
+            min: 2,
+            max: 2,
+        };
+
+        let result = server.crack(Parameters(args)).await.unwrap();
+        let text = result.content[0].as_text().unwrap().text.clone();
+        assert!(text.contains("Secret found: ba"));
     }
 }

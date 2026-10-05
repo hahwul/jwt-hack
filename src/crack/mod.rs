@@ -14,27 +14,6 @@ pub fn generate_bruteforce_payloads(chars: &str, max_length: usize) -> Vec<Strin
     brute::generate_bruteforce_payloads(chars, max_length, Some(progress))
 }
 
-/// Generates combinations in manageable chunks to optimize memory usage
-#[allow(dead_code)]
-fn generate_combinations(chars: &str, length: usize) -> Vec<String> {
-    if length == 0 {
-        return vec![String::new()];
-    } else if length == 1 {
-        // Special case optimization for single-character combinations
-        return chars.chars().map(|c| c.to_string()).collect();
-    }
-
-    // For multi-character combinations, use the chunked approach for better memory efficiency
-    let chunk_size = 10000;
-    let mut result = Vec::new();
-
-    for chunk in brute::generate_combinations_chunked(chars, length, chunk_size) {
-        result.extend(chunk);
-    }
-
-    result
-}
-
 /// Reads wordlist from a file if path exists, otherwise treats input as a single password to try
 #[allow(dead_code)]
 pub fn read_lines_or_literal(data: &str) -> Vec<String> {
