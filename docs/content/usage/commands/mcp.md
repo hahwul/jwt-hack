@@ -1,172 +1,73 @@
 +++
 toc = true
-title = "MCP Server Mode"
-weight = 6
+title = "mcp"
+weight = 10
 +++
 
-The `mcp` command runs JWT-HACK as a Model Context Protocol (MCP) server for AI model integration.
-
-## Basic Usage
+`jwt-hack mcp` runs jwt-hack as a Model Context Protocol server over stdio, so an MCP client such as Claude Desktop or Claude Code can call its JWT tools during a conversation.
 
 ```bash
 jwt-hack mcp
 ```
 
-## What is MCP?
+There is no port. The client launches `jwt-hack mcp` as a subprocess and talks to it over stdin/stdout, so running it by hand in a terminal just waits for MCP messages and looks like it hangs. That is expected. The implementation uses the `rmcp` crate and speaks protocol version `2024-11-05`.
 
-Model Context Protocol (MCP) is a standardized protocol that enables AI models to interact with external tools and services. When JWT-HACK runs in MCP mode, it exposes its JWT analysis capabilities to AI models through a structured interface.
+## Tools
 
-## Starting the MCP Server
+The server advertises five tools. Note this is a subset of the CLI: there is no `jwks`, `scan` or `server` tool here.
+
+| Tool | Parameters |
+| --- | --- |
+| `decode` | `token` |
+| `encode` | `json`, `secret`, `algorithm` (default `HS256`), `no_signature` (default false) |
+| `verify` | `token`, `secret`, `validate_exp` (default false) |
+| `crack` | `token`, `mode` (default `dict`), `chars`, `preset`, `min` (default 1), `max` (default 4) |
+| `payload` | `token`, `target` (default `all`), `jwk_attack`, `jwk_protocol` (default `https`), `public_key` |
+
+A few behaviors worth knowing before you wire this up:
+
+- `encode` requires a `secret` unless `no_signature` is true, in which case it emits an `alg:none` token.
+- `verify` requires a `secret`. If the token is `alg:none` and you pass a non-empty secret, it is reported invalid rather than accepted, matching the CLI and REST surfaces.
+- `crack` in `dict` mode does no file I/O; it tries jwt-hack's built-in common-secret list. `brute` mode is deliberately capped for interactive use: length 3 max, charset truncated to 10 characters, 100 attempts per length. Presets are `az`, `AZ`, `aZ`, `19`, `aZ19`, `ascii`.
+- `payload` with `public_key` accepts a PEM literal or a file path and forges an RS256-to-HS256 confusion token. `jwk_trust` is not exposed here.
+
+## Wiring it into a client
+
+The command is the same everywhere: run `jwt-hack mcp` as a stdio subprocess. Make sure `jwt-hack` is on the `PATH` the client uses, or give an absolute path.
+
+Claude Code, from the project root:
 
 ```bash
-# Start the MCP server (communicates over stdio)
-jwt-hack mcp
-
-# The server will:
-# - Speak the MCP protocol over stdin/stdout (stdio transport)
-# - Expose JWT-HACK functionality as MCP tools
-# - Process requests from an MCP-capable client
-# - Return structured responses
+claude mcp add jwt-hack -- jwt-hack mcp
 ```
 
-The server uses the **stdio transport** — it reads requests from stdin and writes
-responses to stdout. It is not a network server, so there is no port to configure;
-an MCP client launches `jwt-hack mcp` as a subprocess and communicates over the pipe.
+Claude Desktop, in `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`, Windows: `%APPDATA%\Claude\`):
 
-## Available MCP Tools
-
-When running as an MCP server, JWT-HACK exposes these five tools:
-
-- **decode** - Decode a JWT token and display its header, payload, and validation info
-- **encode** - Encode JSON data into a JWT token with a specified algorithm
-- **verify** - Verify a JWT token's signature and optionally validate expiration
-- **crack** - Attempt to crack a JWT token using dictionary or bruteforce methods
-- **payload** - Generate various JWT attack payloads for security testing
-
-## Integration Examples
-
-An MCP-capable client (such as a Claude or other agentic tool that supports MCP)
-can call these tools during a conversation:
-
-```
-User: "Analyze this JWT token for security vulnerabilities"
-Client: Calls the `decode`, `verify`, and `payload` tools on the JWT-HACK MCP server
-Client: Receives structured results and summarizes them
+```json
+{
+  "mcpServers": {
+    "jwt-hack": {
+      "command": "jwt-hack",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-Any client or framework that speaks MCP over stdio can connect to the server.
+Any other MCP client takes the same two pieces, a command and its args. After connecting, have the client list tools; it should report `decode`, `encode`, `verify`, `crack` and `payload`.
 
-## MCP Protocol Features
+## Example call
 
-### Structured Requests
+An MCP `tools/call` for `decode` looks like this:
+
 ```json
 {
   "method": "tools/call",
   "params": {
     "name": "decode",
-    "arguments": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    }
+    "arguments": {"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
   }
 }
 ```
 
-### Structured Responses
-The server returns the tool result as structured MCP content, for example the
-decoded header, payload, and algorithm for the `decode` tool.
-
-## Configuration
-
-### Client Configuration
-Configure your MCP client to launch the JWT-HACK MCP server as a subprocess:
-
-```json
-{
-  "mcp_servers": {
-    "jwt-hack": {
-      "command": "jwt-hack",
-      "args": ["mcp"],
-      "description": "JWT security analysis and testing"
-    }
-  }
-}
-```
-
-## Use Cases
-
-### Automated Security Analysis
-AI models can perform comprehensive JWT security analysis:
-
-1. **Token Analysis** - Decode and examine token structure
-2. **Vulnerability Detection** - Identify security weaknesses
-3. **Attack Vector Generation** - Create targeted test payloads
-4. **Report Generation** - Summarize findings and recommendations
-
-### Interactive Security Testing
-Enable conversational security testing:
-
-```
-User: "Is this JWT token secure?"
-AI + MCP: Analyzes token, identifies issues, suggests improvements
-User: "Show me attack payloads for testing"
-AI + MCP: Generates and explains relevant attack vectors
-```
-
-### Automated Penetration Testing
-Integrate into automated testing workflows:
-- **CI/CD Pipelines** - Analyze JWTs in automated tests
-- **Security Scanners** - Add JWT analysis capabilities
-- **Monitoring Systems** - Continuous JWT security assessment
-
-## Benefits of MCP Integration
-
-### For AI Models
-- Access to specialized JWT security expertise
-- Structured, reliable security analysis
-- Real-time vulnerability assessment
-- Consistent security recommendations
-
-### For Security Teams
-- Natural language interaction with security tools
-- Automated analysis and reporting
-- Integration with existing AI workflows
-- Scalable security testing
-
-## Technical Details
-
-### Protocol Compliance
-JWT-HACK's MCP server implements:
-- The **Model Context Protocol** (built on the `rmcp` crate)
-- **JSON-RPC 2.0** message format
-- **stdio** transport layer (stdin/stdout)
-- **Tool discovery** and capability advertisement
-
-### Performance Characteristics
-- **Low latency** - Fast response times for analysis
-- **Concurrent requests** - Handle multiple AI model connections
-- **Resource efficient** - Minimal memory and CPU overhead
-- **Scalable** - Support for high-volume analysis
-
-## Troubleshooting
-
-Because the server uses the stdio transport, it is normally launched and managed
-by the MCP client rather than run by hand. If you run `jwt-hack mcp` directly in a
-terminal, it will wait for MCP messages on stdin and appear to "hang" — this is
-expected. Common checks:
-
-- Confirm the client is configured to launch `jwt-hack mcp` as a subprocess (see
-  the client configuration above).
-- Ensure `jwt-hack` is on the `PATH` the client uses.
-- Verify the tool is discoverable by having the client list available tools; it
-  should report `decode`, `encode`, `verify`, `crack`, and `payload`.
-
-## Security Considerations
-
-### Access Control
-- The MCP server runs locally as a subprocess of the client (stdio transport)
-- It does not open a network port, so it is only reachable by the launching client
-
-### Data Privacy
-- JWT tokens are processed locally
-- No data transmitted to external services
-- Full control over sensitive token analysis
+The server returns the result as text content, for example the decoded header, claims and algorithm. Everything runs locally as a subprocess of the client, so tokens are never sent to a network service.

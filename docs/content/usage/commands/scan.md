@@ -1,176 +1,90 @@
 +++
 toc = true
-title = "Scan Command"
-weight = 7
+title = "scan"
+weight = 6
 +++
 
-The `scan` command runs a fast, heuristic assessment of a JWT. It decodes the token, performs common weakness checks, optionally tries weak secrets for HS* tokens, and can print example attack payloads for follow‑up testing.
+Run a token through a set of heuristic checks in one pass: decode it, flag common weaknesses, try weak secrets on HS tokens, and suggest matching attack payloads. Use it to triage a token before deciding which of [crack](/usage/commands/crack/), [payload](/usage/commands/payload/), or [verify](/usage/commands/verify/) to run next.
 
-## Basic Usage
+## Usage
 
 ```bash
 jwt-hack scan <TOKEN> [OPTIONS]
 ```
 
-## What the Scanner Checks
+```text
+▎ SCAN ───────────────────────────────────────
 
-The current scanner performs the following checks:
+  Algorithm         HS256
+  Type              JWT
 
-- Token information
-  - Displays algorithm and `typ` from the header.
-- Timestamp checks
-  - Presence of `exp` and whether it is expired.
-  - Presence of `iat` and `nbf` (no ordering validation between `iat`, `nbf`, `exp`).
-- "none" algorithm usage
-  - Flags if the token actually uses the `none` algorithm.
-- Weak/guessable secret (HS* only)
-  - For HMAC tokens (HS256/384/512), tries a limited secret list (built‑in or provided wordlist).
-- Algorithm confusion indicator
-  - Flags asymmetric algorithms (RS/ES/PS/EdDSA) as "needs testing" for alg-confusion risks.
-- Header misuse indicators
-  - `kid` presence (possible SQL/path injection surfaces).
-  - `jku` / `x5u` presence (possible URL spoofing / remote JWKS risks).
-- Attack payload suggestions (optional)
-  - Prints example payloads matched to the issues actually detected. Depending on findings this can include `none`, `alg_confusion`, `kid_sql`/`kid_traversal`, `jku`/`x5u`, `jwk_embed`, `crit`, `b64`, `empty_sig`, `typ_confusion`, `alg_edge`, `psychic`, and `zip`.
+▎ RESULTS ────────────────────────────────────
 
-Notes:
-- JWE (5-part) tokens are supported: a JWE is routed to a dedicated encryption-layer analysis (key-management `alg`, content `enc`, CBC/padding-oracle and compression risks) instead of the JWS signature checks above.
-- Compressed JWT payloads (`zip: "DEF"`) are decoded but not separately highlighted as a finding.
+  ✓ PASS  None Algorithm         Token does not use 'none' algorithm
+  ✓ PASS  Algorithm Confusion    Symmetric algorithm
+  ...
+  ▲ CRIT  Weak Secret            Uses weak secret: 'test'
+  ◆ MED   Token Expiration       Missing 'exp', 'nbf', 'iat'
+  ■ LOW   Missing Claims         Missing recommended claims: aud, iss, jti
+
+▎ SUMMARY ────────────────────────────────────
+
+  3 vulnerabilities found: 1 critical, 1 medium, 1 low
+```
+
+## What it checks
+
+For a standard JWS (3-part token):
+
+- `none` algorithm in use
+- algorithm confusion risk: asymmetric algs are flagged for follow-up, not confirmed
+- weak/guessable HMAC secret (HS* only; see below)
+- `kid` header present (SQL/path-injection surface)
+- `jku` / `x5u` headers (URL spoofing, remote JWKS)
+- embedded `jwk` header
+- `crit`, `b64` (RFC 7797), `zip`, and `typ` header misuse
+- `alg` edge values and whether the signature segment is present
+- ECDSA psychic-signature applicability
+- `exp`/`nbf`/`iat` presence and whether `exp` has passed
+- missing recommended claims (`aud`, `iss`, `jti`)
+- sensitive data patterns in claims
+
+A 5-part token is scanned as a JWE instead: the checks move to the encryption layer (key-management `alg`, content `enc`, CBC padding-oracle and compression risks), since there is no JWS signature to reason about.
 
 ## Options
 
-```bash
-# Skip cracking and payload generation
-jwt-hack scan <TOKEN> --skip-crack --skip-payloads
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-w, --wordlist <FILE>` | built-in list | Secrets to try for the weak-secret check. Falls back to a small built-in list if unset or unreadable. |
+| `--max-crack-attempts <N>` | `100` | Cap on secrets tested during the weak-secret check. |
+| `--skip-crack` | off | Skip the weak-secret check entirely. |
+| `--skip-payloads` | off | Skip the attack-payload suggestions. |
+| `--report <FILE>` | none | Write a report to a file; `.json` emits JSON, `.html`/`.htm` emits HTML. Any other extension errors. |
 
-# Provide a wordlist for weak-secret checks (HS* only)
-jwt-hack scan <TOKEN> -w /path/to/wordlist.txt
-
-# Limit secret attempts (useful for CI or quick runs)
-jwt-hack scan <TOKEN> --max-crack-attempts 100
-```
-
-- `--skip-crack` - Skip dictionary-based weak-secret checks (only affects HS*).
-- `--skip-payloads` - Skip the payload suggestion/generation section.
-- `-w, --wordlist <FILE>` - Wordlist for weak-secret detection. If not provided or cannot be opened, a small built‑in list is used.
-- `--max-crack-attempts <N>` - Limit tested secrets (default: 100).
-
-Tip: Large wordlists can significantly increase scan time. Use `--max-crack-attempts` to cap work during triage or CI.
+The weak-secret check only runs on HMAC tokens (HS256/384/512). For RS/ES/PS/EdDSA it reports as not applicable. Large wordlists slow the scan down, so cap it with `--max-crack-attempts` during triage or CI.
 
 ## Examples
 
-### Quick Full Scan
+Full scan, then export an HTML report for a ticket:
+
 ```bash
-jwt-hack scan eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.PAYLOAD.SIGN
+jwt-hack scan "$TOKEN" --report findings.html
 ```
 
-### Scan With Wordlist
+Fast heuristics only, no cracking and no payloads:
+
 ```bash
-jwt-hack scan <TOKEN> -w samples/wordlist.txt
+jwt-hack scan "$TOKEN" --skip-crack --skip-payloads
 ```
 
-### Fast Heuristics Only (no cracking, no payloads)
+CI-friendly run with a real wordlist but a bounded budget:
+
 ```bash
-jwt-hack scan <TOKEN> --skip-crack --skip-payloads
+jwt-hack scan "$TOKEN" -w rockyou.txt --max-crack-attempts 200
 ```
 
-### CI-Friendly Scan (limit attempts)
-```bash
-jwt-hack scan <TOKEN> -w rockyou.txt --max-crack-attempts 200
-```
+## Notes
 
-## Typical Output
-
-```text
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  JWT VULNERABILITY SCANNER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━ Token Information ━━━
-Algorithm: HS256
-Type: JWT
-
-━━━ Scan Results ━━━
-
-✓ None Algorithm [INFO]
-  Token does not use 'none' algorithm
-
-✗ Weak Secret [CRITICAL]
-  Token uses weak/common secret: 'secret'
-
-✓ Algorithm Confusion [INFO]
-  Token uses symmetric algorithm, not vulnerable to typical alg confusion
-
-✗ Token Expiration [MEDIUM]
-  Missing 'nbf' (not before) claim; Missing 'iat' (issued at) claim
-
-✗ Missing Claims [LOW]
-  Missing recommended claims: aud, iss, jti
-
-✓ Kid Header Injection [INFO]
-  No 'kid' header present
-
-✓ JKU/X5U Header [INFO]
-  No JKU/X5U headers present
-
-━━━ Summary ━━━
-Total Vulnerabilities Found: 3
-  1 Critical
-  1 Medium
-  1 Low
-
-⚠️  Review the vulnerabilities above and consider generating attack payloads.
-
-━━━ Generating Attack Payloads ━━━
-... (example payloads matched to the detected findings)
-```
-
-If the scan finds no significant issues, you'll see:
-```
-✓ No major vulnerabilities detected in this scan.
-```
-
-## Behavior Details and Limitations
-
-- HS* only for weak-secret checks
-  - Secret cracking runs only when the algorithm is HMAC (HS256/384/512). For non‑HS* tokens, this check is skipped as "Not applicable".
-- Algorithm confusion is heuristic
-  - Asymmetric algorithms are flagged as "needs testing" (High) to prompt follow‑up validation; it is not a confirmed vulnerability by itself.
-- Payload examples follow the findings
-  - The payload section only emits examples for issues the scan actually detected. A flagged `jku`/`x5u` header, for instance, does contribute `jku`/`x5u` payload examples; a token with no such finding will not.
-
-## Recommended Workflow
-
-1. Run a quick scan to triage:
-   ```bash
-   jwt-hack scan <TOKEN>
-   ```
-2. If a weak secret is suspected (HS*):
-   ```bash
-   jwt-hack crack -w <WORDLIST> <TOKEN>
-   ```
-3. If payloads are suggested:
-   ```bash
-   jwt-hack payload <TOKEN> --target=all
-   ```
-4. Verify any hypotheses:
-   ```bash
-   jwt-hack verify <TOKEN> --secret=<KEY or PUBLIC_KEY>
-   ```
-
-## Troubleshooting
-
-- Token format: `scan` accepts both a 3-part JWT (`<header>.<payload>.<signature>`) and a 5-part JWE; other segment counts are reported as an unexpected token shape.
-- If the scan terminates early, ensure the token is a well-formed JWT or JWE.
-- For faster results, use `--skip-crack` or set `--max-crack-attempts` to a small number.
-- Wordlist path errors: provide an absolute path or a path relative to your project root.
-- Usage hint (shown on errors):
-  ```
-  e.g jwt-hack scan {JWT_CODE} [--skip-crack] [--skip-payloads] [-w wordlist.txt]
-  ```
-
-## Security Notes
-
-- Only scan tokens you own or have permission to test.
-- Treat discovered secrets as sensitive; handle and store them securely.
-- Use findings to harden your systems (strong secrets, enforce `exp`, avoid risky headers, validate key sources).
+- Payload suggestions follow the findings: a `kid` header produces `kid` payloads, a clean token produces none. Suppress them with `--skip-payloads`.
+- The weak-secret default list is small and meant for triage. Confirm a real crack with [crack](/usage/commands/crack/) and a proper wordlist.
+- Asymmetric algorithms flagged for confusion are a prompt to test, not a confirmed finding. Verify with [payload](/usage/commands/payload/) `--target alg_confusion`.

@@ -4,35 +4,60 @@ title = "Installation"
 weight = 2
 +++
 
-JWT-HACK can be installed in several ways, depending on your preference and environment.
+`jwt-hack` is a single binary with no runtime dependencies. Pick whichever channel you already use; they all ship the same build.
 
-## From Cargo
+## Cargo
 
-If you have Rust and Cargo installed, you can install JWT-HACK directly from [crates.io](https://crates.io/crates/jwt-hack):
+Works anywhere Rust runs. Needs Rust 1.87 or newer.
 
 ```bash
 cargo install jwt-hack
 ```
 
-## From Homebrew
-
-For macOS users, JWT-HACK is available via Homebrew:
+## Homebrew
 
 ```bash
 brew install jwt-hack
 ```
 
-## From Snapcraft (Ubuntu)
-
-For Ubuntu users, JWT-HACK is available via Snap:
+## Snap
 
 ```bash
 sudo snap install jwt-hack
 ```
 
-## From Source
+## Arch Linux (AUR)
 
-To build JWT-HACK from source, you'll need to have Rust and Cargo installed:
+```bash
+yay -S jwt-hack
+```
+
+Any AUR helper works. The package builds from the tagged release source.
+
+## Docker
+
+Images are published to GitHub Container Registry and Docker Hub.
+
+```bash
+docker pull ghcr.io/hahwul/jwt-hack:latest
+# or a pinned version
+docker pull hahwul/jwt-hack:v2.6.0
+```
+
+The image sets `CMD` rather than `ENTRYPOINT`, so name the binary when you pass arguments:
+
+```bash
+docker run --rm ghcr.io/hahwul/jwt-hack:latest ./jwt-hack decode <TOKEN>
+```
+
+Mount a directory if you need a wordlist or key file inside the container:
+
+```bash
+docker run --rm -v "$PWD:/data" ghcr.io/hahwul/jwt-hack:latest \
+  ./jwt-hack crack -w /data/wordlist.txt <TOKEN>
+```
+
+## From source
 
 ```bash
 git clone https://github.com/hahwul/jwt-hack
@@ -40,27 +65,10 @@ cd jwt-hack
 cargo install --path .
 ```
 
-## From Docker
-
-JWT-HACK is also available as Docker images:
-
-### GitHub Container Registry
-```bash
-docker pull ghcr.io/hahwul/jwt-hack:latest
-```
-
-### Docker Hub
-```bash
-docker pull hahwul/jwt-hack:v2.6.0
-```
-
-## Verification
-
-Once installed, verify that JWT-HACK is working correctly:
+## Check the install
 
 ```bash
 jwt-hack --version
 ```
 
-You should see the version information printed. (Running `jwt-hack` with no
-arguments, or `jwt-hack help`, displays the JWT-HACK banner and usage.)
+Running `jwt-hack` with no arguments prints the banner and the command list. Next, try the [quick start](/get_started/quickstart/).

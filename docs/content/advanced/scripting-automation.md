@@ -11,7 +11,7 @@ global `--json` flag to get machine-readable output for any command.
 
 > **Important:** JWT-HACK does **not** signal outcomes like "signature invalid" or
 > "secret not found" through exit codes. Commands such as `decode`, `verify`, and
-> `crack` still exit `0` in those cases — the result is reported in the output, not
+> `crack` still exit `0` in those cases. The result is reported in the output, not
 > the status code. Do **not** branch on `jwt-hack verify ...` succeeding/failing.
 
 Observed exit codes:
@@ -154,7 +154,7 @@ else:
 ```
 
 > Note: jwt-hack does not use exit codes to report an invalid signature or a
-> failed crack — always pass `--json` and inspect the response fields
+> failed crack. Always pass `--json` and inspect the response fields
 > (`valid`, `found`, `value`, …) rather than relying on `check=True`.
 
 ### Token Analysis Pipeline
@@ -256,7 +256,7 @@ jobs:
 ### Docker Integration
 
 ```dockerfile
-FROM rust:1.75 as builder
+FROM rust:1.87 as builder
 RUN cargo install jwt-hack
 
 FROM debian:bookworm-slim

@@ -101,9 +101,9 @@ JWT-HACK does not read the default secret, algorithm, wordlist, or private key
 from environment variables. Those values come only from the configuration file
 (or the corresponding command-line flag).
 
-A small number of environment variables affect other behavior — `XDG_CONFIG_HOME`
+Two environment variables affect other behavior: `XDG_CONFIG_HOME`
 (config file location) and `JWT_HACK_WORDLIST_DIR` (server-mode wordlist paths).
-See [Environment Variables](/reference/environment-variables) for details.
+See [Environment Variables](/reference/environment-variables/) for details.
 
 ## Setting Priority
 
@@ -177,7 +177,7 @@ The configuration file currently supports exactly these top-level keys, all opti
 | `default_private_key` | string | Default private key path for asymmetric algorithms |
 
 Unknown keys are ignored, so there are no `[wordlists]`, `[keys]`, or
-`[performance]` sections — only the flat keys above.
+`[performance]` sections, only the flat keys above.
 
 ## Security Considerations
 
@@ -201,7 +201,7 @@ ls -la ~/.config/jwt-hack/config.toml
 ### Configuration Loading
 On startup, JWT-HACK parses the config file as TOML. Invalid TOML causes it to
 exit with a "Failed to parse config file" error. Values such as algorithm names
-and key/wordlist paths are not validated at load time — they are only used (and
+and key/wordlist paths are not validated at load time. They are only used (and
 may error) when the relevant command runs.
 
 ## Troubleshooting

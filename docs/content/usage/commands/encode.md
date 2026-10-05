@@ -1,156 +1,78 @@
 +++
 toc = true
-title = "Encode Command"
+title = "encode"
 weight = 2
 +++
 
-The `encode` command creates JWT tokens from JSON payloads with various signing options and algorithms.
+Turn a JSON payload into a signed JWT. Pick the algorithm, supply a secret or private key, and optionally compress the body or wrap it as a JWE.
 
-## Basic Usage
-
-```bash
-jwt-hack encode <JSON_PAYLOAD> [OPTIONS]
-```
-
-## Secret-Based Signing (HMAC)
-
-Create JWT tokens using HMAC algorithms with a shared secret:
+## Usage
 
 ```bash
-# HS256 (default)
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --secret=mysecret
-
-# HS384
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --secret=mysecret --algorithm=HS384
-
-# HS512
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --secret=mysecret --algorithm=HS512
+jwt-hack encode <JSON> [OPTIONS]
 ```
-
-## Key-Based Signing (RSA/ECDSA)
-
-Create JWT tokens using asymmetric algorithms with private keys:
 
 ```bash
-# RSA256
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --private-key=private.pem --algorithm=RS256
-
-# RSA384
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --private-key=private.pem --algorithm=RS384
-
-# RSA512
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --private-key=private.pem --algorithm=RS512
-
-# ECDSA256
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --private-key=ec-private.pem --algorithm=ES256
+jwt-hack encode '{"sub":"1234","name":"test"}' --secret=mysecret
 ```
 
-## Unsigned Tokens
+```text
+▎ ENCODE ─────────────────────────────────────
 
-Create unsigned JWT tokens for testing:
+  Algorithm     HS256
+  Key           ****
+
+▎ Token
+  eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6InRlc3QifQ.U_Tt6tzc3i7_U4vt7lI_xMy_WbW3gLP5zbLU8aD1aT8
+```
+
+## Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--secret <SECRET>` | from config | HMAC key for HS256/HS384/HS512. |
+| `--private-key <PRIVATE_KEY>` | from config | RSA, ECDSA, or EdDSA private key in PEM, for the asymmetric algorithms. |
+| `--algorithm <ALGORITHM>` | config `default_algorithm`, then HS256 | HS256/384/512, RS256/384/512, PS256/384/512, ES256/384/512, or EdDSA. |
+| `--no-signature` | off | Emit an `alg: none` token with an empty signature. |
+| `--header <KEY=VALUE>` | none | Add a custom header parameter. Repeat the flag for more than one. |
+| `--compress` | off | DEFLATE the payload and add `"zip":"DEF"` to the header. |
+| `--jwe` | off | Produce a JWE (encrypted) token instead of a JWS. |
+
+The key field in the output is masked. With `--json` you get `token`, `algorithm`, `headers`, `compress`, and the token itself.
+
+## Examples
+
+HS384 instead of the default HS256:
 
 ```bash
-jwt-hack encode '{"sub":"1234", "name":"John Doe"}' --no-signature
+jwt-hack encode '{"sub":"1234"}' --secret=mysecret --algorithm=HS384
 ```
 
-## Custom Headers
+RSA signing reads the private key from a PEM file (PKCS#1 `BEGIN RSA PRIVATE KEY` or PKCS#8 `BEGIN PRIVATE KEY`):
 
-Add custom header fields to the JWT. Each parameter is passed as a separate
-`--header key=value` flag (not a JSON object), and the flag can be repeated:
+```bash
+jwt-hack encode '{"iss":"myapp"}' --private-key=rsa-key.pem --algorithm=RS256
+```
+
+Custom headers go in as separate `key=value` flags, not a JSON object. This is how you set a `kid` for a crafted token:
 
 ```bash
 jwt-hack encode '{"sub":"1234"}' --secret=test --header kid=key1 --header typ=JWT
 ```
 
-## DEFLATE Compression
-
-Create compressed JWT tokens:
+An unsigned token, handy for quickly checking whether a server accepts `alg: none`:
 
 ```bash
-jwt-hack encode '{"sub":"1234", "data":"large payload"}' --secret=test --compress
+jwt-hack encode '{"sub":"1234","admin":true}' --no-signature
 ```
 
-The `--compress` flag:
-- Compresses the payload using DEFLATE
-- Reduces token size for large payloads
-- Maintains compatibility with JWT standards
-- Can be decoded automatically by the decode command
-
-## JWE (JSON Web Encryption)
-
-Create encrypted JWT tokens:
+Compress a large payload. [decode](/usage/commands/decode/) reads it back automatically:
 
 ```bash
-jwt-hack encode '{"sensitive":"data"}' --secret=test --jwe
+jwt-hack encode '{"data":"...long payload..."}' --secret=test --compress
 ```
 
-JWE encoding:
-- Encrypts the payload content
-- Uses symmetric encryption with the provided secret
-- Creates 5-part JWE structure
-- Provides confidentiality in addition to integrity
+## Notes
 
-## Command Options
-
-### Required
-- `<JSON_PAYLOAD>` - The JSON payload to encode
-
-### Authentication Options
-- `--secret <SECRET>` - Secret for HMAC algorithms
-- `--private-key <PATH>` - Path to private key file for RSA/ECDSA
-
-### Algorithm Options
-- `--algorithm <ALG>` - Algorithm to use (HS256/384/512, RS256/384/512, ES256/384/512, PS256/384/512, EdDSA). Defaults to the config `default_algorithm`, then HS256.
-- `--no-signature` - Create an unsigned (`alg: none`) token
-
-### Additional Options
-- `--header <KEY=VALUE>` - Add a custom header parameter (repeatable, e.g. `--header kid=key1 --header typ=JWT`)
-- `--compress` - Enable DEFLATE compression (adds `"zip":"DEF"` to the header)
-- `--jwe` - Create JWE encrypted token
-
-## Examples
-
-### Standard JWT with HMAC
-```bash
-jwt-hack encode '{"sub":"user123","role":"admin","exp":1640995200}' --secret=my-secret-key
-```
-
-### JWT with RSA Signature
-```bash
-jwt-hack encode '{"iss":"myapp","aud":"users","exp":1640995200}' --private-key=rsa-key.pem --algorithm=RS256
-```
-
-### JWT with Custom Headers
-```bash
-jwt-hack encode '{"user":"john"}' --secret=test --header kid=key-1 --header typ=JWT
-```
-
-### Compressed JWT
-```bash
-jwt-hack encode '{"data":"very long payload content here..."}' --secret=test --compress
-```
-
-### Unsigned JWT for Testing
-```bash
-jwt-hack encode '{"test":"payload"}' --no-signature
-```
-
-## Key File Formats
-
-JWT-HACK supports standard key file formats:
-
-### RSA Private Keys
-- **PKCS#1 format** - `-----BEGIN RSA PRIVATE KEY-----`
-- **PKCS#8 format** - `-----BEGIN PRIVATE KEY-----`
-
-### ECDSA Private Keys
-- **SEC1 format** - `-----BEGIN EC PRIVATE KEY-----`
-- **PKCS#8 format** - `-----BEGIN PRIVATE KEY-----`
-
-## Output
-
-The encode command outputs:
-- The complete JWT token
-- Token structure breakdown
-- Algorithm and signing information
-- Any compression or encryption details
+- For generating ready-to-fire attack tokens (none variants, alg confusion, kid injection, tampered claims), reach for [payload](/usage/commands/payload/) rather than hand-rolling headers here.
+- ECDSA private keys are accepted as SEC1 (`BEGIN EC PRIVATE KEY`) or PKCS#8.

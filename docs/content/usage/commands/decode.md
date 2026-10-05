@@ -1,97 +1,72 @@
 +++
 toc = true
-title = "Decode Command"
+title = "decode"
 weight = 1
 +++
 
-The `decode` command analyzes JWT and JWE tokens, displaying their structure, headers, payloads, and validation information.
+Decode a JWT or JWE and print its header, payload, and any recognizable timestamp claims. No secret or key needed: decode never verifies the signature, it just reads the token.
 
-## Basic Usage
+## Usage
 
 ```bash
 jwt-hack decode <TOKEN>
 ```
 
-## JWT Token Decoding
+```text
+▎ DECODE ─────────────────────────────────────
 
-Decode a standard JWT token to see its header and payload:
+  Algorithm     HS256
+  Type          JWT
 
-```bash
-jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+▎ Header
+  {
+    "alg": "HS256",
+    "typ": "JWT"
+  }
+
+▎ Payload
+  {
+    "sub": "1234567890",
+    "name": "John Doe",
+    "iat": 1516239022,
+    "iat_time": "2018-01-18 01:30:22 UTC"
+  }
 ```
 
-**Output includes:**
-- Token algorithm and type
-- Decoded header (JSON format)
-- Decoded payload (JSON format)
-- Timestamp information (iat, exp, nbf if present)
-- Token structure validation
+Any of `iat`, `exp`, and `nbf` present in the payload get a human-readable `*_time` sibling (UTC) alongside the raw Unix value.
 
-## JWE Token Decoding
+## Options
 
-JWT-HACK automatically detects and decodes JWE (JSON Web Encryption) tokens:
+Only the global flags apply. `--json` prints the decode as an object with `token_type`, `algorithm`, `typ`, `header`, and `payload`, which is what you want when feeding another tool.
+
+```bash
+jwt-hack --json decode "$TOKEN" | jq .payload
+```
+
+## JWE tokens
+
+A 5-part token is detected as JWE automatically. You get the key-management `alg`, content `enc`, the component sizes (encrypted key, IV, ciphertext, auth tag), and a short list of encryption-layer concerns. The payload stays encrypted, decode will not pretend otherwise.
 
 ```bash
 jwt-hack decode eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..ZHVtbXlfaXZfMTIzNDU2.eyJ0ZXN0IjoiandlIn0.ZHVtbXlfdGFn
 ```
 
-**JWE Output includes:**
-- JWE header with encryption algorithm
-- Encrypted key component
-- Initialization vector (IV)
-- Ciphertext
-- Authentication tag
-- 5-part structure validation
+```text
+▎ DECODE · JWE ───────────────────────────────
 
-## DEFLATE Compression Support
-
-JWT-HACK automatically detects and decompresses DEFLATE-compressed JWTs:
-
-```bash
-jwt-hack decode <COMPRESSED_JWT_TOKEN>
+  Key Mgmt      dir
+  Encryption    A256GCM
+  ...
+▎ Security Issues
+  ℹ️  Direct encryption mode - vulnerable to key brute force
+  ⚠️  Authentication tag too short
 ```
 
-The tool will:
-- Detect compression automatically
-- Decompress the payload
-- Display the original uncompressed content
-- Show compression details in the output
+## DEFLATE compression
 
-## Timestamp Analysis
+Tokens with `"zip":"DEF"` in the header are decompressed transparently, so you see the original payload without extra flags. This pairs with [`encode --compress`](/usage/commands/encode/).
 
-When JWT contains timestamp fields, the decode command provides:
+## Notes
 
-- **iat (Issued At)** - When the token was created
-- **exp (Expires)** - When the token expires
-- **nbf (Not Before)** - When the token becomes valid
-
-Timestamps are displayed in both Unix timestamp and human-readable formats.
-
-## Error Handling
-
-The decode command handles various token formats gracefully:
-
-- **Invalid Base64** - Shows decoding errors with context
-- **Malformed JSON** - Displays JSON parsing errors
-- **Invalid Structure** - Identifies structural issues
-- **Missing Components** - Reports incomplete tokens
-
-## Examples
-
-### Standard JWT
-```bash
-# Decode a basic HMAC-signed JWT
-jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIGNATURE
-```
-
-### RSA-signed JWT
-```bash
-# Decode an RSA-signed JWT
-jwt-hack decode eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJleGFtcGxlIn0.SIGNATURE
-```
-
-### JWT with Custom Headers
-```bash
-# Decode JWT with custom header fields
-jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImtleTEifQ.PAYLOAD.SIGNATURE
-```
+- Decode is read-only. To check whether a signature is valid, use [verify](/usage/commands/verify/).
+- Malformed Base64, broken JSON, or the wrong number of segments are reported with context instead of a silent failure.

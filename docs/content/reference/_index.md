@@ -5,8 +5,6 @@ weight = 4
 sort_by = "weight"
 +++
 
-Technical reference documentation for JWT-HACK.
+Configuration details and lookups for `jwt-hack`.
 
-## Available Reference Documentation
-
-- **[Environment Variables](/reference/environment-variables)** - Environment variable reference
+- [Environment Variables](/reference/environment-variables/): the variables `jwt-hack` reads and what they change.
