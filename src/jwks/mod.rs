@@ -121,6 +121,10 @@ pub fn parse_jwks(json_str: &str) -> Result<JwkSet> {
 
 /// Convert a JWK RSA public key to PEM format
 pub fn jwk_rsa_to_pem(jwk: &Jwk) -> Result<String> {
+    use openssl::bn::BigNum;
+    use openssl::pkey::PKey;
+    use openssl::rsa::Rsa;
+
     if jwk.kty != "RSA" {
         return Err(anyhow!("JWK is not an RSA key (kty: {})", jwk.kty));
     }
@@ -141,22 +145,10 @@ pub fn jwk_rsa_to_pem(jwk: &Jwk) -> Result<String> {
         .decode(e)
         .map_err(|e| anyhow!("Failed to decode 'e': {}", e))?;
 
-    // Build DER-encoded RSA public key
-    let der = encode_rsa_public_key_der(&n_bytes, &e_bytes);
-
-    // Wrap in PEM
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&der);
-    let mut pem = String::from("-----BEGIN PUBLIC KEY-----\n");
-    for chunk in b64.as_bytes().chunks(64) {
-        pem.push_str(
-            std::str::from_utf8(chunk)
-                .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in base64 chunk: {}", e))?,
-        );
-        pem.push('\n');
-    }
-    pem.push_str("-----END PUBLIC KEY-----\n");
-
-    Ok(pem)
+    let rsa =
+        Rsa::from_public_components(BigNum::from_slice(&n_bytes)?, BigNum::from_slice(&e_bytes)?)?;
+    let pem = PKey::from_rsa(rsa)?.public_key_to_pem()?;
+    Ok(String::from_utf8(pem)?)
 }
 
 /// Convert a JWK EC public key (`crv`/`x`/`y`) to a SubjectPublicKeyInfo PEM.
@@ -210,78 +202,6 @@ pub fn jwk_ec_to_pem(jwk: &Jwk) -> Result<String> {
     let pkey = PKey::from_ec_key(ec_key)?;
     let pem = pkey.public_key_to_pem()?;
     String::from_utf8(pem).map_err(|e| anyhow!("EC PEM is not valid UTF-8: {}", e))
-}
-
-/// Encode RSA public key components into DER (SubjectPublicKeyInfo) format
-fn encode_rsa_public_key_der(n: &[u8], e: &[u8]) -> Vec<u8> {
-    // Encode n and e as ASN.1 INTEGERs
-    let n_int = asn1_integer(n);
-    let e_int = asn1_integer(e);
-
-    // RSAPublicKey ::= SEQUENCE { n INTEGER, e INTEGER }
-    let rsa_key_seq = asn1_sequence(&[&n_int, &e_int]);
-
-    // Wrap as BIT STRING
-    let mut bit_string_content = vec![0x00]; // no unused bits
-    bit_string_content.extend_from_slice(&rsa_key_seq);
-    let bit_string = asn1_tag(0x03, &bit_string_content);
-
-    // AlgorithmIdentifier for RSA: OID 1.2.840.113549.1.1.1 + NULL
-    let rsa_oid = &[
-        0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
-    ];
-    let null = &[0x05, 0x00];
-    let algorithm_seq = asn1_sequence(&[rsa_oid, null]);
-
-    // SubjectPublicKeyInfo ::= SEQUENCE { algorithm, subjectPublicKey }
-    asn1_sequence(&[&algorithm_seq, &bit_string])
-}
-
-fn asn1_tag(tag: u8, content: &[u8]) -> Vec<u8> {
-    let mut result = vec![tag];
-    result.extend_from_slice(&asn1_length(content.len()));
-    result.extend_from_slice(content);
-    result
-}
-
-fn asn1_integer(data: &[u8]) -> Vec<u8> {
-    let mut content = Vec::new();
-    // Add leading zero if high bit is set (to keep it positive)
-    if !data.is_empty() && data[0] & 0x80 != 0 {
-        content.push(0x00);
-    }
-    content.extend_from_slice(data);
-    asn1_tag(0x02, &content)
-}
-
-fn asn1_sequence(items: &[&[u8]]) -> Vec<u8> {
-    let mut content = Vec::new();
-    for item in items {
-        content.extend_from_slice(item);
-    }
-    asn1_tag(0x30, &content)
-}
-
-fn asn1_length(len: usize) -> Vec<u8> {
-    if len < 128 {
-        // Short form.
-        return vec![len as u8];
-    }
-    // Long form: a leading byte 0x80|N followed by N big-endian length bytes.
-    // The previous implementation hard-coded the 0x82 (2-byte) form, which
-    // silently truncated the length for content >= 65536 bytes and produced
-    // corrupt DER. This emits the minimal number of length bytes for any size.
-    let mut bytes = Vec::new();
-    let mut remaining = len;
-    while remaining > 0 {
-        bytes.push((remaining & 0xff) as u8);
-        remaining >>= 8;
-    }
-    bytes.reverse();
-    let mut out = Vec::with_capacity(bytes.len() + 1);
-    out.push(0x80 | bytes.len() as u8);
-    out.extend_from_slice(&bytes);
-    out
 }
 
 /// Generate a spoofed JWKS with a new RSA key pair
@@ -820,8 +740,10 @@ mod tests {
         };
 
         let pem = jwk_rsa_to_pem(&jwk).unwrap();
-        assert!(pem.contains("-----BEGIN PUBLIC KEY-----"));
-        assert!(pem.contains("-----END PUBLIC KEY-----"));
+        assert!(openssl::pkey::PKey::public_key_from_pem(pem.as_bytes())
+            .unwrap()
+            .rsa()
+            .is_ok());
     }
 
     #[test]
@@ -988,20 +910,6 @@ mod tests {
                 p.header_type
             );
         }
-    }
-
-    #[test]
-    fn test_asn1_encoding() {
-        // Test basic ASN.1 length encoding
-        assert_eq!(asn1_length(0), vec![0x00]);
-        assert_eq!(asn1_length(127), vec![0x7f]);
-        assert_eq!(asn1_length(128), vec![0x81, 0x80]);
-        assert_eq!(asn1_length(255), vec![0x81, 0xff]);
-        assert_eq!(asn1_length(256), vec![0x82, 0x01, 0x00]);
-        assert_eq!(asn1_length(65535), vec![0x82, 0xff, 0xff]);
-        // Lengths >= 65536 must use a 3+ byte long form rather than truncating.
-        assert_eq!(asn1_length(65536), vec![0x83, 0x01, 0x00, 0x00]);
-        assert_eq!(asn1_length(70000), vec![0x83, 0x01, 0x11, 0x70]);
     }
 
     #[test]
