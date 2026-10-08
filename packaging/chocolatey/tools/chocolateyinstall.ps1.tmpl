@@ -1,0 +1,9 @@
+$ErrorActionPreference = 'Stop'
+$toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+# The release zip holds jwt-hack-v<ver>-windows-x86_64\jwt-hack.exe; Chocolatey
+# shims every .exe under tools\, so the nested folder needs no handling.
+Install-ChocolateyZipPackage -PackageName 'jwt-hack' `
+  -UnzipLocation $toolsDir `
+  -Url64bit 'https://github.com/hahwul/jwt-hack/releases/download/v__VERSION__/jwt-hack-v__VERSION__-windows-x86_64.zip' `
+  -Checksum64 '__SHA256__' -ChecksumType64 'sha256'

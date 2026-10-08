@@ -34,6 +34,14 @@ yay -S jwt-hack
 
 Any AUR helper works. The package builds from the tagged release source.
 
+## Chocolatey (Windows)
+
+```powershell
+choco install jwt-hack
+```
+
+Installs the prebuilt `windows-x86_64` release binary and puts `jwt-hack` on your `PATH`.
+
 ## Docker
 
 Images are published to GitHub Container Registry and Docker Hub.
