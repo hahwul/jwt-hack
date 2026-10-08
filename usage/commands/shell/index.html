@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A high-performance toolkit for testing, analyzing and attacking JSON Web Tokens">
+  <title>shell - JWT-HACK</title>
+  <link rel="icon" type="image/png" href="https://jwt-hack.hahwul.com/images/logo.png">
+  <link rel="alternate icon" href="https://jwt-hack.hahwul.com/favicon.ico">
+  <script>(function(){try{var t=localStorage.getItem("hwaro-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})()</script>
+  <meta property="og:title" content="shell">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://jwt-hack.hahwul.com/usage/commands/shell/">
+  <meta property="og:description" content="is an interactive TUI where you set a token and secret once and then run , , and the rest against them without retyping the token each time. It takes over the terminal (alternate screen, raw mode)…">
+  <meta property="og:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="shell">
+  <meta name="twitter:description" content="is an interactive TUI where you set a token and secret once and then run , , and the rest against them without retyping the token each time. It takes over the terminal (alternate screen, raw mode)…">
+  <meta name="twitter:image" content="https://jwt-hack.hahwul.com/images/preview.jpg">
+  <meta name="twitter:site" content="@hahwul">
+  <meta name="twitter:creator" content="@hahwul">
+  <link rel="canonical" href="https://jwt-hack.hahwul.com/usage/commands/shell/">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"shell","url":"https://jwt-hack.hahwul.com/usage/commands/shell/"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"JWT-HACK","item":"https://jwt-hack.hahwul.com/"},{"@type":"ListItem","position":2,"name":"Usage","item":"https://jwt-hack.hahwul.com/usage/"},{"@type":"ListItem","position":3,"name":"Commands","item":"https://jwt-hack.hahwul.com/usage/commands/"},{"@type":"ListItem","position":4,"name":"shell"}]}</script>
+  
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..700&display=swap">
+  <link rel="stylesheet" href="https://jwt-hack.hahwul.com/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  
+  
+  
+</head>
+<body data-section="usage/commands">
+  <a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="header-left">
+    <a href="https://jwt-hack.hahwul.com/" class="header-logo" aria-label="jwt-hack home">
+      <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="jwt-hack" class="logo-light">
+      <img src="https://jwt-hack.hahwul.com/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+    </a>
+    <nav class="header-nav">
+      <a href="https://jwt-hack.hahwul.com/get_started/introduction/">Docs</a>
+      <a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a>
+      <a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">Crates</a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <span class="version-badge">v2.6.0</span>
+    <button class="search-trigger" onclick="openSearch()" aria-label="Search" title="Search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+      <kbd>&#8984;K</kbd>
+    </button>
+    <button class="theme-toggle" type="button" data-mode="auto" aria-label="Theme: auto" title="Theme: auto - click to switch">
+      <svg class="tt-auto" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg>
+      <svg class="tt-light" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .9v2M8 13.1v2M.9 8h2M13.1 8h2M2.98 2.98l1.42 1.42M11.6 11.6l1.42 1.42M13.02 2.98L11.6 4.4M4.4 11.6l-1.42 1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg class="tt-dark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.4 9.9A5.8 5.8 0 0 1 6.1 2.6a5.8 5.8 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle navigation menu">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+<div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()">
+  <div class="search-modal">
+    <div class="search-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" id="searchInput" aria-label="Search" placeholder="Search jwt-hack docs..." autocomplete="off">
+      <kbd onclick="closeSearch()">ESC</kbd>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+<div class="docs-layout">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  <aside class="docs-sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-title">Get Started</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/get_started/quickstart/">Quick Start</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+      <ul class="sidebar-sublinks">
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/decode/">decode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/encode/">encode</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/verify/">verify</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/crack/">crack</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/payload/">payload</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/scan/">scan</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/jwks/">jwks</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/shell/">shell</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/server/">server</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/mcp/">mcp</a></li>
+      </ul>
+      <li><a href="https://jwt-hack.hahwul.com/usage/examples/">Examples</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Advanced</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/advanced/performance-optimization/">Performance</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/advanced/scripting-automation/">Scripting &amp; Automation</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/reference/environment-variables/">Environment Variables</a></li>
+    </ul>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Support</div>
+    <ul class="sidebar-links">
+      <li><a href="https://jwt-hack.hahwul.com/support/troubleshooting/">Troubleshooting</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/faq/">FAQ</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/community/">Community</a></li>
+      <li><a href="https://jwt-hack.hahwul.com/support/contributing/">Contributing</a></li>
+    </ul>
+  </div>
+</aside>
+  <main id="main" class="docs-main">
+    <div class="docs-grid">
+      <article class="docs-content">
+        <div class="page-eyebrow">Commands</div>
+        <h1>shell</h1>
+        <p><code>jwt-hack shell</code> is an interactive TUI where you set a token and secret once and then run <code>decode</code>, <code>verify</code>, <code>crack</code> and the rest against them without retyping the token each time.</p>
+<pre><code class="language-bash hljs">jwt-hack shell
+</code></pre>
+<p>It takes over the terminal (alternate screen, raw mode) and restores it on exit, including after a crash. The prompt shows the active algorithm and whether a token is loaded:</p>
+<pre><code>jwt-hack(HS256)[---]&gt; set token eyJhbGciOiJIUzI1NiJ9...
+jwt-hack(HS256)[JWT]&gt;
+</code></pre>
+<h2 id="session-state">Session state</h2>
+<p><code>set &lt;key&gt; &lt;value&gt;</code> stores a value for the rest of the session. The stored token and secret feed every command that needs them.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token</code></td>
+<td>decode, verify, crack, payload, scan (when you don&#39;t pass one inline)</td>
+</tr>
+<tr>
+<td><code>secret</code></td>
+<td>encode, verify</td>
+</tr>
+<tr>
+<td><code>algorithm</code></td>
+<td>encode, and the prompt indicator</td>
+</tr>
+<tr>
+<td><code>private_key</code></td>
+<td>encode, verify (path to a PEM key)</td>
+</tr>
+<tr>
+<td><code>wordlist</code></td>
+<td>crack, scan (path to a dictionary file)</td>
+</tr>
+</tbody>
+</table>
+<p><code>show</code> prints the current session. The secret is masked as <code>****</code> and never shown in full.</p>
+<h2 id="commands">Commands</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Argument</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set</code></td>
+<td><code>&lt;key&gt; &lt;value&gt;</code></td>
+<td>Store a session value</td>
+</tr>
+<tr>
+<td><code>decode</code></td>
+<td><code>[token]</code></td>
+<td>Decode the token (inline or from the session)</td>
+</tr>
+<tr>
+<td><code>encode</code></td>
+<td><code>&lt;json&gt;</code></td>
+<td>Sign JSON claims with the session secret/key and algorithm</td>
+</tr>
+<tr>
+<td><code>verify</code></td>
+<td><code>[token]</code></td>
+<td>Verify the token against the session secret or key</td>
+</tr>
+<tr>
+<td><code>crack</code></td>
+<td><code>[token]</code></td>
+<td>Dictionary-crack the token using the session wordlist</td>
+</tr>
+<tr>
+<td><code>payload</code></td>
+<td><code>[token]</code></td>
+<td>Generate attack payloads for the token</td>
+</tr>
+<tr>
+<td><code>scan</code></td>
+<td><code>[token]</code></td>
+<td>Run the vulnerability checks against the token</td>
+</tr>
+<tr>
+<td><code>show</code></td>
+<td></td>
+<td>Print session state</td>
+</tr>
+<tr>
+<td><code>clear</code></td>
+<td></td>
+<td>Clear the output pane</td>
+</tr>
+<tr>
+<td><code>help</code></td>
+<td></td>
+<td>List commands and examples</td>
+</tr>
+<tr>
+<td><code>exit</code> / <code>quit</code></td>
+<td></td>
+<td>Leave the shell</td>
+</tr>
+</tbody>
+</table>
+<p>A short workflow:</p>
+<pre><code>set token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abc
+set secret hunter2
+decode
+verify
+</code></pre>
+<p><code>crack</code> and <code>scan</code> run on a background thread, one at a time, so the shell stays responsive during a long dictionary run. While one is running, starting another reports that it is busy; wait for the result and retry. <code>crack</code> here is dictionary-only and pulls candidates from the session <code>wordlist</code>.</p>
+<h2 id="keys-and-completion">Keys and completion</h2>
+<p>Tab completes commands, <code>set</code> keys, and algorithm names after <code>set algorithm</code>. When more than one candidate matches, Tab cycles forward and Shift+Tab backward; Esc cancels.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tab / Shift+Tab</td>
+<td>Complete and cycle candidates</td>
+</tr>
+<tr>
+<td>Up / Down</td>
+<td>Walk command history</td>
+</tr>
+<tr>
+<td>PgUp / PgDn</td>
+<td>Scroll the output pane</td>
+</tr>
+<tr>
+<td>Left / Right, Home / End</td>
+<td>Move the cursor</td>
+</tr>
+<tr>
+<td>Backspace / Delete</td>
+<td>Delete a character</td>
+</tr>
+<tr>
+<td>Ctrl+A / Ctrl+E</td>
+<td>Jump to start / end of the line</td>
+</tr>
+<tr>
+<td>Ctrl+U</td>
+<td>Clear the input line</td>
+</tr>
+<tr>
+<td>Ctrl+W</td>
+<td>Delete the previous word</td>
+</tr>
+<tr>
+<td>Ctrl+C</td>
+<td>Exit</td>
+</tr>
+</tbody>
+</table>
+<h2 id="history">History</h2>
+<p>Command history persists to <code>shell_history</code> in the jwt-hack config directory (<code>$XDG_CONFIG_HOME/jwt-hack/</code> when that is set to an absolute path, otherwise the platform config dir, for example <code>~/.config/jwt-hack/</code> on Linux or <code>~/Library/Application Support/jwt-hack/</code> on macOS). It keeps the last 1000 entries and drops consecutive duplicates.</p>
+<p><code>set secret ...</code> and <code>set private_key ...</code> are never written to the history file, so a secret you type does not end up in plaintext on disk. The output pane is capped at 5000 lines so a long session doesn't grow memory without bound.</p>
+
+      </article>
+      <nav class="docs-toc" aria-label="On this page"><p class="docs-toc-title">On this page</p><ul><li><a href="#session-state">Session state</a></li><li><a href="#commands">Commands</a></li><li><a href="#keys-and-completion">Keys and completion</a></li><li><a href="#history">History</a></li></ul></nav>
+    </div>
+  </main>
+</div>
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="https://jwt-hack.hahwul.com/" class="header-logo" aria-label="jwt-hack home">
+        <img src="https://jwt-hack.hahwul.com/images/logo.png" alt="jwt-hack" class="logo-light">
+        <img src="https://jwt-hack.hahwul.com/images/logo-white.png" alt="jwt-hack" class="logo-dark">
+      </a>
+      <p>A fast, single-binary toolkit for testing, analyzing, and attacking JSON Web Tokens.</p>
+      <div class="footer-meta">
+        <span>MIT License</span>
+        <span>v2.6.0</span>
+        <span>by <a href="https://www.hahwul.com" target="_blank" rel="noopener">hahwul</a></span>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <h4>Docs</h4>
+      <ul>
+        <li><a href="https://jwt-hack.hahwul.com/get_started/introduction/">Introduction</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/get_started/installation/">Installation</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/commands/">Commands</a></li>
+        <li><a href="https://jwt-hack.hahwul.com/usage/configuration/">Configuration</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/hahwul/jwt-hack" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://crates.io/crates/jwt-hack" target="_blank" rel="noopener">crates.io</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/releases" target="_blank" rel="noopener">Releases</a></li>
+        <li><a href="https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-mark">
+    <a href="https://www.hahwul.com" target="_blank" rel="noopener" aria-label="hahwul">
+      <span class="hahwul-img" role="img" aria-label="hahwul"></span>
+    </a>
+    <p class="footer-love">Built with Love</p>
+  </div>
+</footer>
+
+
+<script src="https://jwt-hack.hahwul.com/js/search.js"></script>
+<script>
+/* 3-mode theme toggle (auto / light / dark) */
+(function () {
+  var KEY = "hwaro-theme";
+  var MODES = ["auto", "light", "dark"];
+  var root = document.documentElement;
+  var btn = document.querySelector(".theme-toggle");
+  if (!btn) return;
+  function apply(mode) {
+    if (mode === "auto") {
+      root.removeAttribute("data-theme");
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    } else {
+      root.setAttribute("data-theme", mode);
+      try { localStorage.setItem(KEY, mode); } catch (e) {}
+    }
+    btn.setAttribute("data-mode", mode);
+    btn.setAttribute("aria-label", "Theme: " + mode);
+    btn.title = "Theme: " + mode + " - click to switch";
+  }
+  var stored = "auto";
+  try { var t = localStorage.getItem(KEY); if (t === "light" || t === "dark") stored = t; } catch (e) {}
+  btn.addEventListener("click", function () {
+    apply(MODES[(MODES.indexOf(btn.getAttribute("data-mode")) + 1) % MODES.length]);
+  });
+  apply(stored);
+})();
+</script>
+<script>
+/* Progressive enhancements: drawer, copy, tables, anchors, TOC spy, reveal */
+document.addEventListener('DOMContentLoaded', function () {
+  function copyText(text, btn, label) {
+    navigator.clipboard.writeText(text).then(function () {
+      var l = btn.querySelector('.copy-label');
+      if (l) l.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        if (l) l.textContent = label;
+        btn.classList.remove('copied');
+      }, 1600);
+    });
+  }
+
+  // Mobile drawer
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var sidebar = document.querySelector('.docs-sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (menuBtn && sidebar) {
+    menuBtn.addEventListener('click', function () {
+      sidebar.classList.toggle('open');
+      if (overlay) overlay.classList.toggle('active');
+    });
+    if (overlay) overlay.addEventListener('click', function () {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    });
+  }
+
+  // Active sidebar link
+  var path = window.location.pathname.replace(/\/$/, '') || '/';
+  document.querySelectorAll('.sidebar-links a').forEach(function (link) {
+    var href = link.getAttribute('href').replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') || '/';
+    if (href === path) link.classList.add('active');
+  });
+
+  var content = document.querySelector('.docs-content');
+  if (content) {
+    // Wrap tables for horizontal scroll
+    content.querySelectorAll('table').forEach(function (tbl) {
+      if (tbl.closest('.table-scroll')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'table-scroll';
+      tbl.parentNode.insertBefore(wrap, tbl);
+      wrap.appendChild(tbl);
+    });
+
+    // Code blocks: language label + copy button
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.closest('.code-block')) return;
+      var codeEl = pre.querySelector('code');
+      var lang = '';
+      if (codeEl) {
+        var m = (codeEl.className || '').match(/(?:language|lang)-([a-z0-9]+)/i);
+        if (m) lang = m[1];
+      }
+      var block = document.createElement('div');
+      block.className = 'code-block';
+      pre.parentNode.insertBefore(block, pre);
+      var bar = document.createElement('div');
+      bar.className = 'code-bar';
+      var langSpan = document.createElement('span');
+      langSpan.className = 'code-lang';
+      langSpan.textContent = lang || 'code';
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.innerHTML = '<span class="copy-label">copy</span>';
+      btn.addEventListener('click', function () { copyText(pre.innerText, btn, 'copy'); });
+      bar.appendChild(langSpan);
+      bar.appendChild(btn);
+      block.appendChild(bar);
+      block.appendChild(pre);
+    });
+
+    // Heading anchors (Hwaro already adds ids)
+    content.querySelectorAll('h2[id], h3[id]').forEach(function (h) {
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.textContent = '#';
+      a.setAttribute('aria-label', 'Link to this section');
+      h.appendChild(a);
+    });
+  }
+
+  // Prev / next pager from the sidebar order
+  if (content) {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.docs-sidebar a'));
+    var idx = links.findIndex(function (l) { return l.classList.contains('active'); });
+    if (idx !== -1) {
+      var pager = document.createElement('nav');
+      pager.className = 'doc-pager';
+      pager.setAttribute('aria-label', 'Pagination');
+      [[links[idx - 1], 'prev', 'Previous'], [links[idx + 1], 'next', 'Next']].forEach(function (p) {
+        if (!p[0]) return;
+        var a = document.createElement('a');
+        a.href = p[0].href;
+        a.className = p[1];
+        a.innerHTML = '<span class="dir"></span><span class="name"></span>';
+        a.querySelector('.dir').textContent = p[2];
+        a.querySelector('.name').textContent = p[0].textContent;
+        pager.appendChild(a);
+      });
+      content.appendChild(pager);
+    }
+  }
+
+  // Generic copy targets (hero install lines, etc.)
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      copyText(btn.getAttribute('data-copy'), btn, btn.dataset.copyLabel || 'copy');
+    });
+  });
+
+  // TOC scroll-spy over the native <ul><li><a href="#session-state">Session state</a></li><li><a href="#commands">Commands</a></li><li><a href="#keys-and-completion">Keys and completion</a></li><li><a href="#history">History</a></li></ul> links
+  var tocLinks = document.querySelectorAll('.docs-toc a[href^="#"]');
+  if (tocLinks.length) {
+    var byId = {}, targets = [];
+    tocLinks.forEach(function (l) {
+      var id = decodeURIComponent(l.getAttribute('href').slice(1));
+      var el = document.getElementById(id);
+      if (el) { byId[id] = l; targets.push(el); }
+    });
+    if (targets.length && 'IntersectionObserver' in window) {
+      var spy = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            tocLinks.forEach(function (l) { l.classList.remove('active'); });
+            var a = byId[e.target.id];
+            if (a) a.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+      targets.forEach(function (t) { spy.observe(t); });
+    }
+  }
+
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length) {
+    if (!('IntersectionObserver' in window) ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reveals.forEach(function (el) { el.classList.add('in'); });
+    } else {
+      var ro = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+      reveals.forEach(function (el) { ro.observe(el); });
+    }
+  }
+});
+</script>
+
+</body>
+</html>
