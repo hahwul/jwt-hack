@@ -36,6 +36,12 @@ brew install jwt-hack
 sudo snap install jwt-hack
 ```
 
+### Chocolatey (Windows)
+
+```powershell
+choco install jwt-hack
+```
+
 ### From source
 ```bash
 git clone https://github.com/hahwul/jwt-hack
