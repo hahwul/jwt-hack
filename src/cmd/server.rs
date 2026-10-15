@@ -234,37 +234,54 @@ async fn handle_decode(Json(req): Json<DecodeRequest>) -> Result<Json<DecodeResp
 
 /// Encode endpoint handler
 async fn handle_encode(Json(req): Json<EncodeRequest>) -> Result<Json<EncodeResponse>, ApiError> {
-    // `no_signature` means an unsigned alg:none token. The algorithm must be
-    // forced to "none" (as the CLI does); leaving it at the requested/default
-    // algorithm while passing KeyData::None makes encode_with_options fail with
-    // "No key or secret provided".
-    let algorithm = if req.no_signature {
-        "none"
-    } else {
-        req.algorithm.as_deref().unwrap_or("HS256")
-    };
-    let headers = req.headers.unwrap_or_default();
+    // Asymmetric signing (RSA/EC/EdDSA) and DEFLATE compression are synchronous,
+    // CPU-bound work, so gate and offload them like /payload and /crack — otherwise a
+    // burst of encode requests pins Tokio workers and stalls the runtime (request DoS).
+    let _permit = HEAVY_LIMITER.acquire().await.map_err(|e| ApiError {
+        status: StatusCode::SERVICE_UNAVAILABLE,
+        message: format!("encode limiter unavailable: {e}"),
+    })?;
 
-    let options = jwt::EncodeOptions {
-        algorithm,
-        key_data: if req.no_signature {
-            jwt::KeyData::None
+    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<String> {
+        // `no_signature` means an unsigned alg:none token. The algorithm must be
+        // forced to "none" (as the CLI does); leaving it at the requested/default
+        // algorithm while passing KeyData::None makes encode_with_options fail with
+        // "No key or secret provided".
+        let algorithm = if req.no_signature {
+            "none"
         } else {
-            jwt::KeyData::Secret(req.secret.as_deref().unwrap_or(""))
-        },
-        header_params: if !headers.is_empty() {
-            let mut map = std::collections::HashMap::new();
-            for (k, v) in &headers {
-                map.insert(k.as_str(), v.as_str());
-            }
-            Some(map)
-        } else {
-            None
-        },
-        compress_payload: req.compress,
-    };
+            req.algorithm.as_deref().unwrap_or("HS256")
+        };
+        let headers = req.headers.unwrap_or_default();
 
-    match jwt::encode_with_options(&req.payload, &options) {
+        let options = jwt::EncodeOptions {
+            algorithm,
+            key_data: if req.no_signature {
+                jwt::KeyData::None
+            } else {
+                jwt::KeyData::Secret(req.secret.as_deref().unwrap_or(""))
+            },
+            header_params: if !headers.is_empty() {
+                let mut map = std::collections::HashMap::new();
+                for (k, v) in &headers {
+                    map.insert(k.as_str(), v.as_str());
+                }
+                Some(map)
+            } else {
+                None
+            },
+            compress_payload: req.compress,
+        };
+
+        jwt::encode_with_options(&req.payload, &options)
+    })
+    .await
+    .map_err(|e| ApiError {
+        status: StatusCode::INTERNAL_SERVER_ERROR,
+        message: format!("encode task failed: {e}"),
+    })?;
+
+    match result {
         Ok(token) => Ok(Json(EncodeResponse {
             success: true,
             token: Some(token),
@@ -333,11 +350,13 @@ async fn handle_verify(Json(req): Json<VerifyRequest>) -> Result<Json<VerifyResp
 /// Bounds memory/time and prevents pointing the endpoint at huge or special files.
 const MAX_WORDLIST_BYTES: u64 = 64 * 1024 * 1024; // 64 MiB
 
-/// Bounds how many crack/scan operations run concurrently. `spawn_blocking` already
-/// keeps a single crack off the async runtime, but without this cap a burst of
-/// requests could still occupy many blocking threads and saturate CPU. Excess
-/// requests wait asynchronously for a permit instead of piling on.
-static CRACK_LIMITER: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+/// Bounds how many heavy, CPU-bound operations run concurrently across all requests:
+/// dictionary/brute cracking, payload generation and asymmetric/compressed encoding
+/// (RSA/EC keygen + signing, DEFLATE). `spawn_blocking` keeps one off the async
+/// runtime, but without this cap a burst could still occupy many blocking threads and
+/// saturate CPU, starving `/health` and other endpoints. Excess requests wait
+/// asynchronously for a permit instead of piling on.
+static HEAVY_LIMITER: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 
 /// Where a dictionary attack draws its candidate secrets from.
 enum WordlistSource {
@@ -349,10 +368,14 @@ enum WordlistSource {
 
 impl WordlistSource {
     /// Run the dictionary attack for this source (intended for a blocking thread).
-    fn crack(self, token: &str) -> anyhow::Result<Option<String>> {
+    ///
+    /// At most `max_attempts` candidates are tried; pass `usize::MAX` for unbounded.
+    fn crack(self, token: &str, max_attempts: usize) -> anyhow::Result<Option<String>> {
         match self {
-            WordlistSource::Inline(words) => Ok(crack_words(token, words)),
-            WordlistSource::Path(path) => crack_dict(token, &path),
+            WordlistSource::Inline(words) => {
+                Ok(crack_words(token, words.into_iter().take(max_attempts)))
+            }
+            WordlistSource::Path(path) => crack_dict(token, &path, max_attempts),
         }
     }
 }
@@ -404,7 +427,11 @@ fn resolve_wordlist_path(requested: &str) -> anyhow::Result<PathBuf> {
 }
 
 /// Helper function to crack JWT using a dictionary file (already allow-list validated).
-fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<String>> {
+fn crack_dict(
+    token: &str,
+    wordlist_path: &PathBuf,
+    max_attempts: usize,
+) -> anyhow::Result<Option<String>> {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read};
 
@@ -429,11 +456,15 @@ fn crack_dict(token: &str, wordlist_path: &PathBuf) -> anyhow::Result<Option<Str
     // candidate rather than terminating the iterator early (as `lines()` +
     // `map_while(Result::ok)` did, silently skipping the rest of the wordlist). The
     // outer `.take(MAX_WORDLIST_BYTES)` bounds total bytes read.
-    let words = reader.split(b'\n').map_while(Result::ok).map(|line| {
-        String::from_utf8_lossy(&line)
-            .trim_end_matches('\r')
-            .to_string()
-    });
+    let words = reader
+        .split(b'\n')
+        .map_while(Result::ok)
+        .map(|line| {
+            String::from_utf8_lossy(&line)
+                .trim_end_matches('\r')
+                .to_string()
+        })
+        .take(max_attempts);
     Ok(crack_words(token, words))
 }
 
@@ -501,7 +532,7 @@ fn crack_brute(
 /// Crack endpoint handler
 async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackResponse>, ApiError> {
     // Limit concurrent crack work across all requests (released when this handler returns).
-    let _permit = CRACK_LIMITER.acquire().await.map_err(|e| ApiError {
+    let _permit = HEAVY_LIMITER.acquire().await.map_err(|e| ApiError {
         status: StatusCode::SERVICE_UNAVAILABLE,
         message: format!("crack limiter unavailable: {e}"),
     })?;
@@ -512,7 +543,8 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
         let mode = req.mode.to_lowercase();
         match mode.as_str() {
             "dict" => match wordlist_source(req.wordlist_content, req.wordlist.as_ref())? {
-                Some(source) => source.crack(&req.token),
+                // The dedicated /crack endpoint has no attempt bound of its own.
+                Some(source) => source.crack(&req.token, usize::MAX),
                 None => anyhow::bail!(
                     "Dictionary attack requires `wordlist_content` (inline) or `wordlist` (path)"
                 ),
@@ -568,16 +600,33 @@ async fn handle_crack(Json(req): Json<CrackRequest>) -> Result<Json<CrackRespons
 async fn handle_payload(
     Json(req): Json<PayloadRequest>,
 ) -> Result<Json<PayloadResponse>, ApiError> {
-    let target = req.target.as_deref();
+    // Generating the `all` target runs two RSA-2048 keygens, an EC keygen and a
+    // 1 MiB DEFLATE compression — heavy, synchronous CPU work. Gate it with the
+    // shared limiter and run it on a blocking thread so a burst of /payload requests
+    // cannot pin every Tokio worker and stall the runtime (request DoS), just like
+    // /crack and /scan.
+    let _permit = HEAVY_LIMITER.acquire().await.map_err(|e| ApiError {
+        status: StatusCode::SERVICE_UNAVAILABLE,
+        message: format!("payload limiter unavailable: {e}"),
+    })?;
 
-    match payload::generate_all_payloads(
-        &req.token,
-        req.jwk_trust.as_deref(),
-        req.jwk_attack.as_deref(),
-        &req.jwk_protocol,
-        target,
-        req.public_key.as_deref(),
-    ) {
+    let result = tokio::task::spawn_blocking(move || {
+        payload::generate_all_payloads(
+            &req.token,
+            req.jwk_trust.as_deref(),
+            req.jwk_attack.as_deref(),
+            &req.jwk_protocol,
+            req.target.as_deref(),
+            req.public_key.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| ApiError {
+        status: StatusCode::INTERNAL_SERVER_ERROR,
+        message: format!("payload task failed: {e}"),
+    })?;
+
+    match result {
         Ok(payloads) => {
             let payload_items: Vec<PayloadItem> = payloads
                 .into_iter()
@@ -648,17 +697,21 @@ async fn handle_scan(Json(req): Json<ScanRequest>) -> Result<Json<ScanResponse>,
             }
         };
         if let Some(source) = source {
-            let _permit = CRACK_LIMITER.acquire().await.map_err(|e| ApiError {
+            let _permit = HEAVY_LIMITER.acquire().await.map_err(|e| ApiError {
                 status: StatusCode::SERVICE_UNAVAILABLE,
                 message: format!("crack limiter unavailable: {e}"),
             })?;
             let token = req.token.clone();
-            let crack_result = tokio::task::spawn_blocking(move || source.crack(&token))
-                .await
-                .map_err(|e| ApiError {
-                    status: StatusCode::INTERNAL_SERVER_ERROR,
-                    message: format!("scan crack task failed: {e}"),
-                })?;
+            // Honor the request's `max_crack_attempts` bound — previously ignored, so a
+            // client could force the whole (up to 64 MiB) wordlist to be tried.
+            let max_attempts = req.max_crack_attempts;
+            let crack_result =
+                tokio::task::spawn_blocking(move || source.crack(&token, max_attempts))
+                    .await
+                    .map_err(|e| ApiError {
+                        status: StatusCode::INTERNAL_SERVER_ERROR,
+                        message: format!("scan crack task failed: {e}"),
+                    })?;
             if let Ok(Some(secret)) = crack_result {
                 vulnerabilities.push(format!("Weak secret found: {}", secret));
                 found_secret = Some(secret);
@@ -724,11 +777,16 @@ fn build_router(api_key: Option<String>) -> Router {
         .route("/verify", post(handle_verify))
         .route("/crack", post(handle_crack))
         .route("/payload", post(handle_payload))
-        .route("/scan", post(handle_scan))
-        .layer(cors);
+        .route("/scan", post(handle_scan));
 
-    // Attach API key authentication middleware (no-op if api_key is None)
-    router.layer(from_fn_with_state(api_key, api_key_middleware))
+    // Layer order matters: the last-added layer is outermost (runs first). CORS must
+    // be outermost so a browser's CORS preflight — an `OPTIONS` request that by spec
+    // carries no `X-API-KEY` header — is answered with the `Access-Control-*` headers
+    // instead of being rejected with 401 by the API-key middleware before CORS can
+    // respond. Real (non-preflight) requests still pass through the auth middleware.
+    router
+        .layer(from_fn_with_state(api_key, api_key_middleware))
+        .layer(cors)
 }
 
 /// Bind the server's TCP listener. Returns a clean `io::Error` instead of
@@ -831,6 +889,25 @@ mod tests {
     #[test]
     fn test_default_max_crack_attempts() {
         assert_eq!(default_max_crack_attempts(), 100);
+    }
+
+    #[test]
+    fn test_inline_crack_honors_max_attempts() {
+        // Token signed with "hit", placed 3rd in the candidate list.
+        let token = jwt::encode(&json!({"a": 1}), "hit", "HS256").expect("encode");
+        let words = || vec!["a".to_string(), "b".to_string(), "hit".to_string()];
+
+        // Bound below the match's position: must NOT find it.
+        let bounded = WordlistSource::Inline(words())
+            .crack(&token, 2)
+            .expect("crack ok");
+        assert_eq!(bounded, None);
+
+        // Bound at/above the match's position: finds it.
+        let found = WordlistSource::Inline(words())
+            .crack(&token, 3)
+            .expect("crack ok");
+        assert_eq!(found.as_deref(), Some("hit"));
     }
 
     #[tokio::test]

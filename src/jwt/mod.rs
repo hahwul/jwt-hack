@@ -323,9 +323,15 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
         header_map.insert("alg".to_string(), Value::String("none".to_string()));
         header_map.insert("typ".to_string(), Value::String("JWT".to_string()));
 
-        // Add any additional header parameters
+        // Add any additional header parameters. Never let `--header alg=...` override
+        // the `alg` set above (matching the signed path): the algorithm is fixed by
+        // `--algorithm`, and overwriting it here would emit a header advertising a
+        // different alg than the unsigned `none` token actually is.
         if let Some(params) = &options.header_params {
             for (key, value) in params {
+                if *key == "alg" {
+                    continue;
+                }
                 header_map.insert(key.to_string(), Value::String(value.to_string()));
             }
         }
@@ -434,11 +440,13 @@ fn encode_compressed_jwt(
     header_map.insert("typ".to_string(), Value::String("JWT".to_string()));
     header_map.insert("zip".to_string(), Value::String("DEF".to_string()));
 
-    // Add any additional header parameters
+    // Add any additional header parameters. Skip `zip` (fixed to DEF for this path)
+    // and `alg` (fixed by `--algorithm`; letting `--header alg=...` override it would
+    // make the header advertise a different alg than the token is actually signed
+    // with — e.g. claim RS256 over an HMAC signature).
     if let Some(params) = &options.header_params {
         for (key, value) in params {
-            if *key != "zip" {
-                // Don't override zip parameter
+            if *key != "zip" && *key != "alg" {
                 header_map.insert(key.to_string(), Value::String(value.to_string()));
             }
         }
@@ -1708,6 +1716,47 @@ mod tests {
             "HS256"
         );
         assert_eq!(decoded_token.claims, claims);
+    }
+
+    #[test]
+    fn test_header_alg_override_is_ignored() {
+        // `--header alg=...` must never override the algorithm fixed by `--algorithm`,
+        // on every encode path, or the header would advertise an alg that disagrees
+        // with how the token is actually signed/unsigned.
+        let claims = json!({"user": "test"});
+        let mut header_params = HashMap::new();
+        header_params.insert("alg", "RS256");
+        header_params.insert("kid", "k1"); // a non-alg header must still be honored
+
+        // none path
+        let none_tok = encode_with_options(
+            &claims,
+            &EncodeOptions {
+                algorithm: "none",
+                key_data: KeyData::None,
+                header_params: Some(header_params.clone()),
+                compress_payload: false,
+            },
+        )
+        .expect("encode none");
+        let none_hdr = decode(&none_tok).unwrap().header;
+        assert_eq!(none_hdr.get("alg").unwrap().as_str().unwrap(), "none");
+        assert_eq!(none_hdr.get("kid").unwrap().as_str().unwrap(), "k1");
+
+        // compressed HS256 path
+        let comp_tok = encode_with_options(
+            &claims,
+            &EncodeOptions {
+                algorithm: "HS256",
+                key_data: KeyData::Secret("s"),
+                header_params: Some(header_params),
+                compress_payload: true,
+            },
+        )
+        .expect("encode compressed");
+        let comp_hdr = decode(&comp_tok).unwrap().header;
+        assert_eq!(comp_hdr.get("alg").unwrap().as_str().unwrap(), "HS256");
+        assert_eq!(comp_hdr.get("kid").unwrap().as_str().unwrap(), "k1");
     }
 
     #[test]
