@@ -4,106 +4,43 @@ title = "Contributing"
 weight = 4
 +++
 
-Thank you for your interest in contributing to JWT-HACK! This project welcomes contributions from the community.
+Patches, bug reports, and new attack ideas are all welcome. This page is the short version; the [full CONTRIBUTING.md](https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md) in the repo has the rest.
 
-## Getting Started
+## Set up
 
-### Prerequisites
+You need Rust and Cargo (latest stable). [Just](https://github.com/casey/just) is optional but it wraps the common tasks:
 
-- Rust and Cargo installed (latest stable version recommended)
-- Git
-- Just task runner (optional but recommended)
-
-### Development Setup
-
-1. Fork the repository on GitHub
-2. Clone your fork locally:
-   ```bash
-   git clone https://github.com/YOUR-USERNAME/jwt-hack.git
-   cd jwt-hack
-   ```
-3. Create a branch for your work:
-   ```bash
-   git checkout -b features/your-feature-name
-   # or
-   git checkout -b bugfix/issue-description
-   ```
-
-### Building and Testing
-
-Install Just task runner for easier development:
 ```bash
 cargo install just
+
+git clone https://github.com/YOUR-USERNAME/jwt-hack.git
+cd jwt-hack
+git checkout -b fix-the-thing
 ```
 
-Development workflow:
-```bash
-# Build for development (takes ~75s first time, ~18s subsequent)
-just dev
-
-# Run all tests (takes ~17s)
-just test
-
-# Format and fix linting issues
-just fix
-
-# Clean build
-cargo clean && just dev
-```
-
-## Code Guidelines
-
-### Rust Code Style
-
-- Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
-- Use `cargo fmt` to format your code before committing
-- Run `cargo clippy` and address any warnings
-- Add tests that cover the new behavior
-
-### Commit Messages
-
-- Use clear, concise commit messages
-- Start with a verb in the present tense (e.g., "Add feature" not "Added feature")
-- Reference issue numbers when applicable (e.g., "Fix #123: Memory leak in URL parser")
-
-### Testing Requirements
-
-All contributions must include appropriate tests:
+## Build and test
 
 ```bash
-# Unit tests
-cargo test
-
-# Integration tests
-cargo test --test integration
-
-# Linting
-cargo clippy -- --deny warnings
-
-# Formatting check
-cargo fmt --check
+just dev    # debug build
+just test   # cargo test + clippy + fmt --check + doc
+just fix    # format and auto-fix lints
 ```
 
-## Pull Request Process
+`just test` runs everything CI runs, so if it passes locally the pull request should too. To run only part of it:
 
-### Before Submitting
+```bash
+cargo test                       # unit tests
+cargo test --test e2e            # end-to-end tests
+cargo test --test interop        # cross-library interop tests
+cargo clippy -- --deny warnings  # lint
+cargo fmt --check                # format check
+```
 
-1. Ensure your code builds without errors:
-   ```bash
-   just dev
-   ```
+## Before you open a PR
 
-2. Run the full test suite:
-   ```bash
-   just test
-   ```
+- `just test` is clean.
+- New behavior has tests covering it.
+- Docs are updated if a flag or command changed.
+- Commit messages say what changed in the present tense, and reference an issue when there is one (for example `Fix #123: reject empty kid`).
 
-3. Update documentation if needed
-
-4. Verify functionality with manual testing:
-   ```bash
-   ./target/debug/jwt-hack --help
-   ./target/debug/jwt-hack decode <test-token>
-   ```
-
-For more detailed contributing guidelines, please see the [full CONTRIBUTING.md](https://github.com/hahwul/jwt-hack/blob/main/CONTRIBUTING.md) in the repository.
+Then push your branch and open the pull request against `main`. If you are adding a JWT attack that `payload` or `scan` does not cover yet, say so in the description so it is easy to review.

