@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use base64::Engine;
 use jsonwebtoken::errors::ErrorKind;
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -768,53 +768,6 @@ pub fn prepare_hs256_verifier(token: &str) -> Result<Hs256Verifier> {
     })
 }
 
-/// Helper function to create validation configuration
-fn create_validation(algorithm: Algorithm, options: &VerifyOptions) -> Validation {
-    let mut validation = Validation::new(algorithm);
-    validation.validate_exp = options.validate_exp;
-    validation.validate_nbf = options.validate_nbf;
-    validation.leeway = options.leeway;
-    // jsonwebtoken's defaults require an `exp` claim to be present and validate the
-    // `aud` claim. jwt-hack verifies the SIGNATURE (and optionally exp/nbf) of
-    // arbitrary tokens, so it must not reject a validly-signed token merely because
-    // it lacks `exp` or carries an `aud` we were never asked to check. Without this,
-    // HS384/HS512/RSA/EC tokens that omit `exp` were silently reported as invalid.
-    validation.required_spec_claims.clear();
-    validation.validate_aud = false;
-    validation
-}
-
-/// Helper function to handle verification result with time-based error handling
-fn handle_verification_result(
-    result: std::result::Result<jsonwebtoken::TokenData<Value>, jsonwebtoken::errors::Error>,
-) -> Result<bool> {
-    match result {
-        Ok(_) => Ok(true),
-        Err(e) => {
-            let jwt_error = JwtError::from(e.kind().clone());
-            if matches!(
-                jwt_error,
-                JwtError::ExpiredSignature | JwtError::ImmatureSignature
-            ) {
-                Err(anyhow::anyhow!(jwt_error))
-            } else {
-                Ok(false)
-            }
-        }
-    }
-}
-
-/// Whether the JOSE header declares a DEFLATE-compressed payload (`zip: "DEF"`).
-///
-/// RFC 7516 §4.1.3 registers `DEF`; the value is compared case-insensitively to
-/// match how [`decode`] decides whether to inflate the payload.
-fn header_declares_deflate(header: &HashMap<String, Value>) -> bool {
-    header
-        .get("zip")
-        .and_then(|v| v.as_str())
-        .is_some_and(|s| s.eq_ignore_ascii_case("DEF"))
-}
-
 /// Current UNIX time in seconds.
 fn unix_now() -> Result<i64> {
     Ok(std::time::SystemTime::now()
@@ -827,9 +780,7 @@ fn unix_now() -> Result<i64> {
 ///
 /// Mirrors jsonwebtoken's semantics: expired when `exp < now - leeway`, not yet
 /// valid when `nbf > now + leeway`, a missing claim is not an error, and a claim
-/// that is present but not a NumericDate is an `InvalidClaimFormat` error. Used
-/// on the paths where jsonwebtoken cannot do the check itself — ES512 (verified
-/// through josekit) and DEFLATE-compressed payloads, whose bytes are not JSON.
+/// that is present but not a NumericDate is an `InvalidClaimFormat` error.
 fn validate_time_claims(claims: &Value, options: &VerifyOptions) -> Result<()> {
     if !options.validate_exp && !options.validate_nbf {
         return Ok(());
@@ -888,16 +839,12 @@ fn decoding_key_from_secret(secret: &[u8], algorithm: Algorithm) -> Result<Decod
     }
 }
 
-/// Verify a token whose payload is DEFLATE-compressed (`zip: "DEF"`).
+/// Verify the signature over `header.payload`, then the time claims from [`decode`].
 ///
-/// Every algorithm except HS256 was verified by handing the whole token to
-/// `jsonwebtoken::decode`, which deserializes the payload segment as JSON
-/// claims. A compressed payload is raw DEFLATE, so that always failed and a
-/// correctly signed token was reported as having an invalid signature (and even
-/// HS256 failed once `--validate-exp` was requested). Verify the signature over
-/// the signing input directly instead, then check the time claims against the
-/// already-decompressed claims from [`decode`].
-fn verify_compressed(
+/// Deliberately not `jsonwebtoken::decode`: it re-parses the header into a typed
+/// struct and the payload as JSON, so a correctly signed token with e.g. `"kid":5`,
+/// a lowercase `alg`, or a `zip:"DEF"` payload was reported as an invalid signature.
+fn verify_signature(
     message: &str,
     signature_b64: &str,
     decoded: &DecodedToken,
@@ -931,7 +878,12 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
     if let Some(alg) = decoded_token.header.get("alg") {
         if let Some(alg_str) = alg.as_str() {
             if alg_str.eq_ignore_ascii_case("none") {
-                return Ok(!verify_key_is_present(&options.key_data));
+                if verify_key_is_present(&options.key_data) {
+                    return Ok(false);
+                }
+                // An unsigned token still has to honour --validate-exp/--validate-nbf.
+                validate_time_claims(&decoded_token.claims, options)?;
+                return Ok(true);
             }
         }
     }
@@ -985,95 +937,11 @@ pub fn verify_with_options(token: &str, options: &VerifyOptions) -> Result<bool>
         return Ok(false);
     }
 
-    // Decode signature
-    let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD
+    base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(signature_b64)
         .map_err(|_| anyhow!("Invalid signature encoding"))?;
 
-    // A `zip:"DEF"` payload is raw DEFLATE, not JSON, so it cannot be routed
-    // through `jsonwebtoken::decode` (which deserializes the claims) — see
-    // [`verify_compressed`].
-    if header_declares_deflate(&decoded_token.header) {
-        return verify_compressed(&message, signature_b64, &decoded_token, options);
-    }
-
-    // Get decoding key based on algorithm and key data
-    match &options.key_data {
-        VerifyKeyData::Secret(secret) => verify_with_secret_bytes(
-            token,
-            &message,
-            &signature,
-            secret.as_bytes(),
-            decoded_token.algorithm,
-            options,
-        ),
-        VerifyKeyData::SecretBytes(secret) => verify_with_secret_bytes(
-            token,
-            &message,
-            &signature,
-            secret,
-            decoded_token.algorithm,
-            options,
-        ),
-        VerifyKeyData::PublicKeyPem(pem) => {
-            verify_with_public_key_pem(token, pem, decoded_token.algorithm, options)
-        }
-        VerifyKeyData::PublicKeyDer(der) => {
-            verify_with_public_key_der(token, der, decoded_token.algorithm, options)
-        }
-    }
-}
-
-/// Verify an HMAC-signed token against a raw secret key (arbitrary bytes).
-///
-/// Shared by [`VerifyKeyData::Secret`] and [`VerifyKeyData::SecretBytes`] so the
-/// key is used verbatim — never routed through a lossy UTF-8 conversion that
-/// would corrupt a binary HMAC key.
-fn verify_with_secret_bytes(
-    token: &str,
-    message: &str,
-    signature: &[u8],
-    secret: &[u8],
-    algorithm: Algorithm,
-    options: &VerifyOptions,
-) -> Result<bool> {
-    match algorithm {
-        Algorithm::HS256 => {
-            // Manual signature check
-            let mut calculated_sig = hmac_sha256::HMAC::mac(message.as_bytes(), secret);
-            let sig_matches =
-                crate::utils::constant_time_eq(signature, calculated_sig.as_slice());
-            calculated_sig.zeroize();
-            if !sig_matches {
-                return Ok(false); // Signature mismatch
-            }
-
-            // If signature is OK, and time validation is requested, perform it.
-            if options.validate_exp || options.validate_nbf {
-                let validation = create_validation(Algorithm::HS256, options);
-                let decoding_key = DecodingKey::from_secret(secret);
-                match jsonwebtoken::decode::<Value>(token, &decoding_key, &validation) {
-                    Ok(_) => Ok(true), // Token is valid and passed time checks
-                    Err(e) => Err(anyhow::anyhow!(JwtError::from(e.kind().clone()))), // Convert to our JwtError type
-                }
-            } else {
-                Ok(true) // Signature is OK, no time validation requested
-            }
-        }
-        Algorithm::HS384 | Algorithm::HS512 => {
-            // For HS384 and HS512, use jsonwebtoken directly which handles signature and time validation.
-            // Route through handle_verification_result so expired/not-yet-valid tokens surface as
-            // distinct errors instead of collapsing into a plain `false`, matching the HS256/RSA/EC paths.
-            let decoding_key = DecodingKey::from_secret(secret);
-            let validation = create_validation(algorithm, options);
-            let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-            handle_verification_result(result)
-        }
-        _ => Err(anyhow!(
-            "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
-            algorithm
-        )),
-    }
+    verify_signature(&message, signature_b64, &decoded_token, options)
 }
 
 /// Derive a public-key PEM from `pem`, which may already be a public key.
@@ -1150,34 +1018,6 @@ fn public_key_decoding_key_from_der(der: &[u8], algorithm: Algorithm) -> Result<
             ))
         }
     })
-}
-
-/// Helper function to verify with PEM-encoded public key
-fn verify_with_public_key_pem(
-    token: &str,
-    pem: &str,
-    algorithm: Algorithm,
-    options: &VerifyOptions,
-) -> Result<bool> {
-    let decoding_key = public_key_decoding_key_from_pem(pem, algorithm)?;
-
-    let validation = create_validation(algorithm, options);
-    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-    handle_verification_result(result)
-}
-
-/// Helper function to verify with DER-encoded public key
-fn verify_with_public_key_der(
-    token: &str,
-    der: &[u8],
-    algorithm: Algorithm,
-    options: &VerifyOptions,
-) -> Result<bool> {
-    let decoding_key = public_key_decoding_key_from_der(der, algorithm)?;
-
-    let validation = create_validation(algorithm, options);
-    let result = jsonwebtoken::decode::<Value>(token, &decoding_key, &validation);
-    handle_verification_result(result)
 }
 
 /// Verify an ES512 token via josekit.
@@ -2801,6 +2641,59 @@ mod tests {
                 "{alg} token must not verify with the wrong secret"
             );
         }
+    }
+
+    #[test]
+    fn test_verify_ignores_non_standard_header_field_types() {
+        // `--header x5c=abc` makes x5c a string, not the array jsonwebtoken's typed
+        // Header expects; a correct signature must still verify for every HMAC alg.
+        for alg in ["HS256", "HS384", "HS512"] {
+            let options = EncodeOptions {
+                algorithm: alg,
+                key_data: KeyData::Secret("s"),
+                header_params: Some(HashMap::from([("x5c", "abc")])),
+                compress_payload: false,
+            };
+            let token = encode_with_options(&json!({"sub": "1"}), &options).unwrap();
+            for validate_exp in [false, true] {
+                let ok = VerifyOptions {
+                    key_data: VerifyKeyData::Secret("s"),
+                    validate_exp,
+                    ..Default::default()
+                };
+                assert!(
+                    matches!(verify_with_options(&token, &ok), Ok(true)),
+                    "{alg}"
+                );
+            }
+            let wrong = VerifyOptions {
+                key_data: VerifyKeyData::Secret("t"),
+                ..Default::default()
+            };
+            assert!(
+                matches!(verify_with_options(&token, &wrong), Ok(false)),
+                "{alg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_verify_none_token_honours_validate_exp() {
+        let options = EncodeOptions {
+            algorithm: "none",
+            key_data: KeyData::None,
+            header_params: None,
+            compress_payload: false,
+        };
+        let token = encode_with_options(&json!({"exp": 1000}), &options).unwrap();
+        let mut verify = VerifyOptions {
+            key_data: VerifyKeyData::Secret(""),
+            ..Default::default()
+        };
+        assert!(matches!(verify_with_options(&token, &verify), Ok(true)));
+        verify.validate_exp = true;
+        let err = verify_with_options(&token, &verify).unwrap_err();
+        assert!(err.to_string().contains("Expired"), "{err}");
     }
 
     #[test]
