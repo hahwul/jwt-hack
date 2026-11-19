@@ -316,6 +316,24 @@ fn resolve_crack_wordlist(
     Ok(config_default.clone())
 }
 
+/// Pick the key material for encode/verify: the CLI flags win as a pair, and the
+/// config defaults apply only when neither `--secret` nor `--private-key` is given.
+/// Falling back per-field let a config `default_private_key` override `--secret`.
+fn resolve_key_material<'a>(
+    secret: &'a Option<String>,
+    private_key: &'a Option<PathBuf>,
+    config: &'a crate::config::Config,
+) -> (Option<&'a str>, Option<&'a PathBuf>) {
+    if secret.is_some() || private_key.is_some() {
+        (secret.as_deref(), private_key.as_ref())
+    } else {
+        (
+            config.default_secret.as_deref(),
+            config.default_private_key.as_ref(),
+        )
+    }
+}
+
 /// Parses command-line arguments and executes the appropriate command
 pub fn execute() {
     let cli = Cli::parse();
@@ -347,10 +365,11 @@ pub fn execute() {
                     .as_deref()
                     .or(config.default_algorithm.as_deref())
                     .unwrap_or("HS256");
+                let (secret, private_key) = resolve_key_material(secret, private_key, &config);
                 encode::execute_json(
                     json,
-                    secret.as_deref().or(config.default_secret.as_deref()),
-                    private_key.as_ref().or(config.default_private_key.as_ref()),
+                    secret,
+                    private_key,
                     algorithm,
                     *no_signature,
                     header,
@@ -363,12 +382,10 @@ pub fn execute() {
                 secret,
                 private_key,
                 validate_exp,
-            }) => verify::execute_json(
-                token,
-                secret.as_deref().or(config.default_secret.as_deref()),
-                private_key.as_ref().or(config.default_private_key.as_ref()),
-                *validate_exp,
-            ),
+            }) => {
+                let (secret, private_key) = resolve_key_material(secret, private_key, &config);
+                verify::execute_json(token, secret, private_key, *validate_exp)
+            }
             Some(Commands::Crack {
                 token,
                 mode,
@@ -515,10 +532,11 @@ pub fn execute() {
                 .as_deref()
                 .or(config.default_algorithm.as_deref())
                 .unwrap_or("HS256");
+            let (secret, private_key) = resolve_key_material(secret, private_key, &config);
             encode::execute(
                 json,
-                secret.as_deref().or(config.default_secret.as_deref()),
-                private_key.as_ref().or(config.default_private_key.as_ref()),
+                secret,
+                private_key,
                 algorithm,
                 *no_signature,
                 header,
@@ -532,12 +550,8 @@ pub fn execute() {
             private_key,
             validate_exp,
         }) => {
-            verify::execute(
-                token,
-                secret.as_deref().or(config.default_secret.as_deref()),
-                private_key.as_ref().or(config.default_private_key.as_ref()),
-                *validate_exp,
-            );
+            let (secret, private_key) = resolve_key_material(secret, private_key, &config);
+            verify::execute(token, secret, private_key, *validate_exp);
         }
         Some(Commands::Crack {
             token,
@@ -684,6 +698,25 @@ pub fn execute() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_resolve_key_material_cli_wins_as_a_pair() {
+        let config = crate::config::Config {
+            default_secret: Some("cfg".into()),
+            default_private_key: Some(PathBuf::from("cfg.pem")),
+            ..Default::default()
+        };
+        let secret = Some("cli".to_string());
+        assert_eq!(
+            resolve_key_material(&secret, &None, &config),
+            (Some("cli"), None)
+        );
+        let (s, k) = resolve_key_material(&None, &None, &config);
+        assert_eq!(
+            (s, k.map(|p| p.to_str().unwrap())),
+            (Some("cfg"), Some("cfg.pem"))
+        );
+    }
 
     #[test]
     fn test_parse_key_value_valid() {

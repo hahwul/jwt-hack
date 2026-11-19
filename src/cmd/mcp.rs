@@ -278,7 +278,8 @@ impl JwtHackServer {
             // Use a built-in small wordlist for demo purposes
             let common_passwords = crate::config::COMMON_SECRETS;
 
-            for password in common_passwords {
+            // "" verifies any alg:none token, so it must never count as a found secret.
+            for password in common_passwords.iter().filter(|p| !p.is_empty()) {
                 if let Ok(is_valid) = crate::jwt::verify(&args.token, password) {
                     if is_valid {
                         return Ok(CallToolResult::success(vec![ContentBlock::text(format!(

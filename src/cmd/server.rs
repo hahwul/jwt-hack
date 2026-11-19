@@ -397,8 +397,10 @@ fn wordlist_source(
 
 /// Try each candidate secret against the token, returning the first that verifies.
 fn crack_words<I: IntoIterator<Item = String>>(token: &str, words: I) -> Option<String> {
+    // "" verifies any alg:none token, so it must never count as a found secret.
     words
         .into_iter()
+        .filter(|word| !word.is_empty())
         .find(|word| matches!(jwt::verify(token, word), Ok(true)))
 }
 
@@ -857,6 +859,14 @@ pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_crack_words_never_reports_empty_secret() {
+        // header {"alg":"none"}, payload {"sub":"1"}, no signature.
+        let none_token = "eyJhbGciOiJub25lIn0.eyJzdWIiOiIxIn0.";
+        let words = vec![String::new(), "x".to_string()];
+        assert_eq!(crack_words(none_token, words), None);
+    }
 
     #[test]
     fn test_default_crack_mode() {
