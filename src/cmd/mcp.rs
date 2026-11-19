@@ -278,8 +278,16 @@ impl JwtHackServer {
             // Use a built-in small wordlist for demo purposes
             let common_passwords = crate::config::COMMON_SECRETS;
 
-            // "" verifies any alg:none token, so it must never count as a found secret.
-            for password in common_passwords.iter().filter(|p| !p.is_empty()) {
+            // An unsigned token has no secret; without this, "" "verifies" it (inspection mode).
+            if crate::jwt::decode(&args.token)
+                .is_ok_and(|d| d.alg_str().eq_ignore_ascii_case("none"))
+            {
+                return Ok(CallToolResult::success(vec![ContentBlock::text(
+                    "✗ Token uses alg 'none' (unsigned); there is no secret to crack.".to_string(),
+                )]));
+            }
+
+            for password in common_passwords {
                 if let Ok(is_valid) = crate::jwt::verify(&args.token, password) {
                     if is_valid {
                         return Ok(CallToolResult::success(vec![ContentBlock::text(format!(

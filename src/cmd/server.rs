@@ -397,10 +397,12 @@ fn wordlist_source(
 
 /// Try each candidate secret against the token, returning the first that verifies.
 fn crack_words<I: IntoIterator<Item = String>>(token: &str, words: I) -> Option<String> {
-    // "" verifies any alg:none token, so it must never count as a found secret.
+    // An unsigned token has no secret; without this, "" "verifies" it (inspection mode).
+    if jwt::decode(token).is_ok_and(|d| d.alg_str().eq_ignore_ascii_case("none")) {
+        return None;
+    }
     words
         .into_iter()
-        .filter(|word| !word.is_empty())
         .find(|word| matches!(jwt::verify(token, word), Ok(true)))
 }
 
@@ -865,7 +867,17 @@ mod tests {
         // header {"alg":"none"}, payload {"sub":"1"}, no signature.
         let none_token = "eyJhbGciOiJub25lIn0.eyJzdWIiOiIxIn0.";
         let words = vec![String::new(), "x".to_string()];
-        assert_eq!(crack_words(none_token, words), None);
+        assert_eq!(crack_words(none_token, words.clone()), None);
+
+        // ...but a real HS256 token signed with "" must still be found.
+        let opts = jwt::EncodeOptions {
+            algorithm: "HS256",
+            key_data: jwt::KeyData::Secret(""),
+            header_params: None,
+            compress_payload: false,
+        };
+        let signed = jwt::encode_with_options(&json!({"sub": "1"}), &opts).unwrap();
+        assert_eq!(crack_words(&signed, words), Some(String::new()));
     }
 
     #[test]
