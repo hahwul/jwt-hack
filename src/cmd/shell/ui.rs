@@ -257,6 +257,7 @@ mod tests {
             output_lines: Text::default(),
             scroll_offset: 0,
             history: super::super::history::History::new(100),
+            history_draft: None,
             mode: AppMode::Normal,
             should_quit: false,
         }

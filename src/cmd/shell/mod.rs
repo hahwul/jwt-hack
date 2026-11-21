@@ -73,6 +73,7 @@ pub struct App {
     pub output_lines: Text<'static>,
     pub scroll_offset: usize,
     pub history: History,
+    history_draft: Option<(String, usize)>,
     pub mode: AppMode,
     pub should_quit: bool,
 }
@@ -89,6 +90,7 @@ impl App {
             output_lines: Text::default(),
             scroll_offset: 0,
             history: History::new(1000),
+            history_draft: None,
             mode: AppMode::Normal,
             should_quit: false,
         }
@@ -357,6 +359,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 app.input.clear();
                 app.cursor_position = 0;
                 app.history.reset_navigation();
+                app.history_draft = None;
             }
         }
         // Tab — trigger completion
@@ -374,7 +377,10 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
         // Up arrow — history navigate up
         (_, KeyCode::Up) => {
             if let Some(entry) = app.history.navigate_up() {
-                app.input = entry.to_string();
+                let previous_input = std::mem::replace(&mut app.input, entry.to_owned());
+                if app.history_draft.is_none() {
+                    app.history_draft = Some((previous_input, app.cursor_position));
+                }
                 app.cursor_position = app.input.len();
             }
         }
@@ -385,8 +391,9 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 app.cursor_position = app.input.len();
             }
             None => {
-                app.input.clear();
-                app.cursor_position = 0;
+                if let Some(draft) = app.history_draft.take() {
+                    (app.input, app.cursor_position) = draft;
+                }
             }
         },
         // Left arrow — step back one whole character (cursor_position is a byte offset)
@@ -902,6 +909,43 @@ mod tests {
         let last = app.output_lines.lines.last().unwrap();
         let text: String = last.spans.iter().map(|s| s.content.as_ref()).collect();
         assert_eq!(text, format!("line {}", MAX_OUTPUT_LINES + 500 - 1));
+    }
+
+    #[test]
+    fn history_down_keeps_input_when_not_browsing() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        app.input = "help".to_owned();
+        app.cursor_position = 2;
+
+        let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        handle_key_event(down, &mut app, &tx);
+
+        assert_eq!(app.input, "help");
+        assert_eq!(app.cursor_position, 2);
+    }
+
+    #[test]
+    fn history_roundtrip_restores_the_draft_and_cursor() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        app.history.add("help");
+        app.history.add("show");
+        app.input = "한글 draft".to_owned();
+        app.cursor_position = "한".len();
+
+        let up = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        handle_key_event(up, &mut app, &tx);
+        assert_eq!(app.input, "show");
+        handle_key_event(up, &mut app, &tx);
+        assert_eq!(app.input, "help");
+        handle_key_event(down, &mut app, &tx);
+        assert_eq!(app.input, "show");
+        handle_key_event(down, &mut app, &tx);
+
+        assert_eq!(app.input, "한글 draft");
+        assert_eq!(app.cursor_position, "한".len());
     }
 
     #[test]
