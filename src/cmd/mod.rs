@@ -343,7 +343,12 @@ pub fn execute() {
     let config = match crate::config::Config::load(cli.config.as_deref()) {
         Ok(config) => config,
         Err(e) => {
-            error!("Failed to load configuration: {}", e);
+            let message = format!("Failed to load configuration: {e}");
+            if cli.output_json {
+                let _ = crate::output::print_json(&crate::output::ErrorResponse::new(message));
+            } else {
+                error!("{message}");
+            }
             std::process::exit(1);
         }
     };
