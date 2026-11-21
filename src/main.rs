@@ -20,10 +20,10 @@ fn main() {
     }
 
     // Show banner only when help will be displayed (no args, -h, or --help)
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<_> = std::env::args_os().collect();
     let show_banner = args.len() <= 1
         || args.iter().any(|a| a == "-h" || a == "--help")
-        || args.get(1).map(|a| a == "help").unwrap_or(false);
+        || args.get(1).is_some_and(|a| a == "help");
     if show_banner {
         printing::banner();
     }
