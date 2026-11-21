@@ -95,15 +95,19 @@ impl Config {
             return Self::from_file(path);
         }
 
-        // Try default config file location
-        if let Some(default_path) = Self::default_config_file() {
-            if default_path.exists() {
-                return Self::from_file(default_path);
+        let Some(default_path) = Self::default_config_file() else {
+            return Ok(Self::default());
+        };
+        match Self::from_file(default_path) {
+            Err(err)
+                if err
+                    .downcast_ref::<std::io::Error>()
+                    .is_some_and(|err| err.kind() == std::io::ErrorKind::NotFound) =>
+            {
+                Ok(Self::default())
             }
+            result => result,
         }
-
-        // Return default config if no file exists
-        Ok(Self::default())
     }
 
     /// Create default config directory if it doesn't exist
