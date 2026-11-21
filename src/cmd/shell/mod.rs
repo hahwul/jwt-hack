@@ -282,7 +282,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 // Cycle to next completion
                 if let AppMode::Completing(ref mut state) = app.mode {
                     state.next();
-                    let (new_input, new_cursor) = state.apply(&app.input);
+                    let (new_input, new_cursor) = state.apply();
                     app.input = new_input;
                     app.cursor_position = new_cursor;
                 }
@@ -292,7 +292,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 // Cycle to previous completion
                 if let AppMode::Completing(ref mut state) = app.mode {
                     state.prev();
-                    let (new_input, new_cursor) = state.apply(&app.input);
+                    let (new_input, new_cursor) = state.apply();
                     app.input = new_input;
                     app.cursor_position = new_cursor;
                 }
@@ -303,15 +303,8 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 return;
             }
             KeyCode::Enter => {
-                // Accept current completion and submit
-                if let AppMode::Completing(ref state) = app.mode {
-                    let (new_input, new_cursor) = state.apply(&app.input);
-                    app.input = new_input;
-                    app.cursor_position = new_cursor;
-                }
+                // The current completion is already in the input buffer.
                 app.mode = AppMode::Normal;
-                // Don't return — fall through to normal Enter handling below
-                // Actually, let's just accept the completion and return to normal
                 return;
             }
             _ => {
@@ -370,7 +363,7 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
         (_, KeyCode::Tab) => {
             if let Some(state) = completion::compute_completions(&app.input, app.cursor_position) {
                 // Apply first completion immediately
-                let (new_input, new_cursor) = state.apply(&app.input);
+                let (new_input, new_cursor) = state.apply();
                 app.input = new_input;
                 app.cursor_position = new_cursor;
                 if state.candidates.len() > 1 {
@@ -837,6 +830,49 @@ fn handle_scan(parts: &[&str], app: &mut App, tx: &mpsc::Sender<AsyncResult>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn completion_replaces_only_the_current_word() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        app.input = "deco\u{3000}토큰".into();
+        app.cursor_position = 2;
+
+        handle_key_event(
+            KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE),
+            &mut app,
+            &tx,
+        );
+
+        assert_eq!(app.input, "decode\u{3000}토큰");
+        assert_eq!(app.cursor_position, "decode\u{3000}".len());
+    }
+
+    #[test]
+    fn cycling_completions_keeps_the_original_arguments() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        app.input = "s  value".into();
+        app.cursor_position = 1;
+
+        let tab = KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE);
+        handle_key_event(tab, &mut app, &tx);
+        assert_eq!(app.input, "set  value");
+        handle_key_event(tab, &mut app, &tx);
+        assert_eq!(app.input, "scan  value");
+        handle_key_event(
+            KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT),
+            &mut app,
+            &tx,
+        );
+        handle_key_event(
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+            &mut app,
+            &tx,
+        );
+        assert_eq!(app.input, "set  value");
+        assert!(matches!(app.mode, AppMode::Normal));
+    }
 
     #[test]
     fn test_is_sensitive_command() {
