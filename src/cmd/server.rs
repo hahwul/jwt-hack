@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -800,61 +801,53 @@ async fn bind_listener(addr: &str) -> std::io::Result<tokio::net::TcpListener> {
     tokio::net::TcpListener::bind(addr).await
 }
 
-/// Bind `addr` and serve `app`. Bind and serve failures are reported as clean
-/// error lines and exit non-zero, replacing the previous `.expect(...)` panics
-/// (which, under the release profile's `panic = "abort"`, printed a Rust panic +
-/// backtrace note for an everyday "port already in use" situation).
-async fn serve_app(app: Router, addr: &str) {
-    let listener = match bind_listener(addr).await {
-        Ok(listener) => listener,
-        Err(e) => {
-            utils::log_error(format!("Failed to bind to {addr}: {e}"));
-            std::process::exit(1);
-        }
-    };
+/// Execute the server command
+pub async fn execute(
+    host: &str,
+    port: u16,
+    api_key: Option<&str>,
+    output_json: bool,
+) -> anyhow::Result<()> {
+    let addr = format!("{host}:{port}");
+    let listener = bind_listener(&addr)
+        .await
+        .with_context(|| format!("Failed to bind to {addr}"))?;
+    let bound_addr = listener
+        .local_addr()
+        .context("Failed to read bound address")?;
+    let app = build_router(api_key.map(str::to_owned));
 
-    utils::log_success(format!("Server started successfully on {}", addr));
+    if output_json {
+        crate::output::print_json_or_exit(&serde_json::json!({
+            "success": true,
+            "mode": "server",
+            "host": host,
+            "port": bound_addr.port()
+        }));
+    }
+
+    utils::log_info("Starting JWT-HACK REST API server".to_string());
+    utils::log_info(format!("Listening on http://{bound_addr}"));
+    utils::log_info("Available endpoints:".to_string());
+    utils::log_info("  POST /health      - Health check".to_string());
+    utils::log_info("  POST /decode      - Decode JWT token".to_string());
+    utils::log_info("  POST /encode      - Encode JWT token".to_string());
+    utils::log_info("  POST /verify      - Verify JWT token".to_string());
+    utils::log_info("  POST /crack       - Crack JWT secret".to_string());
+    utils::log_info("  POST /payload     - Generate attack payloads".to_string());
+    utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
+
+    if api_key.is_some() {
+        utils::log_info("API key protection enabled (header: X-API-KEY)");
+    }
+    utils::log_success(format!("Server started successfully on {bound_addr}"));
 
     if let Err(e) = axum::serve(listener, app).await {
+        // Startup has already been reported, so keep later errors on stderr.
         utils::log_error(format!("Server error: {e}"));
         std::process::exit(1);
     }
-}
-
-/// Execute the server command
-pub async fn execute(host: &str, port: u16) {
-    utils::log_info("Starting JWT-HACK REST API server".to_string());
-    utils::log_info(format!("Listening on http://{}:{}", host, port));
-    utils::log_info("Available endpoints:".to_string());
-    utils::log_info("  POST /health      - Health check".to_string());
-    utils::log_info("  POST /decode      - Decode JWT token".to_string());
-    utils::log_info("  POST /encode      - Encode JWT token".to_string());
-    utils::log_info("  POST /verify      - Verify JWT token".to_string());
-    utils::log_info("  POST /crack       - Crack JWT secret".to_string());
-    utils::log_info("  POST /payload     - Generate attack payloads".to_string());
-    utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
-
-    let app = build_router(None);
-    let addr = format!("{}:{}", host, port);
-    serve_app(app, &addr).await;
-}
-
-pub async fn execute_with_api_key(host: &str, port: u16, api_key: &str) {
-    utils::log_info("Starting JWT-HACK REST API server".to_string());
-    utils::log_info(format!("Listening on http://{}:{}", host, port));
-    utils::log_info("Available endpoints:".to_string());
-    utils::log_info("  POST /health      - Health check".to_string());
-    utils::log_info("  POST /decode      - Decode JWT token".to_string());
-    utils::log_info("  POST /encode      - Encode JWT token".to_string());
-    utils::log_info("  POST /verify      - Verify JWT token".to_string());
-    utils::log_info("  POST /crack       - Crack JWT secret".to_string());
-    utils::log_info("  POST /payload     - Generate attack payloads".to_string());
-    utils::log_info("  POST /scan        - Scan JWT for vulnerabilities".to_string());
-    utils::log_info("API key protection enabled (header: X-API-KEY)".to_string());
-
-    let app = build_router(Some(api_key.to_string()));
-    let addr = format!("{}:{}", host, port);
-    serve_app(app, &addr).await;
+    Ok(())
 }
 
 #[cfg(test)]

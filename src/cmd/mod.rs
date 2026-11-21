@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use log::error;
 use std::path::PathBuf;
@@ -334,6 +335,22 @@ fn resolve_key_material<'a>(
     }
 }
 
+fn execute_server(host: &str, port: u16, api_key: Option<&str>, output_json: bool) {
+    let result = tokio::runtime::Runtime::new()
+        .context("Failed to create tokio runtime")
+        .and_then(|runtime| runtime.block_on(server::execute(host, port, api_key, output_json)));
+
+    if let Err(error) = result {
+        let message = format!("{error:#}");
+        if output_json {
+            crate::output::print_json_or_exit(&crate::output::ErrorResponse::new(message));
+        } else {
+            crate::utils::log_error(message);
+        }
+        std::process::exit(1);
+    }
+}
+
 /// Parses command-line arguments and executes the appropriate command
 pub fn execute() {
     let cli = Cli::parse();
@@ -465,10 +482,11 @@ pub fn execute() {
             Some(Commands::Server {
                 host,
                 port,
-                api_key: _,
-            }) => Ok(
-                serde_json::json!({"success": true, "mode": "server", "host": host, "port": port}),
-            ),
+                api_key,
+            }) => {
+                execute_server(host, *port, api_key.as_deref(), true);
+                return;
+            }
             None => Err(anyhow::anyhow!(
                 "No command specified. Use --help for usage information."
             )),
@@ -476,38 +494,7 @@ pub fn execute() {
 
         match result {
             Ok(value) => {
-                if let Err(e) = crate::output::print_json(&value) {
-                    error!("Failed to print JSON output: {e}");
-                    std::process::exit(1);
-                }
-
-                // Start long-running commands after emitting the startup JSON
-                if let Some(Commands::Server {
-                    host,
-                    port,
-                    api_key,
-                }) = &cli.command
-                {
-                    let runtime = match tokio::runtime::Runtime::new() {
-                        Ok(rt) => rt,
-                        Err(e) => {
-                            let err_value = crate::output::ErrorResponse::new(format!(
-                                "Failed to create tokio runtime: {e}"
-                            ));
-                            let _ = crate::output::print_json(&err_value);
-                            std::process::exit(1);
-                        }
-                    };
-                    if let Some(key) = api_key.as_deref() {
-                        runtime.block_on(server::execute_with_api_key(host, *port, key));
-                    } else {
-                        runtime.block_on(server::execute(host, *port));
-                    }
-                }
-
-                // Note: Mcp/Shell are intentionally not launched here — they return an
-                // error above because `--json` is unsupported for them, so control never
-                // reaches this Ok arm for those subcommands.
+                crate::output::print_json_or_exit(&value);
             }
             Err(e) => {
                 let err_value = crate::output::ErrorResponse::new(e.to_string());
@@ -681,18 +668,7 @@ pub fn execute() {
             port,
             api_key,
         }) => {
-            let runtime = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    error!("Failed to create tokio runtime: {e}");
-                    std::process::exit(1);
-                }
-            };
-            if let Some(key) = api_key.as_deref() {
-                runtime.block_on(server::execute_with_api_key(host, *port, key));
-            } else {
-                runtime.block_on(server::execute(host, *port));
-            }
+            execute_server(host, *port, api_key.as_deref(), false);
         }
         None => {
             error!("No command specified. Use --help for usage information.");
