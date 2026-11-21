@@ -28,7 +28,8 @@ fn process_issued_at_claim(claims: &Value, claims_map: &mut Value) {
         if let Some(iat_seconds) = claim_seconds(iat) {
             if let Some(formatted_time) = format_unix_timestamp(iat_seconds) {
                 if let Some(obj) = claims_map.as_object_mut() {
-                    obj.insert("iat_time".to_string(), Value::String(formatted_time));
+                    obj.entry("iat_time")
+                        .or_insert(Value::String(formatted_time));
                 }
             }
         }
@@ -44,11 +45,11 @@ fn process_expiration_claim(claims: &Value, claims_map: &mut Value) {
                 let is_expired = now > exp_seconds;
 
                 if let Some(obj) = claims_map.as_object_mut() {
-                    obj.insert("exp_time".to_string(), Value::String(formatted_time));
-                    obj.insert(
-                        "exp_status".to_string(),
-                        Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string()),
-                    );
+                    obj.entry("exp_time")
+                        .or_insert(Value::String(formatted_time));
+                    obj.entry("exp_status").or_insert_with(|| {
+                        Value::String(if is_expired { "EXPIRED" } else { "VALID" }.to_string())
+                    });
                 }
             }
         }
@@ -68,9 +69,9 @@ fn process_not_before_claim(claims: &Value, claims_map: &mut Value) {
                 let not_yet_valid = now < nbf_seconds;
 
                 if let Some(obj) = claims_map.as_object_mut() {
-                    obj.insert("nbf_time".to_string(), Value::String(formatted_time));
-                    obj.insert(
-                        "nbf_status".to_string(),
+                    obj.entry("nbf_time")
+                        .or_insert(Value::String(formatted_time));
+                    obj.entry("nbf_status").or_insert_with(|| {
                         Value::String(
                             if not_yet_valid {
                                 "NOT_YET_VALID"
@@ -78,8 +79,8 @@ fn process_not_before_claim(claims: &Value, claims_map: &mut Value) {
                                 "ACTIVE"
                             }
                             .to_string(),
-                        ),
-                    );
+                        )
+                    });
                 }
             }
         }
@@ -452,6 +453,27 @@ mod tests {
                 .and_then(|v| v.as_str()),
             Some("ACTIVE")
         );
+    }
+
+    #[test]
+    fn test_decode_preserves_claims_with_annotation_names() {
+        let claims = json!({
+            "iat": 0,
+            "exp": 1,
+            "nbf": 0,
+            "iat_time": {"source": "issuer"},
+            "exp_time": null,
+            "exp_status": "archived",
+            "nbf_status": "imported"
+        });
+        let token = jwt::encode(&claims, "test-secret", "HS256").expect("token");
+        let response = execute_json(&token).expect("decode");
+        let payload = &response["payload"];
+
+        for (key, value) in claims.as_object().unwrap() {
+            assert_eq!(&payload[key], value, "{key}");
+        }
+        assert_eq!(payload["nbf_time"], "1970-01-01 00:00:00 UTC");
     }
 
     #[test]
