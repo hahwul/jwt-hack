@@ -25,6 +25,10 @@ jwt-hack server --api-key "$KEY"
 
 Every endpoint takes and returns `application/json`. CORS is open: any origin, method and header. If the port is already in use the server prints an error and exits non-zero rather than crashing.
 
+With `--json`, startup reports success after the listener binds. If you pass
+`--port 0`, the response includes the port assigned by the operating system.
+Startup failures return a JSON error and a non-zero exit code.
+
 ## Endpoints
 
 | Method | Path | Purpose |

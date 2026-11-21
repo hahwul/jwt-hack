@@ -35,3 +35,10 @@ pub fn print_json<T: Serialize>(value: &T) -> Result<()> {
     }
     Ok(())
 }
+
+pub fn print_json_or_exit<T: Serialize>(value: &T) {
+    if let Err(error) = print_json(value) {
+        log::error!("Failed to print JSON output: {error}");
+        std::process::exit(1);
+    }
+}
