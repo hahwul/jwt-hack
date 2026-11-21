@@ -33,7 +33,9 @@ jwt-hack decode <TOKEN>
   }
 ```
 
-Any of `iat`, `exp`, and `nbf` present in the payload get a human-readable `*_time` sibling (UTC) alongside the raw Unix value.
+Recognized `iat`, `exp`, and `nbf` values get human-readable `*_time` siblings
+in UTC. The decoder also adds status fields for `exp` and `nbf`. If the
+payload already includes one of these fields, its original value is preserved.
 
 ## Options
 
