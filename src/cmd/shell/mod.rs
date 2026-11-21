@@ -301,7 +301,11 @@ fn handle_key_event(key: KeyEvent, app: &mut App, tx: &mpsc::Sender<AsyncResult>
                 return;
             }
             KeyCode::Esc => {
-                app.mode = AppMode::Normal;
+                if let AppMode::Completing(state) =
+                    std::mem::replace(&mut app.mode, AppMode::Normal)
+                {
+                    (app.input, app.cursor_position) = state.cancel();
+                }
                 return;
             }
             KeyCode::Enter => {
@@ -878,6 +882,27 @@ mod tests {
             &tx,
         );
         assert_eq!(app.input, "set  value");
+        assert!(matches!(app.mode, AppMode::Normal));
+    }
+
+    #[test]
+    fn escape_restores_input_and_cursor_after_cycling_completions() {
+        let mut app = App::new();
+        let (tx, _rx) = mpsc::channel();
+        let original = "sh  한글";
+        app.input = original.to_owned();
+        app.cursor_position = 1;
+
+        let tab = KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE);
+        handle_key_event(tab, &mut app, &tx);
+        handle_key_event(tab, &mut app, &tx);
+        assert_ne!(app.input, original);
+
+        let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        handle_key_event(escape, &mut app, &tx);
+
+        assert_eq!(app.input, original);
+        assert_eq!(app.cursor_position, 1);
         assert!(matches!(app.mode, AppMode::Normal));
     }
 

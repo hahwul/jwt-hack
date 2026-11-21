@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 pub const COMMANDS: &[&str] = &[
     "set", "decode", "encode", "verify", "crack", "payload", "scan", "show", "clear", "help",
     "exit", "quit",
@@ -14,24 +16,27 @@ pub const ALGORITHMS: &[&str] = &[
 pub struct CompletionState {
     pub candidates: Vec<String>,
     pub selected_index: usize,
-    // Keep the text around the original word while cycling through replacements.
-    before: String,
-    after: String,
+    original_input: String,
+    original_cursor: usize,
+    replacement_range: Range<usize>,
 }
 
 impl CompletionState {
     /// Apply the currently selected candidate to the input, returning (new_input, new_cursor_pos)
     pub fn apply(&self) -> (String, usize) {
         let replacement = &self.candidates[self.selected_index];
-        let suffix = if self.after.is_empty() {
-            " "
-        } else {
-            &self.after
-        };
-        let new_input = format!("{}{replacement}{suffix}", self.before);
+        let before = &self.original_input[..self.replacement_range.start];
+        let after = &self.original_input[self.replacement_range.end..];
+        let suffix = if after.is_empty() { " " } else { after };
+        let new_input = format!("{before}{replacement}{suffix}");
         let separator_len = suffix.chars().next().map_or(0, char::len_utf8);
-        let new_cursor = self.before.len() + replacement.len() + separator_len;
+        let new_cursor = before.len() + replacement.len() + separator_len;
         (new_input, new_cursor)
+    }
+
+    /// Restore the input and cursor as they were before completion started.
+    pub fn cancel(self) -> (String, usize) {
+        (self.original_input, self.original_cursor)
     }
 
     /// Move selection to the next candidate
@@ -132,8 +137,9 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
     Some(CompletionState {
         candidates,
         selected_index: 0,
-        before: input[..prefix_start].to_string(),
-        after: input[suffix_start..].to_string(),
+        original_input: input.to_owned(),
+        original_cursor: end,
+        replacement_range: prefix_start..suffix_start,
     })
 }
 
@@ -145,14 +151,14 @@ mod tests {
     fn test_empty_input_shows_all_commands() {
         let state = compute_completions("", 0).unwrap();
         assert_eq!(state.candidates.len(), COMMANDS.len());
-        assert_eq!(state.before, "");
+        assert_eq!(state.replacement_range.start, 0);
     }
 
     #[test]
     fn test_partial_command() {
         let state = compute_completions("dec", 3).unwrap();
         assert_eq!(state.candidates, vec!["decode"]);
-        assert_eq!(state.before, "");
+        assert_eq!(state.replacement_range.start, 0);
     }
 
     #[test]
@@ -165,7 +171,7 @@ mod tests {
     fn test_set_partial_key() {
         let state = compute_completions("set to", 6).unwrap();
         assert_eq!(state.candidates, vec!["token"]);
-        assert_eq!(state.before, "set ");
+        assert_eq!(state.replacement_range.start, 4);
     }
 
     #[test]
@@ -214,12 +220,7 @@ mod tests {
 
     #[test]
     fn test_next_prev() {
-        let mut state = CompletionState {
-            candidates: vec!["a".to_string(), "b".to_string(), "c".to_string()],
-            selected_index: 0,
-            before: String::new(),
-            after: String::new(),
-        };
+        let mut state = compute_completions("set algorithm HS", 16).unwrap();
         state.next();
         assert_eq!(state.selected_index, 1);
         state.next();
