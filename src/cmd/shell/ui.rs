@@ -30,22 +30,17 @@ pub fn render(frame: &mut Frame, app: &App) {
         render_completion_popup(frame, state, chunks[2]);
     }
 
-    // Set cursor position in input area. Use saturating arithmetic throughout: on a
-    // very narrow terminal `chunks[2].width` can be 0 or 1, so `x + width - 2` would
-    // underflow u16 (a debug panic / release wrap), and the additive terms could
-    // otherwise overflow u16 for a pathologically long input line.
+    // Input editing uses byte offsets. Ratatui positions the cursor in columns.
+    let input_area = chunks[2];
     let prompt = app.session.prompt();
-    let cursor_x = chunks[2]
-        .x
-        .saturating_add(1)
-        .saturating_add(prompt.len() as u16)
-        .saturating_add(app.cursor_position as u16);
-    let cursor_y = chunks[2].y.saturating_add(1);
-    let max_x = chunks[2]
-        .x
-        .saturating_add(chunks[2].width)
-        .saturating_sub(2);
-    frame.set_cursor_position(Position::new(cursor_x.min(max_x), cursor_y));
+    let prompt_width = Span::raw(prompt.as_str()).width();
+    let input_width = Span::raw(&app.input[..app.cursor_position]).width();
+    let cursor_column =
+        (1 + prompt_width + input_width).min(usize::from(input_area.width.saturating_sub(2)));
+    frame.set_cursor_position(Position::new(
+        input_area.x.saturating_add(cursor_column as u16),
+        input_area.y.saturating_add(1),
+    ));
 }
 
 /// Columns of horizontal rule that fill the title bar between the fixed left
@@ -322,6 +317,24 @@ mod tests {
                 render(frame, &app);
             })
             .unwrap();
+    }
+
+    #[test]
+    fn test_cursor_uses_visible_columns_before_the_insertion_point() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = test_app();
+        let prefix = "한e\u{301}";
+        app.input = format!("{prefix}尾");
+        app.cursor_position = prefix.len();
+
+        terminal.draw(|frame| render(frame, &app)).unwrap();
+
+        // One border column, 22 prompt columns and three input columns.
+        assert_eq!(
+            terminal.get_cursor_position().unwrap(),
+            Position::new(26, 21)
+        );
     }
 
     #[test]
