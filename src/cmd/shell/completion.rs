@@ -14,25 +14,23 @@ pub const ALGORITHMS: &[&str] = &[
 pub struct CompletionState {
     pub candidates: Vec<String>,
     pub selected_index: usize,
-    /// The position in the input where the completed word starts
-    pub prefix_start: usize,
+    // Keep the text around the original word while cycling through replacements.
+    before: String,
+    after: String,
 }
 
 impl CompletionState {
     /// Apply the currently selected candidate to the input, returning (new_input, new_cursor_pos)
-    pub fn apply(&self, input: &str) -> (String, usize) {
+    pub fn apply(&self) -> (String, usize) {
         let replacement = &self.candidates[self.selected_index];
-        // Defensive: floor `prefix_start` to a valid char boundary within `input` so
-        // a miscomputed byte offset can never trigger a non-char-boundary slice
-        // panic (the release profile uses panic = "abort", which would kill the whole
-        // shell session).
-        let mut start = self.prefix_start.min(input.len());
-        while start > 0 && !input.is_char_boundary(start) {
-            start -= 1;
-        }
-        let before = &input[..start];
-        let new_input = format!("{before}{replacement} ");
-        let new_cursor = new_input.len();
+        let suffix = if self.after.is_empty() {
+            " "
+        } else {
+            &self.after
+        };
+        let new_input = format!("{}{replacement}{suffix}", self.before);
+        let separator_len = suffix.chars().next().map_or(0, char::len_utf8);
+        let new_cursor = self.before.len() + replacement.len() + separator_len;
         (new_input, new_cursor)
     }
 
@@ -77,7 +75,7 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
         0 => {
             // Empty line — suggest all commands
             let candidates: Vec<String> = COMMANDS.iter().map(|c| c.to_string()).collect();
-            (0, candidates)
+            (end, candidates)
         }
         1 if !at_word_boundary => {
             // Typing first word — match commands
@@ -126,10 +124,16 @@ pub fn compute_completions(input: &str, cursor_pos: usize) -> Option<CompletionS
         return None;
     }
 
+    // Include the part of the current word after the cursor in the replacement.
+    let suffix_start = end
+        + input[end..]
+            .find(char::is_whitespace)
+            .unwrap_or(input.len() - end);
     Some(CompletionState {
         candidates,
         selected_index: 0,
-        prefix_start,
+        before: input[..prefix_start].to_string(),
+        after: input[suffix_start..].to_string(),
     })
 }
 
@@ -141,14 +145,14 @@ mod tests {
     fn test_empty_input_shows_all_commands() {
         let state = compute_completions("", 0).unwrap();
         assert_eq!(state.candidates.len(), COMMANDS.len());
-        assert_eq!(state.prefix_start, 0);
+        assert_eq!(state.before, "");
     }
 
     #[test]
     fn test_partial_command() {
         let state = compute_completions("dec", 3).unwrap();
         assert_eq!(state.candidates, vec!["decode"]);
-        assert_eq!(state.prefix_start, 0);
+        assert_eq!(state.before, "");
     }
 
     #[test]
@@ -161,7 +165,7 @@ mod tests {
     fn test_set_partial_key() {
         let state = compute_completions("set to", 6).unwrap();
         assert_eq!(state.candidates, vec!["token"]);
-        assert_eq!(state.prefix_start, 4);
+        assert_eq!(state.before, "set ");
     }
 
     #[test]
@@ -184,39 +188,28 @@ mod tests {
 
     #[test]
     fn test_apply_completion() {
-        let state = CompletionState {
-            candidates: vec!["decode".to_string(), "decode".to_string()],
-            selected_index: 0,
-            prefix_start: 0,
-        };
-        let (new_input, new_cursor) = state.apply("dec");
+        let state = compute_completions("dec", 3).unwrap();
+        let (new_input, new_cursor) = state.apply();
         assert_eq!(new_input, "decode ");
         assert_eq!(new_cursor, 7);
     }
 
     #[test]
     fn test_multibyte_whitespace_does_not_panic() {
-        // A short word followed by a multi-byte whitespace char used to compute a
-        // prefix offset landing inside that char, panicking in apply().
         for ws in ["\u{3000}", "\u{a0}", "\u{2003}"] {
-            let input = format!("d{ws}");
-            let cursor = input.len();
-            // Must not panic; whichever branch it takes, apply() must be boundary-safe.
-            if let Some(state) = compute_completions(&input, cursor) {
-                let (_new_input, _new_cursor) = state.apply(&input);
-            }
+            let input = format!("set{ws}");
+            let (new_input, new_cursor) = compute_completions(&input, input.len()).unwrap().apply();
+            assert_eq!(new_input, format!("set{ws}token "));
+            assert_eq!(new_cursor, new_input.len());
         }
     }
 
     #[test]
     fn test_multibyte_word_completion_boundary_safe() {
-        // Multi-byte content before the cursor must never yield an off-boundary slice.
-        let input = "décode"; // é is 2 bytes
-        let state = compute_completions(input, input.len());
-        if let Some(state) = state {
-            let (new_input, _cursor) = state.apply(input);
-            assert!(new_input.is_char_boundary(0));
-        }
+        let input = "set \u{3000}";
+        let (new_input, new_cursor) = compute_completions(input, 5).unwrap().apply();
+        assert_eq!(new_input, "set token\u{3000}");
+        assert_eq!(new_cursor, new_input.len());
     }
 
     #[test]
@@ -224,7 +217,8 @@ mod tests {
         let mut state = CompletionState {
             candidates: vec!["a".to_string(), "b".to_string(), "c".to_string()],
             selected_index: 0,
-            prefix_start: 0,
+            before: String::new(),
+            after: String::new(),
         };
         state.next();
         assert_eq!(state.selected_index, 1);
