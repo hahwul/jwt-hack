@@ -86,7 +86,9 @@ fn sign_hmac(input: &str, secret: &[u8], alg: &str) -> Result<String> {
                 "HS384" => jsonwebtoken::Algorithm::HS384,
                 _ => jsonwebtoken::Algorithm::HS512,
             };
-            let key = jsonwebtoken::EncodingKey::from_secret(secret);
+            let key = jsonwebtoken::EncodingKey::from_secret(
+                crate::jwt::hmac_secret_for_jsonwebtoken(secret),
+            )?;
             // jsonwebtoken returns the base64url-encoded signature directly.
             jsonwebtoken::crypto::sign(input.as_bytes(), &key, algo)?
         }

@@ -355,7 +355,7 @@ pub fn encode_with_options(claims: &Value, options: &EncodeOptions) -> Result<St
     let encoding_key = match &options.key_data {
         KeyData::Secret(secret) => match algorithm {
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
-                EncodingKey::from_secret(secret.as_bytes())
+                EncodingKey::from_secret(hmac_secret_for_jsonwebtoken(secret.as_bytes()))?
             }
             _ => {
                 return Err(anyhow!(
@@ -825,12 +825,30 @@ fn decoding_key_for(key_data: &VerifyKeyData, algorithm: Algorithm) -> Result<De
     }
 }
 
+/// Normalize an HMAC secret for `jsonwebtoken` v12+.
+///
+/// `jsonwebtoken` 12.0 rejects empty HMAC secrets (`b""`) to protect production
+/// services against misconfigured keys, but `jwt-hack` intentionally supports
+/// empty-secret signing and verification for security testing (e.g. `kid`
+/// traversal to `/dev/null`, `encode --secret ""`, `verify --secret ""`).
+///
+/// By RFC 2104 §2, any HMAC key shorter than the hash block size (64 bytes for
+/// SHA-256, 128 bytes for SHA-384/SHA-512) is zero-padded to the block size, so
+/// `&[0u8]` produces the exact same HMAC as `b""` for HS256, HS384, and HS512.
+pub(crate) fn hmac_secret_for_jsonwebtoken(secret: &[u8]) -> &[u8] {
+    if secret.is_empty() {
+        &[0u8]
+    } else {
+        secret
+    }
+}
+
 /// Build an HMAC [`DecodingKey`], rejecting a secret paired with an asymmetric
 /// algorithm.
 fn decoding_key_from_secret(secret: &[u8], algorithm: Algorithm) -> Result<DecodingKey> {
     match algorithm {
         Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
-            Ok(DecodingKey::from_secret(secret))
+            Ok(DecodingKey::from_secret(hmac_secret_for_jsonwebtoken(secret))?)
         }
         _ => Err(anyhow!(
             "Secret key provided but token uses algorithm {:?}. Secret keys can only verify HMAC algorithms (HS256, HS384, HS512)",
@@ -3199,7 +3217,7 @@ mod tests {
         // DEFLATE bytes as JSON claims, so a correctly signed token was reported
         // as having an invalid signature.
         let secret = b"correct-horse";
-        let key = EncodingKey::from_secret(secret);
+        let key = EncodingKey::from_secret(secret).expect("hmac key");
 
         for (alg, algorithm) in [
             ("HS256", Algorithm::HS256),
@@ -3453,5 +3471,85 @@ mod tests {
         // A plain public key is passed through untouched.
         let public_pem = include_str!("test_rsa_2048_public.pem");
         assert_eq!(public_key_pem(public_pem).expect("passthrough"), public_pem);
+    }
+
+    #[test]
+    fn test_empty_hmac_secret_encode_and_verify_all_algorithms() {
+        use openssl::hash::{Hasher, MessageDigest};
+
+        // Reference RFC 2104 HMAC with an empty key (zero-padded to block size).
+        fn rfc2104_hmac_empty_key(digest: MessageDigest, block_size: usize, msg: &[u8]) -> Vec<u8> {
+            let ipad = vec![0x36u8; block_size];
+            let opad = vec![0x5cu8; block_size];
+
+            let mut inner = Hasher::new(digest).expect("inner hasher");
+            inner.update(&ipad).expect("ipad");
+            inner.update(msg).expect("msg");
+            let inner_hash = inner.finish().expect("inner finish");
+
+            let mut outer = Hasher::new(digest).expect("outer hasher");
+            outer.update(&opad).expect("opad");
+            outer.update(&inner_hash).expect("inner_hash");
+            outer.finish().expect("outer finish").to_vec()
+        }
+
+        let claims = json!({ "sub": "empty-secret-test" });
+        let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+        for (alg, digest, block_size) in [
+            ("HS256", MessageDigest::sha256(), 64),
+            ("HS384", MessageDigest::sha384(), 128),
+            ("HS512", MessageDigest::sha512(), 128),
+        ] {
+            let options = EncodeOptions {
+                algorithm: alg,
+                key_data: KeyData::Secret(""),
+                header_params: None,
+                compress_payload: false,
+            };
+            let token = encode_with_options(&claims, &options)
+                .unwrap_or_else(|e| panic!("{alg} encode with empty secret failed: {e}"));
+
+            // Signature must match direct RFC 2104 HMAC with an empty key.
+            let (signing_input, sig_b64) = token.rsplit_once('.').expect("3-part JWT");
+            let expected = engine.encode(rfc2104_hmac_empty_key(
+                digest,
+                block_size,
+                signing_input.as_bytes(),
+            ));
+            assert_eq!(sig_b64, expected, "{alg}: signature mismatch for empty key");
+
+            // Also cross-check HS256 against hmac_sha256::HMAC::mac(..., b"").
+            if alg == "HS256" {
+                let hs256_ref =
+                    engine.encode(hmac_sha256::HMAC::mac(signing_input.as_bytes(), b""));
+                assert_eq!(sig_b64, hs256_ref);
+            }
+
+            // Verification with empty secret must succeed; wrong secret must fail cleanly.
+            assert!(
+                verify(&token, "").unwrap_or_else(|e| panic!("{alg} verify empty secret: {e}")),
+                "{alg}: empty-secret token must verify against empty secret"
+            );
+            assert!(
+                !verify(&token, "not-empty")
+                    .unwrap_or_else(|e| panic!("{alg} verify wrong secret: {e}")),
+                "{alg}: empty-secret token must not verify against non-empty secret"
+            );
+
+            // Conversely, a non-empty-secret token verified with "" must return Ok(false), not Err.
+            let real_options = EncodeOptions {
+                algorithm: alg,
+                key_data: KeyData::Secret("real-secret"),
+                header_params: None,
+                compress_payload: false,
+            };
+            let real_token = encode_with_options(&claims, &real_options).expect("encode real");
+            assert!(
+                !verify(&real_token, "")
+                    .unwrap_or_else(|e| panic!("{alg} verify real token with empty secret: {e}")),
+                "{alg}: non-empty-secret token verified with empty secret must return Ok(false)"
+            );
+        }
     }
 }
